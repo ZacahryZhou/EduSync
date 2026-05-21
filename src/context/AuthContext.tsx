@@ -12,6 +12,10 @@
  *   <AuthProvider><App /></AuthProvider>
  */
 
+
+//这个文件的作用是整个系统的认证中枢//
+
+
 import {
   createContext,
   useCallback,

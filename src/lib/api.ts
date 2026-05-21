@@ -112,3 +112,65 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     headers,
   });
 }
+
+export type LoginUserResponse = {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    display_name: string;
+    role: string;
+  }; 
+};
+
+/**
+ * Log in with email + password / 使用邮箱和密码登录
+ *
+ * Calls `POST /api/auth/login` and returns the backend `{ token, user }` payload.
+ * 调用登录接口，并返回后端的 `{ token, user }` 数据。
+ */
+
+/**
+ * this is login user function -> login user is a web request to the backend to login the user with email and password
+ * 
+ */
+
+//对外暴露一个登录函数 -> 接受邮箱和密码，返回登录结果//
+export async function loginUser(
+  email: string,
+  password: string,
+): Promise<LoginUserResponse> {
+  const response = await apiFetch("/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+//调用apiFetch函数（已经封装好的）-> 发送到后端 然后apiFetch会自动拼上Base_URL和token//
+
+  if (!response.ok) {
+    let message = `Login failed (${response.status})`;
+
+    try {
+      const errorBody = (await response.json()) as { error?: unknown };
+      if (typeof errorBody.error === "string") {
+        message = errorBody.error;
+      }
+    } catch {
+      // Keep the default status-based message when the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+//请求失败的时候，尝试读取后端返回的错误信息，要是读取不到的话就用默认的状态码信息 然后抛出错误//
+
+  return (await response.json()) as LoginUserResponse;
+}
+//成功的话 就把后端返回的JSON解析出来返回给调用者//
+/** 知识点：
+ * 1: async and await -> 异步编程 因为网络请求需要时间 await means wait for the response to come back before moving on to the next line of code//
+ * response.ok -> 判断请求是否成功 200-299 为成功 其他为失败//
+ * logic 错误的两层嵌套 -> 第一层是response.ok 第二层是try catch 读取错误信息 -> 无论读不读得到都会抛出错误信息//
+ * 发请求 → 等回复 → 判断成功还是失败 → 成功就返回数据，失败就抛错误
+ * */
