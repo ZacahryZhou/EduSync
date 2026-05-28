@@ -168,6 +168,97 @@ export async function loginUser(
   return (await response.json()) as LoginUserResponse;
 }
 //成功的话 就把后端返回的JSON解析出来返回给调用者//
+
+export type RegisterStudentResponse = {
+  message: string;
+};
+
+/**
+ * Register a student account / 注册学生账号
+ *
+ * Calls `POST /api/auth/register/student` with `{ email, password, display_name }`.
+ * 调用学生注册接口；后端字段为 `display_name`（对应 UI 上的 name）。
+ *
+ * @returns `{ message }` on success (HTTP 201) / 成功时返回提示信息
+ */
+export async function registerStudent(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<RegisterStudentResponse> {
+  const response = await apiFetch("/auth/register/student", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      display_name: displayName,
+    }),
+  });
+
+  if (!response.ok) {
+    let message = `Student registration failed (${response.status})`;
+
+    try {
+      const errorBody = (await response.json()) as { error?: unknown };
+      if (typeof errorBody.error === "string") {
+        message = errorBody.error;
+      }
+    } catch {
+      // Keep the default status-based message when the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as RegisterStudentResponse;
+}
+
+/**
+ * Register an admin (company) account / 注册管理员（机构）账号
+ *
+ * Calls `POST /api/auth/register/admin` with `{ company_name, email, password }`.
+ * 调用管理员注册接口（MVP：创建机构 + admin 用户，并返回 token）。
+ *
+ * @returns `{ token, user }` on success — same shape as login / 成功时与登录接口相同结构
+ */
+export async function registerAdmin(
+  companyName: string,
+  email: string,
+  password: string,
+): Promise<LoginUserResponse> {
+  const response = await apiFetch("/auth/register/admin", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      company_name: companyName,
+      email,
+      password,
+    }),
+  });
+
+  if (!response.ok) {
+    let message = `Admin registration failed (${response.status})`;
+
+    try {
+      const errorBody = (await response.json()) as { error?: unknown };
+      if (typeof errorBody.error === "string") {
+        message = errorBody.error;
+      }
+    } catch {
+      // Keep the default status-based message when the response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as LoginUserResponse;
+}
+
 /** 知识点：
  * 1: async and await -> 异步编程 因为网络请求需要时间 await means wait for the response to come back before moving on to the next line of code//
  * response.ok -> 判断请求是否成功 200-299 为成功 其他为失败//
