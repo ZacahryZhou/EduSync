@@ -66,7 +66,8 @@ export function GoogleSignInButton({
       </Button>
       {!configured ? (
         <p className="text-center text-xs text-muted-foreground">
-          Google sign-in requires Supabase env vars on the frontend.
+          请在项目根目录配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY，然后重启
+          npm run dev。
         </p>
       ) : null}
       {errorMessage ? (
