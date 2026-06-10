@@ -20,15 +20,15 @@ export function getPostLoginPath(
   const from = fromPath && fromPath !== "/login" ? fromPath : null;
 
   if (normalized === "student") {
-    if (from === "/classes" || from === "/calendar" || from === "/") {
+    if (from === "/classes" || from === "/calendar" || from === "/dashboard") {
       return from;
     }
     return "/classes";
   }
 
-  if (from) {
+  if (from && from !== "/") {
     return from;
   }
 
-  return "/";
+  return "/dashboard";
 }

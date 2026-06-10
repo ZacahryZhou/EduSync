@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginUser, registerStudent, registerTeacher } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { getPostLoginPath } from "@/lib/roles";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -41,7 +42,7 @@ export default function RegisterPage() {
         role: data.user.role,
         email: data.user.email,
       });
-      navigate("/", { replace: true });
+      navigate(getPostLoginPath(data.user.role), { replace: true });
   //因为register成功后会自动登录，所以不需要再跳转到login页面//
     } catch (error: unknown) {
       const message =
@@ -164,6 +165,12 @@ export default function RegisterPage() {
           Already have an account?{" "}
           <Link to="/login" className="font-medium text-primary hover:underline">
             Log in
+          </Link>
+        </p>
+
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-foreground">
+            Back to home
           </Link>
         </p>
       </form>

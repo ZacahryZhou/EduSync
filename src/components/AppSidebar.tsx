@@ -28,7 +28,7 @@ import { useAuth } from "@/context/AuthContext";
 import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
 const mainNav = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Classes", url: "/classes", icon: BookOpen },
   { title: "Students", url: "/students", icon: Users },
@@ -86,7 +86,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={item.url === "/dashboard"}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                     >

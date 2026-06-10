@@ -16,8 +16,8 @@
  *
  * | Route type        | Guard           | Not logged in      | Logged in        |
  * |-------------------|-----------------|--------------------|------------------|
- * | App pages `/`…    | ProtectedRoute  | → `/login`         | show page        |
- * | Auth pages        | GuestRoute      | show login/register| → `/`            |
+ * | App pages `/dashboard`… | ProtectedRoute | → `/login`      | show page        |
+ * | Auth pages              | GuestRoute     | show login/register | → `/dashboard` |
  *
  * Without GuestRoute, a logged-in user can still open `/login` in the address bar
  * (confusing UX, and they might think they are logged out).
@@ -44,9 +44,9 @@ type GuestRouteProps = {
 export function GuestRoute({ children }: GuestRouteProps) {
   const { isAuthenticated } = useAuth();
 
-  // Already logged in → home / 已登录 → 去 Dashboard
+  // Already logged in → dashboard / 已登录 → 去 Dashboard
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (children) {

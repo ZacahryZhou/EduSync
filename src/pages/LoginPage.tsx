@@ -124,6 +124,12 @@ export default function LoginPage() {
             Register
           </Link>
         </p>
+
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-foreground">
+            Back to home
+          </Link>
+        </p>
       </form>
     </div>
   );
