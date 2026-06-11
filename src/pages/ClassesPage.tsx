@@ -226,7 +226,11 @@ export default function ClassesPage() {
 
   function handleJoinSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const code = classCode.trim().replace(/\s+/g, "").toUpperCase();
+    const code = classCode
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, "");
     if (!code) {
       toast.error("Please enter a class code");
       return;

@@ -21,3 +21,14 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
   return client;
 }
+
+/**
+ * Clear the Supabase browser session without revoking the JWT we store in
+ * `edusync_token`. Default `signOut()` uses global scope and invalidates the
+ * access token on the server, which breaks subsequent API calls (e.g. join class).
+ */
+export async function clearLocalSupabaseSession(): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  await supabase.auth.signOut({ scope: "local" });
+}

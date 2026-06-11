@@ -30,10 +30,11 @@ def _friendly_db_error(exc):
 
 
 def _normalize_class_code(raw):
-    """Uppercase and strip spaces so MATH-A1B2 matches MATH- A1B2 / math-a1b2."""
+    """Uppercase, strip spaces, and drop stray punctuation from paste."""
     if not raw:
         return ''
-    return re.sub(r'\s+', '', str(raw).strip().upper())
+    cleaned = re.sub(r'\s+', '', str(raw).strip().upper())
+    return re.sub(r'[^A-Z0-9\-]', '', cleaned)
 
 
 def _generate_class_code(name):
