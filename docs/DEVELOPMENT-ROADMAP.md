@@ -17,8 +17,8 @@
 
 | 阶段 Phase | 范围 Scope | 任务数 Tasks | 状态 Status |
 |------------|------------|--------------|-------------|
-| **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | 🔄 P0-PRE-04 进行中 |
-| **Phase 1 — P0** | 独立老师日常可用 | 12 | ⬜ 待开始 |
+| **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
+| **Phase 1 — P0** | 独立老师日常可用 | 12 | 🔄 P0-01~08 ✅ · 下一步 P0-09 |
 | **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | ⬜ 待开始 |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
@@ -258,7 +258,7 @@ erDiagram
 
 - [x] 审批列表 UI
 - [x] 批准时写回 `sessions` 表
-- [ ] 触发通知（见 P0-08）
+- [x] 触发通知（见 P0-07）
 
 **下一步 / Next after this：** → **P0-07 站内通知系统（基础）**
 
@@ -278,9 +278,11 @@ erDiagram
 | **Estimate** | 2 天 |
 | **PRD** | F6 |
 
-- [ ] 通知创建点：session update/delete, reschedule flow
-- [ ] 列表 + 空状态
-- [ ] `type` 枚举：`schedule_changed`, `reschedule_requested`, `reschedule_resolved`
+- [x] 通知创建点：session update/delete, reschedule flow
+- [x] 列表 + 空状态
+- [x] `type` 枚举：`schedule_changed`, `reschedule_requested`, `reschedule_resolved`
+
+**下一步 / Next after this：** → **P0-09 重复课程（每周固定）**（或先做 P0-11 课次备注）
 
 ---
 
@@ -296,8 +298,8 @@ erDiagram
 | **Estimate** | 0.5 天 |
 | **PRD** | F3(2), F6 |
 
-- [ ] 后端 hook
-- [ ] 集成测试一条改课流程
+- [x] 后端 hook
+- [x] 集成测试一条改课流程
 
 ---
 

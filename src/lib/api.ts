@@ -896,6 +896,77 @@ export async function rejectRescheduleRequest(
   return data.request;
 }
 
+export type NotificationType =
+  | "schedule_changed"
+  | "reschedule_requested"
+  | "reschedule_resolved";
+
+export type NotificationItem = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  related_id: string | null;
+  created_at?: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationItem[];
+  unread_count: number;
+};
+
+/** List in-app notifications for the current user */
+export async function listNotifications(options?: {
+  unreadOnly?: boolean;
+  limit?: number;
+}): Promise<NotificationsResponse> {
+  const params = new URLSearchParams();
+  if (options?.unreadOnly) {
+    params.set("unread_only", "true");
+  }
+  if (options?.limit) {
+    params.set("limit", String(options.limit));
+  }
+  const query = params.toString();
+  const response = await apiFetch(`/notifications${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load notifications"));
+  }
+
+  return (await response.json()) as NotificationsResponse;
+}
+
+/** Mark a single notification as read */
+export async function markNotificationRead(
+  notificationId: string,
+): Promise<NotificationItem> {
+  const response = await apiFetch(`/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to mark notification as read"));
+  }
+
+  const data = (await response.json()) as { notification: NotificationItem };
+  return data.notification;
+}
+
+/** Mark all notifications as read */
+export async function markAllNotificationsRead(): Promise<void> {
+  const response = await apiFetch("/notifications/read-all", {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to mark all as read"));
+  }
+}
+
 /** 知识点：
  * 1: async and await -> 异步编程 因为网络请求需要时间 await means wait for the response to come back before moving on to the next line of code//
  * response.ok -> 判断请求是否成功 200-299 为成功 其他为失败//

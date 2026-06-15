@@ -32,12 +32,12 @@ const mainNav = [
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Classes", url: "/classes", icon: BookOpen },
   { title: "Students", url: "/students", icon: Users },
+  { title: "Notifications", url: "/notifications", icon: Bell },
 ];
 
 const manageNav = [
   { title: "Assignments", url: "/assignments", icon: FileText },
   { title: "Tuition", url: "/tuition", icon: DollarSign },
-  { title: "Notifications", url: "/notifications", icon: Bell },
 ];
 
 export function AppSidebar() {

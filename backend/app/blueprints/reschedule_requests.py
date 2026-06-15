@@ -12,6 +12,10 @@ from app.blueprints.sessions import (
 )
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role, _load_user_record
+from app.services.notifications import (
+    notify_reschedule_requested,
+    notify_reschedule_resolved,
+)
 
 reschedule_bp = Blueprint('reschedule', __name__)
 
@@ -251,7 +255,15 @@ def create_reschedule_request():
         return jsonify({'error': 'Failed to create request'}), 500
 
     enriched = _enrich_requests([result.data[0]])
-    return jsonify({'request': enriched[0]}), 201
+    created = enriched[0]
+    class_info = _class_map([session['class_id']]).get(session['class_id'], {})
+    notify_reschedule_requested(
+        result.data[0],
+        session,
+        created.get('student_name') or _display_name(_load_user_record()),
+        class_info.get('name') or '',
+    )
+    return jsonify({'request': created}), 201
 
 
 @reschedule_bp.route('/api/reschedule-requests/<request_id>/approve', methods=['PATCH'])
@@ -298,6 +310,12 @@ def approve_reschedule_request(request_id):
         return jsonify({'error': 'Failed to approve request'}), 500
 
     enriched = _enrich_requests([result.data[0]])
+    notify_reschedule_resolved(
+        result.data[0],
+        session,
+        approved=True,
+        teacher_response=teacher_response,
+    )
     return jsonify({'request': enriched[0]}), 200
 
 
@@ -335,4 +353,10 @@ def reject_reschedule_request(request_id):
         return jsonify({'error': 'Failed to reject request'}), 500
 
     enriched = _enrich_requests([result.data[0]])
+    notify_reschedule_resolved(
+        result.data[0],
+        session,
+        approved=False,
+        teacher_response=teacher_response,
+    )
     return jsonify({'request': enriched[0]}), 200

@@ -108,6 +108,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast.success("Reschedule approved — calendar updated");
     },
     onError: (error: Error) => {
@@ -125,6 +126,7 @@ export default function Dashboard() {
     }) => rejectRescheduleRequest(requestId, feedback),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setRejectTarget(null);
       setRejectFeedback("");
       toast.success("Reschedule request rejected");

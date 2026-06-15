@@ -5,6 +5,10 @@ from flask import Blueprint, g, jsonify, request
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role
+from app.services.notifications import (
+    notify_session_cancelled,
+    notify_session_schedule_changed,
+)
 
 sessions_bp = Blueprint('sessions', __name__)
 
@@ -316,9 +320,12 @@ def update_session(session_id):
     if not result.data:
         return jsonify({'error': 'Session not found'}), 404
 
+    updated_row = result.data[0]
     classes_by_id = _class_map([row['class_id']])
+    notify_session_schedule_changed(updated_row, classes_by_id)
+
     return jsonify({
-        'session': _serialize_session(result.data[0], classes_by_id),
+        'session': _serialize_session(updated_row, classes_by_id),
     }), 200
 
 
@@ -332,9 +339,13 @@ def delete_session(session_id):
     if not _teacher_owns_class(row['class_id'], g.current_user.id):
         return jsonify({'error': 'Session not found'}), 404
 
+    classes_by_id = _class_map([row['class_id']])
+
     try:
         supabase.table('sessions').delete().eq('id', session_id).execute()
     except Exception:
         return jsonify({'error': 'Failed to delete session'}), 500
+
+    notify_session_cancelled(row, classes_by_id)
 
     return jsonify({'message': 'Session deleted'}), 200

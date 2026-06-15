@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -183,29 +183,11 @@ export default function CalendarPage() {
     staleTime: 30_000,
   });
 
-  const calendarPanelRef = useRef<HTMLDivElement>(null);
-  const [calendarPanelHeight, setCalendarPanelHeight] = useState<number>();
-
-  useLayoutEffect(() => {
-    const node = calendarPanelRef.current;
-    if (!node) {
-      return;
-    }
-
-    const syncHeight = () => {
-      setCalendarPanelHeight(node.getBoundingClientRect().height);
-    };
-
-    syncHeight();
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [calendarMonth, isTeacher]);
-
   const createMutation = useMutation({
     mutationFn: createSession,
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setCreateOpen(false);
       setTitle("");
       setLocation("");
@@ -237,6 +219,7 @@ export default function CalendarPage() {
     }) => updateSession(sessionId, input),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setEditOpen(false);
       setEditingSession(null);
       if (updated.date !== toDateKey(selectedDate)) {
@@ -255,6 +238,7 @@ export default function CalendarPage() {
     mutationFn: (sessionId: string) => deleteSession(sessionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setDeleteTarget(null);
       toast.success("Session deleted");
     },
@@ -267,6 +251,7 @@ export default function CalendarPage() {
     mutationFn: createRescheduleRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setRescheduleOpen(false);
       setRescheduleSession(null);
       setRescheduleReason("");
@@ -541,19 +526,10 @@ export default function CalendarPage() {
         </p>
       ) : null}
 
-      <div
-        className={
-          isTeacher
-            ? "grid gap-5 lg:grid-cols-[auto,minmax(0,1fr)]"
-            : "grid gap-5 lg:grid-cols-[auto,minmax(0,1fr)] lg:items-start"
-        }
-      >
-        <div className={isTeacher ? "flex flex-col gap-5" : undefined}>
-          <Card
-            ref={calendarPanelRef}
-            className="border-border/60 w-fit shrink-0 shadow-sm"
-          >
-            <CardContent className="p-3">
+      <div className="space-y-5">
+        <Card className="overflow-hidden border-border/60 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-stretch">
+            <div className="shrink-0 border-b border-border/60 bg-muted/30 p-3 sm:p-4 lg:border-b-0 lg:border-r">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -569,11 +545,135 @@ export default function CalendarPage() {
                   hasSession:
                     "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
                 }}
+                className="p-0"
               />
-            </CardContent>
-          </Card>
+            </div>
 
-          {isTeacher ? (
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="shrink-0 border-b border-border/60 bg-muted/10 px-4 py-3 sm:px-5">
+                <p className="text-base font-semibold tracking-tight">
+                  {format(selectedDate, "EEEE, MMM d, yyyy")}
+                  {sessionsOnSelectedDay.length > 0 ? (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {sessionsOnSelectedDay.length} session
+                      {sessionsOnSelectedDay.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 max-h-[min(22rem,calc(100dvh-14rem))] lg:max-h-none">
+                {sessionsQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading sessions…</p>
+                ) : sessionsQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(sessionsQuery.error as Error).message}
+                  </p>
+                ) : sessionsOnSelectedDay.length === 0 ? (
+                  <PageEmptyState
+                    icon={CalendarIcon}
+                    title="No sessions on this day"
+                    description={
+                      isTeacher
+                        ? "Select another day or add a new session."
+                        : "No classes are scheduled for this day."
+                    }
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {sessionsOnSelectedDay.map((session) => (
+                      <div
+                        key={session.id}
+                        className="rounded-lg border border-border/50 bg-card px-3 py-2.5 transition-colors hover:bg-muted/40"
+                        style={{ borderLeftWidth: 3, borderLeftColor: session.color }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold leading-snug">
+                              {session.title}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {session.class_name}
+                            </p>
+                            {isStudent ? (
+                              (() => {
+                                const request = rescheduleBySessionId.get(session.id);
+                                if (!request) {
+                                  return null;
+                                }
+                                return (
+                                  <span
+                                    className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${rescheduleStatusClass(request.status)}`}
+                                  >
+                                    {rescheduleStatusLabel(request.status)}
+                                  </span>
+                                );
+                              })()
+                            ) : null}
+                          </div>
+                          {isTeacher ? (
+                            <div className="flex shrink-0 gap-0.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Edit ${session.title}`}
+                                onClick={() => openEditDialog(session)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                aria-label={`Delete ${session.title}`}
+                                onClick={() => setDeleteTarget(session)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : isStudent ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 shrink-0 gap-1 px-2 text-xs"
+                              disabled={
+                                rescheduleBySessionId.get(session.id)?.status === "pending"
+                              }
+                              onClick={() => openRescheduleDialog(session)}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              Reschedule
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            {formatTimeLabel(session.start_time)}–
+                            {formatTimeLabel(session.end_time)}
+                          </span>
+                          {session.location ? (
+                            <span className="inline-flex items-center gap-1 truncate">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {session.location}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {isTeacher ? (
+          <div className="grid gap-5 lg:grid-cols-2">
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -587,15 +687,15 @@ export default function CalendarPage() {
                 </p>
                 <ul className="space-y-1.5 text-xs text-muted-foreground">
                   <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
                     Draft session plans from your syllabus
                   </li>
                   <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
                     Summarize student progress before class
                   </li>
                   <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
                     Suggest follow-up after each session
                   </li>
                 </ul>
@@ -604,137 +704,7 @@ export default function CalendarPage() {
                 </Button>
               </CardContent>
             </Card>
-          ) : null}
-        </div>
 
-        <div className={isTeacher ? "flex min-w-0 flex-col gap-5" : undefined}>
-          <Card
-            className="flex min-h-0 flex-col overflow-hidden border-border/60 shadow-sm"
-            style={
-              calendarPanelHeight
-                ? { height: calendarPanelHeight, maxHeight: calendarPanelHeight }
-                : { maxHeight: "min(20rem, calc(100dvh - 13rem))" }
-            }
-          >
-            <CardHeader className="shrink-0 space-y-0 pb-2">
-              <CardTitle className="text-base font-semibold">
-                {format(selectedDate, "EEEE, MMM d, yyyy")}
-                {sessionsOnSelectedDay.length > 0 ? (
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    ({sessionsOnSelectedDay.length})
-                  </span>
-                ) : null}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-0">
-              {sessionsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading sessions…</p>
-              ) : sessionsQuery.isError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {(sessionsQuery.error as Error).message}
-                </p>
-              ) : sessionsOnSelectedDay.length === 0 ? (
-                <PageEmptyState
-                  icon={CalendarIcon}
-                  title="No sessions on this day"
-                  description={
-                    isTeacher
-                      ? "Select another day or add a new session."
-                      : "No classes are scheduled for this day."
-                  }
-                />
-              ) : (
-                <div className="space-y-2 pr-1">
-                  {sessionsOnSelectedDay.map((session) => (
-                    <div
-                      key={session.id}
-                      className="rounded-lg border border-border/60 px-3 py-2 shadow-sm"
-                      style={{ borderLeftWidth: 3, borderLeftColor: session.color }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold leading-snug">
-                            {session.title}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {session.class_name}
-                          </p>
-                          {isStudent ? (
-                            (() => {
-                              const request = rescheduleBySessionId.get(session.id);
-                              if (!request) {
-                                return null;
-                              }
-                              return (
-                                <span
-                                  className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${rescheduleStatusClass(request.status)}`}
-                                >
-                                  {rescheduleStatusLabel(request.status)}
-                                </span>
-                              );
-                            })()
-                          ) : null}
-                        </div>
-                        {isTeacher ? (
-                          <div className="flex shrink-0 gap-0.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              aria-label={`Edit ${session.title}`}
-                              onClick={() => openEditDialog(session)}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              aria-label={`Delete ${session.title}`}
-                              onClick={() => setDeleteTarget(session)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ) : isStudent ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 shrink-0 gap-1 px-2 text-xs"
-                            disabled={
-                              rescheduleBySessionId.get(session.id)?.status === "pending"
-                            }
-                            onClick={() => openRescheduleDialog(session)}
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                            Reschedule
-                          </Button>
-                        ) : null}
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3 shrink-0" />
-                          {formatTimeLabel(session.start_time)}–
-                          {formatTimeLabel(session.end_time)}
-                        </span>
-                        {session.location ? (
-                          <span className="inline-flex items-center gap-1 truncate">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {session.location}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {isTeacher ? (
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-2">
@@ -767,7 +737,7 @@ export default function CalendarPage() {
                   teacherPendingRescheduleQuery.data?.map((request) => (
                     <div
                       key={request.id}
-                      className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm"
+                      className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-sm"
                     >
                       <p className="font-medium leading-snug">
                         {request.student_name} · {request.class_name}
@@ -788,8 +758,8 @@ export default function CalendarPage() {
                 )}
               </CardContent>
             </Card>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {isTeacher ? (

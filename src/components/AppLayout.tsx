@@ -7,14 +7,15 @@
  * logout() clears AuthContext + localStorage; navigate("/login") sends user to login.
  * 退出时清空全局状态与 localStorage，再跳转到登录页（配合 GuestRoute / ProtectedRoute）。
  */
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Bell, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { listNotifications } from "@/lib/api";
 import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     : isStudentRole(role)
       ? "Student"
       : user?.role ?? "";
+
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", user?.id] as const,
+    queryFn: () => listNotifications({ limit: 1 }),
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+  });
+
+  const unreadCount = notificationsQuery.data?.unread_count ?? 0;
 
   function handleLogout() {
     queryClient.clear();
@@ -59,8 +69,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <Bell className="w-[18px] h-[18px]" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-muted-foreground"
+                asChild
+              >
+                <Link to="/notifications" aria-label="Notifications">
+                  <Bell className="w-[18px] h-[18px]" />
+                  {unreadCount > 0 ? (
+                    <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  ) : null}
+                </Link>
               </Button>
               <div className="hidden sm:flex flex-col items-end leading-tight px-1">
                 <span className="text-sm font-medium text-foreground truncate max-w-[140px]">
