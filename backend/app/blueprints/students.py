@@ -40,12 +40,32 @@ def _friendly_db_error(exc):
 
 def _serialize_student(student_id, user, class_rows):
     class_rows.sort(key=lambda row: (row.get('name') or '').lower())
+    grade = (user or {}).get('grade')
     return {
         'id': student_id,
         'display_name': (user or {}).get('display_name') or '',
         'email': (user or {}).get('email') or '',
+        'grade': (grade or '').strip() or None,
         'classes': class_rows,
     }
+
+
+def _matches_search(user, query):
+    if not query:
+        return True
+    needle = query.lower()
+    name = ((user or {}).get('display_name') or '').lower()
+    email = ((user or {}).get('email') or '').lower()
+    return needle in name or needle in email
+
+
+def _matches_grade(user, grade_filter):
+    if not grade_filter:
+        return True
+    value = ((user or {}).get('grade') or '').strip()
+    if grade_filter == '__none__':
+        return not value
+    return value.lower() == grade_filter.lower()
 
 
 @students_bp.route('/api/students', methods=['GET'])
@@ -63,7 +83,7 @@ def list_teacher_students():
     classes = classes_result.data or []
     class_ids = [row['id'] for row in classes]
     if not class_ids:
-        return jsonify({'students': [], 'total': 0}), 200
+        return jsonify({'students': [], 'total': 0, 'grades': []}), 200
 
     class_by_id = {row['id']: row for row in classes}
 
@@ -76,13 +96,13 @@ def list_teacher_students():
 
     enrollments = enrollments_result.data or []
     if not enrollments:
-        return jsonify({'students': [], 'total': 0}), 200
+        return jsonify({'students': [], 'total': 0, 'grades': []}), 200
 
     student_ids = list({row['student_id'] for row in enrollments})
 
     try:
         users_result = supabase.table('users').select(
-            'id, email, display_name'
+            'id, email, display_name, grade'
         ).in_('id', student_ids).execute()
     except Exception:
         return jsonify({'error': 'Failed to load students'}), 500
@@ -114,7 +134,31 @@ def list_teacher_students():
         ),
     )
 
-    return jsonify({'students': students, 'total': len(students)}), 200
+    all_grades = sorted({
+        row['grade']
+        for row in students
+        if row.get('grade')
+    }, key=str.lower)
+
+    query = (request.args.get('q') or '').strip()
+    grade_filter = (request.args.get('grade') or '').strip()
+
+    if query or grade_filter:
+        filtered = []
+        for row in students:
+            user = users_by_id.get(row['id'], {})
+            if not _matches_search(user, query):
+                continue
+            if not _matches_grade(user, grade_filter):
+                continue
+            filtered.append(row)
+        students = filtered
+
+    return jsonify({
+        'students': students,
+        'total': len(students),
+        'grades': all_grades,
+    }), 200
 
 
 @students_bp.route('/api/students/<student_id>/notes', methods=['GET'])

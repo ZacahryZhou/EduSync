@@ -343,6 +343,123 @@ def main() -> int:
     if not any(r.get('type') == 'reschedule_resolved' for r in s_rows):
         raise SmokeFailure('Student missing reschedule_resolved notification')
 
+    # Teacher: attendance (defaults present, mark absent)
+    student_id = students[0].get('id')
+    if not student_id:
+        raise SmokeFailure('Missing enrolled student id for attendance')
+
+    att_get = _check(
+        'Get session attendance (teacher)',
+        requests.get(_url(f'/sessions/{session_id}/attendance'), headers=th, timeout=30),
+    )
+    att_rows = _json(att_get).get('records') or []
+    if len(att_rows) < 1:
+        raise SmokeFailure('Attendance roster empty after student join')
+
+    _check(
+        'Save session attendance',
+        requests.post(
+            _url(f'/sessions/{session_id}/attendance'),
+            headers=th,
+            json={
+                'records': [
+                    {'student_id': student_id, 'status': 'absent'},
+                ],
+            },
+            timeout=30,
+        ),
+    )
+
+    st_att = _check(
+        'Get session attendance (student)',
+        requests.get(_url(f'/sessions/{session_id}/attendance'), headers=sh, timeout=30),
+    )
+    if _json(st_att).get('my_status') != 'absent':
+        raise SmokeFailure('Student should see absent status')
+
+    hist = _check(
+        'Student attendance history',
+        requests.get(_url('/attendance/me'), headers=sh, params={'month': month}, timeout=30),
+    )
+    hist_rows = _json(hist).get('records') or []
+    if not any(r.get('session_id') == session_id and r.get('status') == 'absent' for r in hist_rows):
+        raise SmokeFailure('Attendance history missing absent record')
+
+    # Tuition: top-up and attendance deduction
+    _check(
+        'Record tuition top-up',
+        requests.post(
+            _url('/tuition/topup'),
+            headers=th,
+            json={
+                'student_id': student_id,
+                'class_id': class_id,
+                'amount': 5,
+                'comment': 'Smoke test payment',
+            },
+            timeout=30,
+        ),
+        201,
+    )
+
+    bal_resp = _check(
+        'List tuition balances (teacher)',
+        requests.get(_url('/tuition/balances'), headers=th, timeout=30),
+    )
+    bal_rows = _json(bal_resp).get('balances') or []
+    student_balance = next(
+        (row for row in bal_rows if row.get('student_id') == student_id),
+        None,
+    )
+    if not student_balance or float(student_balance.get('balance', 0)) < 5:
+        raise SmokeFailure('Top-up balance not reflected')
+
+    # Mark present again and save attendance → should deduct 1 session (per_session class)
+    _check(
+        'Save attendance for deduction',
+        requests.post(
+            _url(f'/sessions/{session_id}/attendance'),
+            headers=th,
+            json={
+                'records': [
+                    {'student_id': student_id, 'status': 'present'},
+                ],
+            },
+            timeout=30,
+        ),
+    )
+
+    bal_resp2 = _check(
+        'List tuition balances after deduction',
+        requests.get(
+            _url('/tuition/balances'),
+            headers=th,
+            params={'class_id': class_id},
+            timeout=30,
+        ),
+    )
+    after_rows = _json(bal_resp2).get('balances') or []
+    after_balance = next(
+        (row for row in after_rows if row.get('student_id') == student_id),
+        None,
+    )
+    if not after_balance:
+        raise SmokeFailure('Balance row missing after deduction')
+    if float(after_balance.get('balance', 0)) != 4:
+        raise SmokeFailure(
+            f'Expected balance 4 after deduction, got {after_balance.get("balance")}'
+        )
+
+    tx_resp = _check(
+        'Student tuition transactions',
+        requests.get(_url('/tuition/transactions'), headers=sh, timeout=30),
+    )
+    tx_rows = _json(tx_resp).get('transactions') or []
+    if not any(r.get('type') == 'topup' for r in tx_rows):
+        raise SmokeFailure('Missing topup transaction')
+    if not any(r.get('type') == 'deduction' for r in tx_rows):
+        raise SmokeFailure('Missing deduction transaction')
+
     print('\n✅ P0 smoke test passed (local API)')
     print('   Manual: repeat in production incognito when deployed.')
     return 0

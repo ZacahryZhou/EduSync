@@ -34,12 +34,17 @@ def _register_user(role):
         user_id = auth_response.user.id
 
         try:
-            supabase.table('users').insert({
+            user_payload = {
                 'id': user_id,
                 'email': email,
                 'display_name': display_name,
-                'role': role
-            }).execute()
+                'role': role,
+            }
+            if role == 'student':
+                grade = (data.get('grade') or '').strip()
+                if grade:
+                    user_payload['grade'] = grade
+            supabase.table('users').insert(user_payload).execute()
         except Exception as ab_error:
             supabase_auth.auth.admin.delete_user(user_id)
             return jsonify({'error': 'Failed to save your information, try again'}), 500

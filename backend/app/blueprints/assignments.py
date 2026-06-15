@@ -1,12 +1,27 @@
 from datetime import datetime, timezone
+import mimetypes
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.utils import secure_filename
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role, _load_user_record
-from app.services.notifications import notify_assignment_published
+from app.services.notifications import (
+    notify_assignment_graded,
+    notify_assignment_published,
+    notify_assignment_submitted,
+)
 
 assignments_bp = Blueprint('assignments', __name__)
+
+SUBMISSIONS_BUCKET = 'submissions'
+MAX_SUBMISSION_BYTES = 20 * 1024 * 1024
+ALLOWED_SUBMISSION_MIMES = frozenset({
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+})
 
 
 def _friendly_db_error(exc):
@@ -100,6 +115,147 @@ def _get_assignment_row(assignment_id):
     return result.data[0]
 
 
+def _student_enrolled(student_id, class_id):
+    result = supabase.table('class_enrollments').select('id').eq(
+        'class_id', class_id
+    ).eq('student_id', student_id).limit(1).execute()
+    return bool(result.data)
+
+
+def _assignment_past_due(assignment_row):
+    due = assignment_row.get('due_date')
+    if not due:
+        return False
+    try:
+        text = str(due).replace('Z', '+00:00')
+        due_dt = datetime.fromisoformat(text)
+        if due_dt.tzinfo is None:
+            due_dt = due_dt.replace(tzinfo=timezone.utc)
+        return due_dt < datetime.now(timezone.utc)
+    except (TypeError, ValueError):
+        return False
+
+
+def _safe_storage_name(filename):
+    base = secure_filename(filename or '') or 'upload'
+    return base[:200]
+
+
+def _storage_path(assignment_id, student_id, filename):
+    return f'{assignment_id}/{student_id}/{_safe_storage_name(filename)}'
+
+
+def _upload_submission_file(assignment_id, student_id, file_storage):
+    if not file_storage or not file_storage.filename:
+        return None, None
+    data = file_storage.read()
+    if not data:
+        return None, 'Uploaded file is empty'
+    if len(data) > MAX_SUBMISSION_BYTES:
+        return None, 'File must be 20MB or smaller'
+    mime = (file_storage.mimetype or '').split(';')[0].strip().lower()
+    if not mime:
+        mime = mimetypes.guess_type(file_storage.filename)[0] or ''
+    if mime not in ALLOWED_SUBMISSION_MIMES:
+        return None, 'Allowed file types: PDF, JPEG, PNG'
+    path = _storage_path(assignment_id, student_id, file_storage.filename)
+    try:
+        supabase.storage.from_(SUBMISSIONS_BUCKET).upload(
+            path,
+            data,
+            file_options={'content-type': mime, 'upsert': 'true'},
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if 'bucket' in message and 'not found' in message:
+            return None, (
+                'Storage bucket "submissions" is missing. '
+                'Create it in Supabase Storage or run backend/sql/setup_submissions_bucket.sql.'
+            )
+        return None, str(exc) or 'Failed to upload file'
+    return path, None
+
+
+def _signed_download_url(storage_path):
+    if not storage_path:
+        return None
+    try:
+        result = supabase.storage.from_(SUBMISSIONS_BUCKET).create_signed_url(
+            storage_path, 3600
+        )
+    except Exception:
+        return None
+    if isinstance(result, dict):
+        return result.get('signedURL') or result.get('signedUrl')
+    return None
+
+
+def _filename_from_path(storage_path):
+    if not storage_path:
+        return ''
+    return storage_path.rsplit('/', 1)[-1]
+
+
+def _user_map(user_ids):
+    if not user_ids:
+        return {}
+    result = supabase.table('users').select(
+        'id, display_name, email'
+    ).in_('id', list(user_ids)).execute()
+    return {row['id']: row for row in (result.data or [])}
+
+
+def _get_submission_row(submission_id):
+    try:
+        result = supabase.table('assignment_submissions').select('*').eq(
+            'id', submission_id
+        ).limit(1).execute()
+    except Exception:
+        return None
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+def _serialize_submission(row, users_by_id=None, include_download=False):
+    student = (users_by_id or {}).get(row.get('student_id'), {})
+    file_path = row.get('file_url') or ''
+    payload = {
+        'id': row['id'],
+        'assignment_id': row['assignment_id'],
+        'student_id': row['student_id'],
+        'student_name': student.get('display_name') or student.get('email') or 'Student',
+        'student_email': student.get('email') or '',
+        'content': row.get('content') or '',
+        'file_name': _filename_from_path(file_path),
+        'grade': row.get('grade'),
+        'feedback': row.get('feedback') or '',
+        'submitted_at': row.get('submitted_at'),
+    }
+    if include_download and file_path:
+        payload['file_download_url'] = _signed_download_url(file_path)
+    return payload
+
+
+def _get_submission_for_student(assignment_id, student_id):
+    try:
+        result = supabase.table('assignment_submissions').select('*').eq(
+            'assignment_id', assignment_id
+        ).eq('student_id', student_id).limit(1).execute()
+    except Exception:
+        return None
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+def _my_submission_for_assignment(assignment_id, student_id):
+    row = _get_submission_for_student(assignment_id, student_id)
+    if not row:
+        return None
+    return _serialize_submission(row, include_download=True)
+
+
 @assignments_bp.route('/api/assignments', methods=['GET'])
 @require_auth
 def list_assignments():
@@ -126,12 +282,17 @@ def list_assignments():
 
     rows = result.data or []
     classes_by_id = _class_map(class_ids)
-    return jsonify({
-        'assignments': [
-            _serialize_assignment(row, classes_by_id)
-            for row in rows
-        ],
-    }), 200
+    role = (user.get('role') or '').strip().lower()
+    assignments = []
+    for row in rows:
+        item = _serialize_assignment(row, classes_by_id)
+        if role == 'student':
+            item['my_submission'] = _my_submission_for_assignment(
+                row['id'], user['id']
+            )
+            item['past_due'] = _assignment_past_due(row)
+        assignments.append(item)
+    return jsonify({'assignments': assignments}), 200
 
 
 @assignments_bp.route('/api/assignments', methods=['POST'])
@@ -255,3 +416,143 @@ def delete_assignment(assignment_id):
         return jsonify({'error': _friendly_db_error(e)}), 500
 
     return jsonify({'message': 'Assignment deleted'}), 200
+
+
+@assignments_bp.route('/api/assignments/<assignment_id>/submit', methods=['POST'])
+@require_role('student')
+def submit_assignment(assignment_id):
+    assignment = _get_assignment_row(assignment_id)
+    if not assignment:
+        return jsonify({'error': 'Assignment not found'}), 404
+
+    student_id = g.current_user.id
+    if not _student_enrolled(student_id, assignment['class_id']):
+        return jsonify({'error': 'Assignment not found'}), 404
+
+    if _assignment_past_due(assignment):
+        return jsonify({'error': 'This assignment is past the due date'}), 400
+
+    content = (request.form.get('content') or '').strip()
+    file_storage = request.files.get('file')
+    if not content and (not file_storage or not file_storage.filename):
+        return jsonify({'error': 'Add a written response or upload a file'}), 400
+
+    file_path = None
+    if file_storage and file_storage.filename:
+        file_path, upload_err = _upload_submission_file(
+            assignment_id, student_id, file_storage
+        )
+        if upload_err:
+            return jsonify({'error': upload_err}), 400
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    existing_row = _get_submission_for_student(assignment_id, student_id)
+    payload = {
+        'assignment_id': assignment_id,
+        'student_id': student_id,
+        'content': content,
+        'submitted_at': now_iso,
+    }
+    if file_path:
+        payload['file_url'] = file_path
+    elif existing_row and existing_row.get('file_url'):
+        payload['file_url'] = existing_row['file_url']
+
+    try:
+        if existing_row:
+            result = supabase.table('assignment_submissions').update(
+                payload
+            ).eq('assignment_id', assignment_id).eq(
+                'student_id', student_id
+            ).execute()
+        else:
+            result = supabase.table('assignment_submissions').insert(
+                payload
+            ).execute()
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
+
+    if not result.data:
+        return jsonify({'error': 'Failed to save submission'}), 500
+
+    row = result.data[0]
+    user = _load_user_record()
+    student_name = (user or {}).get('display_name') or (user or {}).get('email') or 'A student'
+    notify_assignment_submitted(assignment, student_name, row.get('id'))
+
+    return jsonify({
+        'submission': _serialize_submission(row, include_download=True),
+    }), 200
+
+
+@assignments_bp.route('/api/assignments/<assignment_id>/submissions', methods=['GET'])
+@require_role('teacher')
+def list_submissions(assignment_id):
+    assignment = _get_assignment_row(assignment_id)
+    if not assignment:
+        return jsonify({'error': 'Assignment not found'}), 404
+
+    if not _teacher_owns_class(assignment['class_id'], g.current_user.id):
+        return jsonify({'error': 'Assignment not found'}), 404
+
+    try:
+        result = supabase.table('assignment_submissions').select('*').eq(
+            'assignment_id', assignment_id
+        ).order('submitted_at', desc=True).execute()
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
+
+    rows = result.data or []
+    users_by_id = _user_map([row['student_id'] for row in rows])
+    return jsonify({
+        'submissions': [
+            _serialize_submission(row, users_by_id, include_download=True)
+            for row in rows
+        ],
+    }), 200
+
+
+@assignments_bp.route('/api/submissions/<submission_id>', methods=['PATCH'])
+@require_role('teacher')
+def grade_submission(submission_id):
+    row = _get_submission_row(submission_id)
+    if not row:
+        return jsonify({'error': 'Submission not found'}), 404
+
+    assignment = _get_assignment_row(row['assignment_id'])
+    if not assignment:
+        return jsonify({'error': 'Submission not found'}), 404
+
+    if not _teacher_owns_class(assignment['class_id'], g.current_user.id):
+        return jsonify({'error': 'Submission not found'}), 404
+
+    data = request.get_json() or {}
+    grade = (data.get('grade') or '').strip()
+    feedback = (data.get('feedback') or '').strip()
+
+    if not grade:
+        return jsonify({'error': 'grade is required'}), 400
+
+    updates = {'grade': grade, 'feedback': feedback}
+
+    try:
+        result = supabase.table('assignment_submissions').update(
+            updates
+        ).eq('id', submission_id).execute()
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
+
+    if not result.data:
+        return jsonify({'error': 'Failed to update submission'}), 500
+
+    updated = result.data[0]
+    users_by_id = _user_map([updated['student_id']])
+    notify_assignment_graded(
+        assignment, updated['student_id'], grade, feedback or None
+    )
+
+    return jsonify({
+        'submission': _serialize_submission(
+            updated, users_by_id, include_download=True
+        ),
+    }), 200

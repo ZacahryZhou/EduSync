@@ -2,7 +2,7 @@
 > 专为新手定制 · 目标：7周内交付可测试的 MVP
 > 更新于 2026-06-03
 
-**当前进度 / Current focus：** P0-13 新建排课通知 ✅ · 邮件域名 ⏸️暂定 · **下一步：P0-12 冒烟测试** — 见 [`docs/DEVELOPMENT-ROADMAP.md`](docs/DEVELOPMENT-ROADMAP.md)
+**当前进度 / Current focus：** P1-07 学费/课时包 ✅ · **下一步：P1-08 导出课表（iCal）** — 见 [`docs/DEVELOPMENT-ROADMAP.md`](docs/DEVELOPMENT-ROADMAP.md)
 
 ---
 

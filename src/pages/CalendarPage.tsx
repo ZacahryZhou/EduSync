@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Bot,
   Calendar as CalendarIcon,
+  ClipboardCheck,
   Clock,
   MapPin,
   MessageSquare,
@@ -51,10 +52,15 @@ import {
   createRescheduleRequest,
   createSession,
   deleteSession,
+  getSessionAttendance,
   listClasses,
+  listMyAttendance,
   listRescheduleRequests,
   listSessions,
+  saveSessionAttendance,
   updateSession,
+  type AttendanceRecord,
+  type AttendanceStatus,
   type RescheduleRequest,
   type SessionItem,
 } from "@/lib/api";
@@ -112,6 +118,26 @@ function rescheduleStatusClass(status: RescheduleRequest["status"]): string {
   return "bg-muted text-muted-foreground";
 }
 
+function attendanceStatusLabel(status: AttendanceStatus): string {
+  if (status === "present") {
+    return "Present";
+  }
+  if (status === "absent") {
+    return "Absent";
+  }
+  return "Late";
+}
+
+function attendanceStatusClass(status: AttendanceStatus): string {
+  if (status === "present") {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  }
+  if (status === "absent") {
+    return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200";
+  }
+  return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+}
+
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -160,6 +186,10 @@ export default function CalendarPage() {
   const [proposedEnd, setProposedEnd] = useState("10:00");
   const [rescheduleReason, setRescheduleReason] = useState("");
 
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [attendanceSession, setAttendanceSession] = useState<SessionItem | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<AttendanceRecord[]>([]);
+
   const queryClient = useQueryClient();
 
   const monthKey = toMonthKey(calendarMonth);
@@ -191,6 +221,25 @@ export default function CalendarPage() {
     enabled: Boolean(user?.id && isTeacher),
     staleTime: 30_000,
   });
+
+  const myAttendanceQuery = useQuery({
+    queryKey: ["my-attendance", monthKey, user?.id] as const,
+    queryFn: () => listMyAttendance(monthKey),
+    enabled: Boolean(user?.id && isStudent),
+    staleTime: 30_000,
+  });
+
+  const attendanceQuery = useQuery({
+    queryKey: ["session-attendance", attendanceSession?.id] as const,
+    queryFn: () => getSessionAttendance(attendanceSession!.id),
+    enabled: Boolean(attendanceOpen && attendanceSession && isTeacher),
+  });
+
+  useEffect(() => {
+    if (attendanceQuery.data?.records) {
+      setAttendanceDraft(attendanceQuery.data.records);
+    }
+  }, [attendanceQuery.data]);
 
   const createMutation = useMutation({
     mutationFn: createSession,
@@ -295,6 +344,27 @@ export default function CalendarPage() {
     },
   });
 
+  const saveAttendanceMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      records,
+    }: {
+      sessionId: string;
+      records: { student_id: string; status: AttendanceStatus }[];
+    }) => saveSessionAttendance(sessionId, records),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["my-attendance"] });
+      setAttendanceOpen(false);
+      setAttendanceSession(null);
+      setAttendanceDraft([]);
+      toast.success("Attendance saved");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const sessions = sessionsQuery.data ?? [];
   const selectedDateKey = toDateKey(selectedDate);
 
@@ -326,6 +396,14 @@ export default function CalendarPage() {
     }
     return map;
   }, [rescheduleQuery.data]);
+
+  const myAttendanceBySessionId = useMemo(() => {
+    const map = new Map<string, AttendanceStatus>();
+    for (const item of myAttendanceQuery.data ?? []) {
+      map.set(item.session_id, item.status);
+    }
+    return map;
+  }, [myAttendanceQuery.data]);
 
   function openRescheduleDialog(session: SessionItem) {
     setRescheduleSession(session);
@@ -378,6 +456,32 @@ export default function CalendarPage() {
     setEditLocation(session.location ?? "");
     setEditNotes(session.notes ?? "");
     setEditOpen(true);
+  }
+
+  function openAttendanceDialog(session: SessionItem) {
+    setAttendanceSession(session);
+    setAttendanceDraft([]);
+    setAttendanceOpen(true);
+  }
+
+  function handleAttendanceSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!attendanceSession || attendanceDraft.length === 0) {
+      return;
+    }
+    saveAttendanceMutation.mutate({
+      sessionId: attendanceSession.id,
+      records: attendanceDraft.map((row) => ({
+        student_id: row.student_id,
+        status: row.status,
+      })),
+    });
+  }
+
+  function setStudentAttendanceStatus(studentId: string, status: AttendanceStatus) {
+    setAttendanceDraft((rows) =>
+      rows.map((row) => (row.student_id === studentId ? { ...row, status } : row)),
+    );
   }
 
   function handleCreateSubmit(e: FormEvent<HTMLFormElement>) {
@@ -701,23 +805,49 @@ export default function CalendarPage() {
                               {session.type === "recurring" ? " · Weekly" : ""}
                             </p>
                             {isStudent ? (
-                              (() => {
-                                const request = rescheduleBySessionId.get(session.id);
-                                if (!request) {
-                                  return null;
-                                }
-                                return (
-                                  <span
-                                    className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${rescheduleStatusClass(request.status)}`}
-                                  >
-                                    {rescheduleStatusLabel(request.status)}
-                                  </span>
-                                );
-                              })()
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {(() => {
+                                  const request = rescheduleBySessionId.get(session.id);
+                                  if (!request) {
+                                    return null;
+                                  }
+                                  return (
+                                    <span
+                                      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${rescheduleStatusClass(request.status)}`}
+                                    >
+                                      {rescheduleStatusLabel(request.status)}
+                                    </span>
+                                  );
+                                })()}
+                                {(() => {
+                                  const status = myAttendanceBySessionId.get(session.id);
+                                  if (!status) {
+                                    return null;
+                                  }
+                                  return (
+                                    <span
+                                      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${attendanceStatusClass(status)}`}
+                                    >
+                                      {attendanceStatusLabel(status)}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                             ) : null}
                           </div>
                           {isTeacher ? (
                             <div className="flex shrink-0 gap-0.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Attendance for ${session.title}`}
+                                title="Attendance"
+                                onClick={() => openAttendanceDialog(session)}
+                              >
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                              </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1094,6 +1224,96 @@ export default function CalendarPage() {
                 </Button>
                 <Button type="submit" disabled={rescheduleMutation.isPending}>
                   {rescheduleMutation.isPending ? "Submitting…" : "Submit request"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {isTeacher ? (
+        <Dialog
+          open={attendanceOpen}
+          onOpenChange={(open) => {
+            setAttendanceOpen(open);
+            if (!open) {
+              setAttendanceSession(null);
+              setAttendanceDraft([]);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleAttendanceSubmit}>
+              <DialogHeader>
+                <DialogTitle>Attendance</DialogTitle>
+                {attendanceSession ? (
+                  <p className="text-sm text-muted-foreground">
+                    {attendanceSession.title} · {attendanceSession.class_name} ·{" "}
+                    {attendanceSession.date}
+                  </p>
+                ) : null}
+              </DialogHeader>
+              <div className="max-h-72 space-y-2 overflow-y-auto py-4">
+                {attendanceQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading students…</p>
+                ) : attendanceQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(attendanceQuery.error as Error).message}
+                  </p>
+                ) : attendanceDraft.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No students enrolled in this class yet.
+                  </p>
+                ) : (
+                  attendanceDraft.map((row) => (
+                    <div
+                      key={row.student_id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{row.student_name}</p>
+                        {row.email ? (
+                          <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+                        ) : null}
+                      </div>
+                      <Select
+                        value={row.status}
+                        onValueChange={(value) =>
+                          setStudentAttendanceStatus(row.student_id, value as AttendanceStatus)
+                        }
+                        disabled={saveAttendanceMutation.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[7.5rem] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="present">Present</SelectItem>
+                          <SelectItem value="absent">Absent</SelectItem>
+                          <SelectItem value="late">Late</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAttendanceOpen(false)}
+                  disabled={saveAttendanceMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    saveAttendanceMutation.isPending ||
+                    attendanceDraft.length === 0 ||
+                    attendanceQuery.isLoading
+                  }
+                >
+                  {saveAttendanceMutation.isPending ? "Saving…" : "Save attendance"}
                 </Button>
               </DialogFooter>
             </form>

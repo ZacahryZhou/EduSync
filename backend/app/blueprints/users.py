@@ -6,7 +6,7 @@ users_bp = Blueprint('users', __name__)
 
 
 def _serialize_user(user):
-    return {
+    payload = {
         'id': user['id'],
         'email': user['email'],
         'role': user['role'],
@@ -14,6 +14,9 @@ def _serialize_user(user):
         'email_notifications': user.get('email_notifications', True),
         'created_at': user.get('created_at'),
     }
+    if user.get('grade') is not None:
+        payload['grade'] = user.get('grade') or None
+    return payload
 
 
 @users_bp.route('/api/users', methods=['GET'])
@@ -51,6 +54,20 @@ def update_user():
 
     if 'email_notifications' in data:
         updates['email_notifications'] = bool(data.get('email_notifications'))
+
+    if 'grade' in data:
+        try:
+            user_row = supabase.table('users').select('role').eq(
+                'id', user_id
+            ).limit(1).execute()
+        except Exception:
+            return jsonify({'error': 'Failed to load user'}), 500
+        if not user_row.data:
+            return jsonify({'error': 'User not found'}), 404
+        if (user_row.data[0].get('role') or '').lower() != 'student':
+            return jsonify({'error': 'Only students can set grade'}), 400
+        grade = str(data.get('grade') or '').strip()
+        updates['grade'] = grade or None
 
     if not updates:
         return jsonify({'error': 'No valid fields to update'}), 400

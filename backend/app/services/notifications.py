@@ -9,6 +9,8 @@ NOTIFICATION_TYPES = frozenset({
     'reschedule_resolved',
     'session_scheduled',
     'assignment_published',
+    'assignment_submitted',
+    'assignment_graded',
 })
 
 
@@ -254,6 +256,44 @@ def notify_assignment_published(assignment_row, classes_by_id=None):
             student_id, assignment_row, class_name
         )
     return len(student_ids)
+
+
+def notify_assignment_submitted(assignment_row, student_name, submission_id=None):
+    teacher_id = assignment_row.get('teacher_id')
+    if not teacher_id:
+        teacher_id = _class_teacher_id(assignment_row.get('class_id'))
+    if not teacher_id:
+        return
+    title_text = assignment_row.get('title') or 'Assignment'
+    body = f'{student_name} submitted {title_text}.'
+    create_notification(
+        teacher_id,
+        'assignment_submitted',
+        'Assignment submitted',
+        body,
+        related_id=submission_id or assignment_row.get('id'),
+    )
+    email_service.email_assignment_submitted(
+        teacher_id, assignment_row, student_name
+    )
+
+
+def notify_assignment_graded(assignment_row, student_id, grade, feedback=None):
+    title_text = assignment_row.get('title') or 'Assignment'
+    body = f'Your work for {title_text} was graded: {grade}.'
+    if feedback:
+        preview = feedback[:200] + ('…' if len(feedback) > 200 else '')
+        body += f' Feedback: {preview}'
+    create_notification(
+        student_id,
+        'assignment_graded',
+        'Assignment graded',
+        body,
+        related_id=assignment_row.get('id'),
+    )
+    email_service.email_assignment_graded(
+        student_id, assignment_row, grade, feedback
+    )
 
 
 def notify_recurring_series_cancelled(session_row, deleted_count, classes_by_id=None):

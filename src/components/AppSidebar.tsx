@@ -32,13 +32,12 @@ const mainNav = [
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Classes", url: "/classes", icon: BookOpen },
   { title: "Students", url: "/students", icon: Users },
+  { title: "Assignments", url: "/assignments", icon: FileText },
+  { title: "Tuition", url: "/tuition", icon: DollarSign },
   { title: "Notifications", url: "/notifications", icon: Bell },
 ];
 
-const manageNav = [
-  { title: "Assignments", url: "/assignments", icon: FileText },
-  { title: "Tuition", url: "/tuition", icon: DollarSign },
-];
+const manageNav: { title: string; url: string; icon: typeof DollarSign }[] = [];
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -100,7 +99,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isTeacher ? (
+        {isTeacher && manageNav.length > 0 ? (
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/60 font-semibold px-3 mb-2">
             Manage

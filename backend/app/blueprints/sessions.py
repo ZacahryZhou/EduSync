@@ -1,11 +1,12 @@
 import calendar as cal
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, g, jsonify, request
 
 from app.extensions import supabase
-from app.middleware.auth import require_auth, require_role
+from app.middleware.auth import require_auth, require_role, _load_user_record
+from app.services.balances import apply_session_deductions
 from app.services.notifications import (
     notify_recurring_series_cancelled,
     notify_session_cancelled,
@@ -16,6 +17,8 @@ from app.services.notifications import (
 sessions_bp = Blueprint('sessions', __name__)
 
 MAX_RECURRING_SESSIONS = 52
+ATTENDANCE_STATUSES = frozenset({'present', 'absent', 'late'})
+DEFAULT_ATTENDANCE_STATUS = 'present'
 
 
 def _get_user_record(user_id):
@@ -466,3 +469,245 @@ def delete_session(session_id):
     notify_session_cancelled(row, classes_by_id)
 
     return jsonify({'message': 'Session deleted', 'deleted_count': 1}), 200
+
+
+def _friendly_attendance_error(exc):
+    message = str(exc)
+    lower = message.lower()
+    if 'does not exist' in lower or 'could not find' in lower or 'schema cache' in lower:
+        if 'attendance' in lower:
+            return (
+                'Database table "attendance" is missing. '
+                'Run backend/sql/create_attendance.sql in Supabase SQL Editor.'
+            )
+    return message or 'Database error'
+
+
+def _class_enrolled_students(class_id):
+    enrollments = supabase.table('class_enrollments').select(
+        'student_id'
+    ).eq('class_id', class_id).execute()
+    student_ids = [row['student_id'] for row in (enrollments.data or [])]
+    if not student_ids:
+        return []
+    users = supabase.table('users').select(
+        'id, display_name, email'
+    ).in_('id', student_ids).execute()
+    users_by_id = {row['id']: row for row in (users.data or [])}
+    rows = []
+    for student_id in student_ids:
+        user = users_by_id.get(student_id, {})
+        rows.append({
+            'student_id': student_id,
+            'student_name': user.get('display_name') or user.get('email') or 'Student',
+            'email': user.get('email') or '',
+        })
+    rows.sort(key=lambda row: row['student_name'].lower())
+    return rows
+
+
+def _student_enrolled_in_class(student_id, class_id):
+    result = supabase.table('class_enrollments').select('id').eq(
+        'class_id', class_id
+    ).eq('student_id', student_id).limit(1).execute()
+    return bool(result.data)
+
+
+def _attendance_map_for_session(session_id):
+    try:
+        result = supabase.table('attendance').select(
+            'student_id, status, recorded_at'
+        ).eq('session_id', session_id).execute()
+    except Exception:
+        return {}
+    return {
+        row['student_id']: row
+        for row in (result.data or [])
+    }
+
+
+def _build_attendance_records(session_id, class_id):
+    students = _class_enrolled_students(class_id)
+    by_student = _attendance_map_for_session(session_id)
+    records = []
+    for student in students:
+        saved = by_student.get(student['student_id'])
+        records.append({
+            'student_id': student['student_id'],
+            'student_name': student['student_name'],
+            'email': student['email'],
+            'status': (saved or {}).get('status') or DEFAULT_ATTENDANCE_STATUS,
+            'recorded_at': (saved or {}).get('recorded_at'),
+        })
+    return records
+
+
+@sessions_bp.route('/api/sessions/<session_id>/attendance', methods=['GET'])
+@require_auth
+def get_session_attendance(session_id):
+    row = _get_session_row(session_id)
+    if not row:
+        return jsonify({'error': 'Session not found'}), 404
+
+    user = _load_user_record()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    role = (user.get('role') or '').strip().lower()
+    class_id = row['class_id']
+
+    if role == 'teacher':
+        if not _teacher_owns_class(class_id, g.current_user.id):
+            return jsonify({'error': 'Session not found'}), 404
+        try:
+            records = _build_attendance_records(session_id, class_id)
+        except Exception as exc:
+            return jsonify({'error': _friendly_attendance_error(exc)}), 500
+        return jsonify({
+            'session_id': session_id,
+            'records': records,
+        }), 200
+
+    if role == 'student':
+        if not _student_enrolled_in_class(user['id'], class_id):
+            return jsonify({'error': 'Session not found'}), 404
+        try:
+            by_student = _attendance_map_for_session(session_id)
+        except Exception as exc:
+            return jsonify({'error': _friendly_attendance_error(exc)}), 500
+        saved = by_student.get(user['id'])
+        return jsonify({
+            'session_id': session_id,
+            'my_status': (saved or {}).get('status'),
+            'recorded_at': (saved or {}).get('recorded_at'),
+        }), 200
+
+    return jsonify({'error': 'Forbidden'}), 403
+
+
+@sessions_bp.route('/api/sessions/<session_id>/attendance', methods=['POST'])
+@require_role('teacher')
+def save_session_attendance(session_id):
+    row = _get_session_row(session_id)
+    if not row:
+        return jsonify({'error': 'Session not found'}), 404
+
+    if not _teacher_owns_class(row['class_id'], g.current_user.id):
+        return jsonify({'error': 'Session not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    records = data.get('records')
+    if not isinstance(records, list) or not records:
+        return jsonify({'error': 'records must be a non-empty array'}), 400
+
+    enrolled_ids = {
+        student['student_id']
+        for student in _class_enrolled_students(row['class_id'])
+    }
+    if not enrolled_ids:
+        return jsonify({'error': 'No students enrolled in this class'}), 400
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    upserts = []
+    for item in records:
+        if not isinstance(item, dict):
+            return jsonify({'error': 'Each record must be an object'}), 400
+        student_id = item.get('student_id')
+        status = (item.get('status') or '').strip().lower()
+        if student_id not in enrolled_ids:
+            return jsonify({'error': 'Invalid student for this session'}), 400
+        if status not in ATTENDANCE_STATUSES:
+            return jsonify({'error': 'status must be present, absent, or late'}), 400
+        upserts.append({
+            'session_id': session_id,
+            'student_id': student_id,
+            'status': status,
+            'recorded_at': now_iso,
+        })
+
+    try:
+        supabase.table('attendance').upsert(
+            upserts,
+            on_conflict='session_id,student_id',
+        ).execute()
+        saved_records = _build_attendance_records(session_id, row['class_id'])
+    except Exception as exc:
+        return jsonify({'error': _friendly_attendance_error(exc)}), 500
+
+    deductions_applied = []
+    try:
+        deductions_applied = apply_session_deductions(row, upserts)
+    except Exception:
+        # Attendance saved; billing failure should not block the teacher.
+        deductions_applied = []
+
+    return jsonify({
+        'session_id': session_id,
+        'records': saved_records,
+        'deductions_applied': len(deductions_applied),
+    }), 200
+
+
+@sessions_bp.route('/api/attendance/me', methods=['GET'])
+@require_role('student')
+def list_my_attendance():
+    user = _load_user_record()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    month = (request.args.get('month') or '').strip()
+    class_ids = _accessible_class_ids(user) or []
+    if not class_ids:
+        return jsonify({'records': []}), 200
+
+    try:
+        sessions_query = supabase.table('sessions').select(
+            'id, class_id, title, date, start_time, end_time'
+        ).in_('class_id', class_ids)
+        if month:
+            start, end = _parse_month(month)
+            if start and end:
+                sessions_query = sessions_query.gte('date', start).lte('date', end)
+        sessions_result = sessions_query.order('date', desc=True).execute()
+    except Exception:
+        return jsonify({'error': 'Failed to load sessions'}), 500
+
+    sessions = sessions_result.data or []
+    if not sessions:
+        return jsonify({'records': []}), 200
+
+    session_ids = [row['id'] for row in sessions]
+    classes_by_id = _class_map(class_ids)
+
+    try:
+        attendance_result = supabase.table('attendance').select(
+            'session_id, status, recorded_at'
+        ).eq('student_id', user['id']).in_('session_id', session_ids).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_attendance_error(exc)}), 500
+
+    by_session = {
+        row['session_id']: row for row in (attendance_result.data or [])
+    }
+
+    records = []
+    for session_row in sessions:
+        saved = by_session.get(session_row['id'])
+        if not saved:
+            continue
+        class_info = classes_by_id.get(session_row['class_id'], {})
+        records.append({
+            'session_id': session_row['id'],
+            'session_title': session_row.get('title') or 'Session',
+            'class_name': class_info.get('name') or '',
+            'date': session_row.get('date'),
+            'start_time': session_row.get('start_time'),
+            'end_time': session_row.get('end_time'),
+            'status': saved.get('status'),
+            'recorded_at': saved.get('recorded_at'),
+        })
+
+    return jsonify({'records': records}), 200

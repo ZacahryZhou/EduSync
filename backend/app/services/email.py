@@ -303,3 +303,26 @@ def email_assignment_published(user_id, assignment_row, class_name):
         lines.append(description[:500])
     html = _wrap_html('New assignment', lines, cta_path='/assignments')
     return send_user_email(user_id, 'assignment_published', ref, subject, html, '\n'.join(lines))
+
+
+def email_assignment_submitted(teacher_id, assignment_row, student_name):
+    title_text = assignment_row.get('title') or 'Assignment'
+    ref = f'submission:{assignment_row.get("id")}:{student_name}'
+    subject = f'Submission received: {title_text}'
+    lines = [
+        f'{student_name} submitted {title_text}.',
+        'Open Assignments to review and grade.',
+    ]
+    html = _wrap_html('New submission', lines, cta_path='/assignments')
+    return send_user_email(teacher_id, 'assignment_submitted', ref, subject, html, '\n'.join(lines))
+
+
+def email_assignment_graded(student_id, assignment_row, grade, feedback=None):
+    title_text = assignment_row.get('title') or 'Assignment'
+    ref = f'graded:{assignment_row.get("id")}:{student_id}'
+    subject = f'Graded: {title_text}'
+    lines = [f'Your work for {title_text} was graded: {grade}.']
+    if feedback:
+        lines.append(feedback[:500])
+    html = _wrap_html('Assignment graded', lines, cta_path='/assignments')
+    return send_user_email(student_id, 'assignment_graded', ref, subject, html, '\n'.join(lines))

@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS notifications (
                   'reschedule_requested',
                   'reschedule_resolved',
                   'session_scheduled',
-                  'assignment_published'
+                  'assignment_published',
+                  'assignment_submitted',
+                  'assignment_graded'
                 )),
   title       TEXT NOT NULL,
   body        TEXT NOT NULL DEFAULT '',

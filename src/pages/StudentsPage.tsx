@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Mail, Plus, Users } from "lucide-react";
+import { BookOpen, Mail, Plus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -37,6 +45,7 @@ import {
   type TeacherStudent,
 } from "@/lib/api";
 import { isTeacherRole, normalizeRole } from "@/lib/roles";
+import { STUDENT_GRADE_OPTIONS } from "@/lib/student-grades";
 
 function formatJoinedAt(iso?: string): string {
   if (!iso) {
@@ -71,6 +80,9 @@ function classSummary(student: TeacherStudent): string {
   return `${student.classes[0].name} +${student.classes.length - 1} more`;
 }
 
+const ALL_GRADES = "all";
+const NO_GRADE = "__none__";
+
 export default function StudentsPage() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
@@ -80,14 +92,33 @@ export default function StudentsPage() {
     null,
   );
   const [noteDraft, setNoteDraft] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [gradeFilter, setGradeFilter] = useState(ALL_GRADES);
 
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   const studentsQuery = useQuery({
-    queryKey: ["teacher-students", user?.id] as const,
-    queryFn: listTeacherStudents,
+    queryKey: [
+      "teacher-students",
+      user?.id,
+      searchQuery,
+      gradeFilter,
+    ] as const,
+    queryFn: () =>
+      listTeacherStudents({
+        q: searchQuery || undefined,
+        grade: gradeFilter === ALL_GRADES ? undefined : gradeFilter,
+      }),
     enabled: Boolean(user?.id && isTeacher),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   const noteQuery = useQuery({
@@ -120,11 +151,15 @@ export default function StudentsPage() {
     },
   });
 
-  const students = studentsQuery.data ?? [];
+  const students = studentsQuery.data?.students ?? [];
+  const gradeOptions = studentsQuery.data?.grades ?? [];
+  const hasFilters = Boolean(searchQuery) || gradeFilter !== ALL_GRADES;
   const totalLabel =
     studentsQuery.isLoading && !studentsQuery.data
       ? "Loading…"
-      : `${students.length} student${students.length === 1 ? "" : "s"} enrolled`;
+      : `${students.length} student${students.length === 1 ? "" : "s"}${
+          hasFilters ? " matching" : " enrolled"
+        }`;
 
   if (!isTeacher) {
     return (
@@ -155,6 +190,39 @@ export default function StudentsPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name or email…"
+            className="h-9 pl-9"
+          />
+        </div>
+        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+          <SelectTrigger className="h-9 w-full sm:w-44">
+            <SelectValue placeholder="All grades" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_GRADES}>All grades</SelectItem>
+            <SelectItem value={NO_GRADE}>No grade set</SelectItem>
+            {STUDENT_GRADE_OPTIONS.map((grade) => (
+              <SelectItem key={grade} value={grade}>
+                {grade}
+              </SelectItem>
+            ))}
+            {gradeOptions
+              .filter((g) => !STUDENT_GRADE_OPTIONS.includes(g as (typeof STUDENT_GRADE_OPTIONS)[number]))
+              .map((grade) => (
+                <SelectItem key={grade} value={grade}>
+                  {grade}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {studentsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading students…</p>
       ) : studentsQuery.isError ? (
@@ -165,14 +233,20 @@ export default function StudentsPage() {
         <div className="space-y-4">
           <PageEmptyState
             icon={Users}
-            title="No students yet"
-            description="Create a class and share its code so students can join. They will appear here automatically."
+            title={hasFilters ? "No students match" : "No students yet"}
+            description={
+              hasFilters
+                ? "Try a different name, email, or grade filter."
+                : "Create a class and share its code so students can join. They will appear here automatically."
+            }
           />
-          <div className="flex justify-center">
-            <Button asChild size="sm" variant="outline">
-              <Link to="/classes">Go to Classes</Link>
-            </Button>
-          </div>
+          {!hasFilters ? (
+            <div className="flex justify-center">
+              <Button asChild size="sm" variant="outline">
+                <Link to="/classes">Go to Classes</Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-lg border border-border/60 bg-card shadow-sm">
@@ -181,6 +255,7 @@ export default function StudentsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden sm:table-cell">Email</TableHead>
+                <TableHead className="hidden lg:table-cell">Grade</TableHead>
                 <TableHead>Classes</TableHead>
                 <TableHead className="hidden md:table-cell text-right">
                   Enrolled in
@@ -199,6 +274,9 @@ export default function StudentsPage() {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {student.email || "—"}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground">
+                    {student.grade || "—"}
                   </TableCell>
                   <TableCell>{classSummary(student)}</TableCell>
                   <TableCell className="hidden md:table-cell text-right text-muted-foreground">
@@ -225,9 +303,14 @@ export default function StudentsPage() {
             <>
               <SheetHeader>
                 <SheetTitle>{studentDisplayName(selectedStudent)}</SheetTitle>
-                <SheetDescription className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 shrink-0" />
-                  {selectedStudent.email || "No email on file"}
+                <SheetDescription className="flex flex-col gap-1">
+                  <span className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    {selectedStudent.email || "No email on file"}
+                  </span>
+                  {selectedStudent.grade ? (
+                    <span className="text-xs">Grade: {selectedStudent.grade}</span>
+                  ) : null}
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-6 space-y-3">

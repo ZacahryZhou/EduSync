@@ -276,6 +276,7 @@ export async function registerStudent(
   email: string,
   password: string,
   displayName: string,
+  grade?: string,
 ): Promise<RegisterStudentResponse> {
   const response = await apiFetch("/auth/register/student", {
     method: "POST",
@@ -286,6 +287,7 @@ export async function registerStudent(
       email,
       password,
       display_name: displayName,
+      ...(grade?.trim() ? { grade: grade.trim() } : {}),
     }),
   });
 
@@ -410,6 +412,7 @@ export type CurrentUserResponse = {
   role: string;
   display_name: string;
   email_notifications?: boolean;
+  grade?: string | null;
   created_at?: string;
 };
 
@@ -460,6 +463,7 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
 export async function updateCurrentUser(input: {
   display_name?: string;
   email_notifications?: boolean;
+  grade?: string | null;
 }): Promise<CurrentUserResponse> {
   const response = await apiFetch("/users/me", {
     method: "PATCH",
@@ -634,22 +638,38 @@ export type TeacherStudent = {
   id: string;
   display_name: string;
   email: string;
+  grade?: string | null;
   classes: StudentClassEnrollment[];
 };
 
-/** Teacher lists all enrolled students across their classes / 教师学生总览 */
-export async function listTeacherStudents(): Promise<TeacherStudent[]> {
-  const response = await apiFetch("/students", { method: "GET" });
+export type TeacherStudentsResponse = {
+  students: TeacherStudent[];
+  total: number;
+  grades: string[];
+};
+
+/** Teacher lists enrolled students; optional search `q` and `grade` filter */
+export async function listTeacherStudents(filters?: {
+  q?: string;
+  grade?: string;
+}): Promise<TeacherStudentsResponse> {
+  const params = new URLSearchParams();
+  if (filters?.q?.trim()) {
+    params.set("q", filters.q.trim());
+  }
+  if (filters?.grade) {
+    params.set("grade", filters.grade);
+  }
+  const query = params.toString();
+  const response = await apiFetch(`/students${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
 
   if (!response.ok) {
     throw new Error(await readApiError(response, "Failed to load students"));
   }
 
-  const data = (await response.json()) as {
-    students: TeacherStudent[];
-    total: number;
-  };
-  return data.students;
+  return (await response.json()) as TeacherStudentsResponse;
 }
 
 export type StudentNote = {
@@ -827,6 +847,175 @@ export async function deleteSession(
   return { deleted_count: data.deleted_count ?? 1 };
 }
 
+export type AttendanceStatus = "present" | "absent" | "late";
+
+export type AttendanceRecord = {
+  student_id: string;
+  student_name: string;
+  email: string;
+  status: AttendanceStatus;
+  recorded_at?: string | null;
+};
+
+type SessionAttendanceResponse = {
+  session_id: string;
+  records?: AttendanceRecord[];
+  my_status?: AttendanceStatus | null;
+  recorded_at?: string | null;
+};
+
+/** Teacher: roster + status; student: own status for one session */
+export async function getSessionAttendance(sessionId: string): Promise<SessionAttendanceResponse> {
+  const response = await apiFetch(`/sessions/${sessionId}/attendance`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load attendance"));
+  }
+
+  return (await response.json()) as SessionAttendanceResponse;
+}
+
+/** Teacher saves attendance for a session */
+export async function saveSessionAttendance(
+  sessionId: string,
+  records: { student_id: string; status: AttendanceStatus }[],
+): Promise<{ session_id: string; records: AttendanceRecord[] }> {
+  const response = await apiFetch(`/sessions/${sessionId}/attendance`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to save attendance"));
+  }
+
+  return (await response.json()) as { session_id: string; records: AttendanceRecord[] };
+}
+
+export type MyAttendanceRecord = {
+  session_id: string;
+  session_title: string;
+  class_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status: AttendanceStatus;
+  recorded_at?: string;
+};
+
+/** Student attendance history (optional month filter yyyy-MM) */
+export async function listMyAttendance(month?: string): Promise<MyAttendanceRecord[]> {
+  const params = month ? `?month=${encodeURIComponent(month)}` : "";
+  const response = await apiFetch(`/attendance/me${params}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load attendance history"));
+  }
+
+  const data = (await response.json()) as { records: MyAttendanceRecord[] };
+  return data.records ?? [];
+}
+
+export type BalanceStatus = "sufficient" | "low" | "zero";
+
+export type StudentBalance = {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  class_id: string;
+  class_name: string;
+  billing_mode: "per_hour" | "per_session";
+  unit_price: number;
+  balance: number;
+  unit: "sessions" | "hours";
+  status: BalanceStatus;
+};
+
+export type BalanceTransaction = {
+  id: string;
+  student_id: string;
+  student_name: string;
+  class_id: string;
+  class_name: string;
+  session_id?: string | null;
+  type: "topup" | "deduction";
+  amount: number;
+  unit: "sessions" | "hours";
+  balance_after: number;
+  comment: string;
+  recorded_by?: string | null;
+  recorded_by_name: string;
+  created_at?: string;
+};
+
+export async function listTuitionBalances(classId?: string): Promise<StudentBalance[]> {
+  const params = classId ? `?class_id=${encodeURIComponent(classId)}` : "";
+  const response = await apiFetch(`/tuition/balances${params}`, { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load balances"));
+  }
+
+  const data = (await response.json()) as { balances: StudentBalance[] };
+  return data.balances ?? [];
+}
+
+export async function listTuitionTransactions(options?: {
+  studentId?: string;
+  classId?: string;
+  limit?: number;
+}): Promise<BalanceTransaction[]> {
+  const params = new URLSearchParams();
+  if (options?.studentId) {
+    params.set("student_id", options.studentId);
+  }
+  if (options?.classId) {
+    params.set("class_id", options.classId);
+  }
+  if (options?.limit) {
+    params.set("limit", String(options.limit));
+  }
+
+  const query = params.toString();
+  const response = await apiFetch(`/tuition/transactions${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load transactions"));
+  }
+
+  const data = (await response.json()) as { transactions: BalanceTransaction[] };
+  return data.transactions ?? [];
+}
+
+export async function recordTuitionTopup(input: {
+  student_id: string;
+  class_id: string;
+  amount: number;
+  comment?: string;
+}): Promise<{ balance: StudentBalance; transaction: BalanceTransaction }> {
+  const response = await apiFetch("/tuition/topup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to record top-up"));
+  }
+
+  return (await response.json()) as {
+    balance: StudentBalance;
+    transaction: BalanceTransaction;
+  };
+}
+
 export type RescheduleRequest = {
   id: string;
   session_id: string;
@@ -926,6 +1115,20 @@ export async function rejectRescheduleRequest(
   return data.request;
 }
 
+export type AssignmentSubmission = {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  content: string;
+  file_name: string;
+  file_download_url?: string | null;
+  grade: string | null;
+  feedback: string;
+  submitted_at: string | null;
+};
+
 export type AssignmentItem = {
   id: string;
   class_id: string;
@@ -937,6 +1140,8 @@ export type AssignmentItem = {
   attachment_url: string;
   created_at?: string;
   updated_at?: string;
+  my_submission?: AssignmentSubmission | null;
+  past_due?: boolean;
 };
 
 /** List assignments for classes the user can access */
@@ -993,12 +1198,75 @@ export async function deleteAssignment(assignmentId: string): Promise<void> {
   }
 }
 
+/** Student submits or resubmits an assignment */
+export async function submitAssignment(
+  assignmentId: string,
+  input: { content?: string; file?: File | null },
+): Promise<AssignmentSubmission> {
+  const form = new FormData();
+  if (input.content?.trim()) {
+    form.append("content", input.content.trim());
+  }
+  if (input.file) {
+    form.append("file", input.file);
+  }
+
+  const response = await apiFetch(`/assignments/${assignmentId}/submit`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to submit assignment"));
+  }
+
+  const data = (await response.json()) as { submission: AssignmentSubmission };
+  return data.submission;
+}
+
+/** Teacher lists submissions for an assignment */
+export async function listAssignmentSubmissions(
+  assignmentId: string,
+): Promise<AssignmentSubmission[]> {
+  const response = await apiFetch(`/assignments/${assignmentId}/submissions`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load submissions"));
+  }
+
+  const data = (await response.json()) as { submissions: AssignmentSubmission[] };
+  return data.submissions ?? [];
+}
+
+/** Teacher grades a submission */
+export async function gradeSubmission(
+  submissionId: string,
+  input: { grade: string; feedback?: string },
+): Promise<AssignmentSubmission> {
+  const response = await apiFetch(`/submissions/${submissionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to grade submission"));
+  }
+
+  const data = (await response.json()) as { submission: AssignmentSubmission };
+  return data.submission;
+}
+
 export type NotificationType =
   | "schedule_changed"
   | "reschedule_requested"
   | "reschedule_resolved"
   | "session_scheduled"
-  | "assignment_published";
+  | "assignment_published"
+  | "assignment_submitted"
+  | "assignment_graded";
 
 export type NotificationItem = {
   id: string;

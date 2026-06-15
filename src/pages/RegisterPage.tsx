@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginUser, registerStudent, registerTeacher } from "@/lib/api";
+import { STUDENT_GRADE_OPTIONS } from "@/lib/student-grades";
 import { useAuth } from "@/context/AuthContext";
 import { getPostLoginPath } from "@/lib/roles";
 import { AuthShell } from "@/components/AuthShell";
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"student" | "teacher" | "">("");
+  const [grade, setGrade] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -27,7 +29,7 @@ export default function RegisterPage() {
 
     try {
       if (role === "student") {
-        await registerStudent(email, password, name);
+        await registerStudent(email, password, name, grade || undefined);
       } else if (role === "teacher") {
         await registerTeacher(email, password, name);
       } else {
@@ -147,6 +149,29 @@ export default function RegisterPage() {
               <option value="teacher">Teacher</option>
             </select>
           </div>
+
+          {role === "student" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="register-grade" className="text-xs">
+                Grade (optional)
+              </Label>
+              <select
+                id="register-grade"
+                name="grade"
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                disabled={isLoading}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select grade</option>
+                {STUDENT_GRADE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         {errorMessage ? (

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
 import { getCurrentUser, updateCurrentUser } from "@/lib/api";
+import { STUDENT_GRADE_OPTIONS } from "@/lib/student-grades";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState(user?.name ?? "");
   const [lang, setLang] = useState("en");
+  const [grade, setGrade] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
 
   const profileQuery = useQuery({
@@ -42,7 +44,14 @@ export default function SettingsPage() {
     }
   }, [profileQuery.data?.email_notifications]);
 
+  useEffect(() => {
+    if (profileQuery.data?.grade !== undefined) {
+      setGrade(profileQuery.data.grade ?? "");
+    }
+  }, [profileQuery.data?.grade]);
+
   const email = user?.email ?? profileQuery.data?.email ?? "";
+  const isStudent = user?.role === "student";
   const roleLabel =
     user?.role === "teacher"
       ? "Teacher"
@@ -51,7 +60,11 @@ export default function SettingsPage() {
         : user?.role ?? "";
 
   const saveMutation = useMutation({
-    mutationFn: () => updateCurrentUser({ display_name: name.trim() }),
+    mutationFn: () =>
+      updateCurrentUser({
+        display_name: name.trim(),
+        ...(isStudent ? { grade: grade || null } : {}),
+      }),
     onSuccess: (profile) => {
       updateUser({ name: profile.display_name });
       queryClient.invalidateQueries({ queryKey: ["current-user"] });
@@ -136,6 +149,30 @@ export default function SettingsPage() {
                 <Label className="text-xs">Role</Label>
                 <Input value={roleLabel} disabled className="h-9 bg-muted capitalize" />
               </div>
+              {isStudent ? (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Grade</Label>
+                  <Select
+                    value={grade || "__unset__"}
+                    onValueChange={(value) =>
+                      setGrade(value === "__unset__" ? "" : value)
+                    }
+                    disabled={saveMutation.isPending}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Not set</SelectItem>
+                      {STUDENT_GRADE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             <Button size="sm" type="submit" disabled={saveMutation.isPending}>

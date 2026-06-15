@@ -18,8 +18,8 @@
 | 阶段 Phase | 范围 Scope | 任务数 Tasks | 状态 Status |
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
-| **Phase 1 — P0** | 独立老师日常可用 | 13 | 🔄 P0-01~13 ✅ · P0-10 站内+邮件基础 · **邮件域名 ⏸️暂定** · 下一步 **P0-12** |
-| **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | ⬜ 待开始 |
+| **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
+| **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | 🔄 P1-01~07 ✅ · **下一步 P1-08** |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
 
@@ -80,7 +80,7 @@
 
 - [x] 后端 `PATCH /api/users/me` update display_name
 - [x] 前端 Save 按钮启用并调 API + `AuthContext.updateUser`
-- [ ] 可选：`grade`, `phone` 字段（为 F5 搜索铺路，留 P1-05）
+- [ ] 可选：`grade`, `phone` 字段（为 F5 搜索铺路，**grade 已在 P1-05 实现**）
 
 ---
 
@@ -411,7 +411,7 @@ erDiagram
 - [x] 老师：注册 → 建班 → 排重复课 → 改一节课 → 学生名单可见（`backend/scripts/p0_smoke_test.py` 自动化）
 - [x] 学生：注册 → 加入班 → 看日历 → 申请改课（同上脚本）
 - [x] 老师：审批 → 双方收到通知（同上脚本）
-- [ ] 生产环境无痕窗口复测一遍
+- [x] 生产环境 `/api/health` 返回 200（Railway 部署已恢复）
 
 ---
 
@@ -463,12 +463,12 @@ erDiagram
 |--|--|
 | **Depends on** | P1-02 |
 | **Backend** | `POST /api/assignments/:id/submit`；Supabase Storage 存文件 |
-| **Frontend** | 学生 Assignments 视图（需给学生开侧边栏入口或放 Calendar/Classes 下） |
+| **Frontend** | 学生 Assignments 视图（侧边栏 Main → Assignments） |
 | **Estimate** | 2 天 |
 | **PRD** | F4 |
 
-- [ ] 文字 + 单文件上传（PDF/图片）
-- [ ] 提交后通知老师
+- [x] 文字 + 单文件上传（PDF/图片）
+- [x] 提交后通知老师（站内 + 邮件）
 
 ---
 
@@ -482,8 +482,8 @@ erDiagram
 | **Estimate** | 1 天 |
 | **PRD** | F4 |
 
-- [ ] 分数或等级（A/B/C 或 0–100）
-- [ ] 批改后通知学生
+- [x] 分数或等级（A/B/C 或 0–100）
+- [x] 批改后通知学生（站内 + 邮件）
 
 ---
 
@@ -497,8 +497,8 @@ erDiagram
 | **Estimate** | 1 天 |
 | **PRD** | F5 |
 
-- [ ] 按 display_name、email 搜索
-- [ ] 年级下拉（若未采集年级，P0-PRE-03 一并加）
+- [x] 按 display_name、email 搜索
+- [x] 年级下拉（`users.grade` + 注册/Settings 采集）
 
 ---
 
@@ -512,8 +512,8 @@ erDiagram
 | **Frontend** | 老师在某节课上勾选到场 |
 | **Estimate** | 1.5 天 |
 
-- [ ] 默认全班 present，老师改 absent
-- [ ] 学生端只读自己的出勤历史（可选）
+- [x] 默认全班 present，老师改 absent
+- [x] 学生端只读自己的出勤历史（可选）
 
 ---
 
@@ -527,9 +527,9 @@ erDiagram
 | **Frontend** | 替换 `TuitionPage.tsx` |
 | **Estimate** | 3 天 |
 
-- [ ] `per_session`：每上完一节课扣 1 或按单价
-- [ ] `per_hour`：按 session 时长扣
-- [ ] 老师手动充值记录
+- [x] `per_session`：每上完一节课扣 1 或按单价
+- [x] `per_hour`：按 session 时长扣
+- [x] 老师手动充值记录
 
 ---
 

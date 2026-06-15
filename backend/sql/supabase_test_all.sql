@@ -116,11 +116,17 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
     'reschedule_requested',
     'reschedule_resolved',
     'session_scheduled',
-    'assignment_published'
+    'assignment_published',
+    'assignment_submitted',
+    'assignment_graded'
   ));
 
 -- 5) 邮件开关 + 发送记录
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN DEFAULT true;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS grade TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_users_grade ON users(grade) WHERE grade IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS email_log (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -166,7 +172,72 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
 CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON assignment_submissions(assignment_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions(student_id);
 
--- 7) 验证（应看到 8 行表名）
+-- 8) Storage bucket for assignment uploads (P1-03)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'submissions',
+  'submissions',
+  false,
+  20971520,
+  ARRAY['application/pdf', 'image/jpeg', 'image/png']::text[]
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- 9) 出勤记录（P1-06）
+CREATE TABLE IF NOT EXISTS attendance (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id  UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  student_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL DEFAULT 'present'
+                CHECK (status IN ('present', 'absent', 'late')),
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (session_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_session ON attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
+
+-- 10) 学费 / 课时包（P1-07）
+CREATE TABLE IF NOT EXISTS student_balances (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  class_id    UUID NOT NULL REFERENCES class_groups(id) ON DELETE CASCADE,
+  balance     NUMERIC(10,2) NOT NULL DEFAULT 0,
+  unit        TEXT NOT NULL CHECK (unit IN ('sessions', 'hours')),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (student_id, class_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_balances_student ON student_balances(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_balances_class ON student_balances(class_id);
+
+CREATE TABLE IF NOT EXISTS balance_transactions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  class_id        UUID NOT NULL REFERENCES class_groups(id) ON DELETE CASCADE,
+  session_id      UUID REFERENCES sessions(id) ON DELETE SET NULL,
+  type            TEXT NOT NULL CHECK (type IN ('topup', 'deduction')),
+  amount          NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+  unit            TEXT NOT NULL CHECK (unit IN ('sessions', 'hours')),
+  balance_after   NUMERIC(10,2) NOT NULL,
+  comment         TEXT,
+  recorded_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_balance_tx_student ON balance_transactions(student_id);
+CREATE INDEX IF NOT EXISTS idx_balance_tx_class ON balance_transactions(class_id);
+CREATE INDEX IF NOT EXISTS idx_balance_tx_session ON balance_transactions(session_id);
+CREATE INDEX IF NOT EXISTS idx_balance_tx_created ON balance_transactions(created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_balance_tx_session_deduction
+  ON balance_transactions(session_id, student_id)
+  WHERE type = 'deduction' AND session_id IS NOT NULL;
+
+-- 验证（应看到 12 行表名）
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
@@ -179,6 +250,9 @@ WHERE table_schema = 'public'
     'notifications',
     'email_log',
     'assignments',
-    'assignment_submissions'
+    'assignment_submissions',
+    'attendance',
+    'student_balances',
+    'balance_transactions'
   )
 ORDER BY table_name;

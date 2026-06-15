@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 
 function notificationIcon(type: NotificationType) {
-  if (type === "assignment_published") {
+  if (type === "assignment_published" || type === "assignment_submitted" || type === "assignment_graded") {
     return FileText;
   }
   if (type === "session_scheduled") {
@@ -40,7 +40,7 @@ function notificationIcon(type: NotificationType) {
 }
 
 function notificationAccent(type: NotificationType): string {
-  if (type === "assignment_published") {
+  if (type === "assignment_published" || type === "assignment_submitted" || type === "assignment_graded") {
     return "border-l-violet-500 bg-violet-500/5";
   }
   if (type === "session_scheduled") {
