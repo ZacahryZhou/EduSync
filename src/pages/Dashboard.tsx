@@ -32,6 +32,7 @@ import {
   listClasses,
   listRescheduleRequests,
   listSessions,
+  listTeacherStudents,
   rejectRescheduleRequest,
   type RescheduleRequest,
   type SessionItem,
@@ -95,6 +96,13 @@ export default function Dashboard() {
     staleTime: 30_000,
   });
 
+  const teacherStudentsQuery = useQuery({
+    queryKey: ["teacher-students", user?.id] as const,
+    queryFn: listTeacherStudents,
+    enabled: Boolean(user?.id && isTeacher),
+    staleTime: 60_000,
+  });
+
   const approveMutation = useMutation({
     mutationFn: (requestId: string) => approveRescheduleRequest(requestId),
     onSuccess: () => {
@@ -129,10 +137,7 @@ export default function Dashboard() {
   const classes = classesQuery.data ?? [];
   const sessions = sessionsQuery.data ?? [];
 
-  const studentCount = useMemo(
-    () => classes.reduce((sum, c) => sum + (c.student_count ?? 0), 0),
-    [classes],
-  );
+  const studentCount = teacherStudentsQuery.data?.length ?? 0;
 
   const todaysSessions = useMemo(
     () => sessions.filter((s) => s.date === todayKey).sort(compareSessions),

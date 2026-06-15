@@ -98,10 +98,15 @@ export default function StudentsPage() {
   });
 
   useEffect(() => {
-    if (noteQuery.data) {
-      setNoteDraft(noteQuery.data.content ?? "");
+    setNoteDraft("");
+  }, [selectedStudent?.id]);
+
+  useEffect(() => {
+    if (!selectedStudent?.id || noteQuery.isFetching) {
+      return;
     }
-  }, [noteQuery.data, selectedStudent?.id]);
+    setNoteDraft(noteQuery.data?.content ?? "");
+  }, [selectedStudent?.id, noteQuery.data, noteQuery.isFetching]);
 
   const saveNoteMutation = useMutation({
     mutationFn: ({ studentId, content }: { studentId: string; content: string }) =>
@@ -261,7 +266,11 @@ export default function StudentsPage() {
                   onChange={(e) => setNoteDraft(e.target.value)}
                   placeholder="Level, parent contact, learning goals…"
                   rows={5}
-                  disabled={noteQuery.isLoading || saveNoteMutation.isPending}
+                  disabled={
+                    noteQuery.isLoading ||
+                    noteQuery.isFetching ||
+                    saveNoteMutation.isPending
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
                   Only you can see this note. Students cannot view it.
@@ -276,6 +285,7 @@ export default function StudentsPage() {
                   size="sm"
                   disabled={
                     noteQuery.isLoading ||
+                    noteQuery.isFetching ||
                     saveNoteMutation.isPending ||
                     !selectedStudent
                   }
