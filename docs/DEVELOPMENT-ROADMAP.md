@@ -18,7 +18,7 @@
 | 阶段 Phase | 范围 Scope | 任务数 Tasks | 状态 Status |
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
-| **Phase 1 — P0** | 独立老师日常可用 | 12 | 🔄 P0-01~11 ✅ · 下一步 P0-12 冒烟测试 |
+| **Phase 1 — P0** | 独立老师日常可用 | 13 | 🔄 P0-01~13 ✅ · P0-10 站内+邮件基础 · **邮件域名 ⏸️暂定** · 下一步 **P0-12** |
 | **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | ⬜ 待开始 |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
@@ -336,9 +336,25 @@ erDiagram
 | **Estimate** | 1–2 天 |
 | **Note** | 可放在 P0 最后或划入 P1；无邮件也能用站内通知 |
 
-- [ ] 选用邮件服务商
-- [ ] `users.email` + opt-in 字段
-- [ ] 定时任务设计
+- [x] 选用邮件服务商（Resend HTTP API）
+- [x] `users.email_notifications` 开关 + Settings 页面
+- [x] 定时任务 `POST /api/cron/session-reminders`（明日课程提醒）
+- [x] **修改**排课 / 取消 / 改课申请与审批 → 站内 + 邮件 + `email_log` 防重复
+- [ ] **新建**排课即时通知 → 见 **P0-13**（已完成，见 P0-13）
+- [ ] Resend **域名验证**（上线给多用户发信前必做）— **⏸️ 暂定，无域名期间仅靠站内通知**
+
+**当前邮件能力 / Email matrix（已实现 vs 计划）**
+
+| 事件 | 站内 | 邮件 |
+|------|------|------|
+| **新建**排课（Add Session） | ✅ | ✅（需 Resend；无域名时仅站内） |
+| 修改时间/地点/标题 | ✅ | ✅ |
+| 仅改课次备注 | ❌ | ❌ |
+| 取消单节课 | ✅ | ✅ |
+| 取消整组重复课 | ✅ | ❌（可并入 P0-13） |
+| 改课申请 / 审批 | ✅ | ✅ |
+| 课前 24h 提醒（cron） | ❌ | ✅ |
+| 布置作业 | — | ✅（P1-02 `assignment_published`） |
 
 ---
 
@@ -358,7 +374,30 @@ erDiagram
 - [x] PATCH session notes
 - [x] 学生日历展示 notes
 
-**下一步 / Next after this：** → **P0-12 冒烟测试清单**
+**下一步 / Next after this：** → **P0-13 新建排课通知** 或 **P0-12 冒烟测试**
+
+---
+
+### P0-13 · 新建排课即时通知（站内 + 邮件）
+
+| | |
+|--|--|
+| **中文** | 老师**第一次排课**（含重复课批量创建）后，班级内学生立即收到通知 |
+| **English** | Notify students when a new session is scheduled |
+| **Depends on** | P0-10, P0-PRE-04 |
+| **Backend** | `POST /api/sessions` 成功后 `notify_session_created`；重复课可发**一条摘要**（含节数、首课日期）或每节一条（需产品定） |
+| **Frontend** | 无必改（可选：创建成功 toast 提示「已通知 N 名学生」） |
+| **Acceptance** | 学生开通知且 `email_notifications` 时收到邮件；站内铃铛有「新课程」；尊重 Settings 开关 |
+| **Estimate** | 0.5 天 |
+| **PRD** | F3 |
+
+- [x] 通知类型 `session_scheduled`（`notifications` 表 + 前端文案）
+- [x] 单次排课：每 enrolled 学生 1 条站内（+ 邮件若 Resend 已配置）
+- [x] 每周重复：一条摘要通知（含节数、起止日期）
+- [x] `email_log` 去重（`reference_id` = session_id 或 recurrence_group_id）
+- [ ] 绑定域名后可对任意学生邮箱送达（见 P0-10 ⏸️）
+
+**下一步 / Next after this：** → **P0-12 冒烟测试**
 
 ---
 
@@ -369,9 +408,9 @@ erDiagram
 | **中文** | 老师/学生各走通一条完整业务链 |
 | **English** | P0 smoke test checklist |
 
-- [ ] 老师：注册 → 建班 → 排重复课 → 改一节课 → 学生名单可见
-- [ ] 学生：注册 → 加入班 → 看日历 → 申请改课
-- [ ] 老师：审批 → 双方收到通知
+- [x] 老师：注册 → 建班 → 排重复课 → 改一节课 → 学生名单可见（`backend/scripts/p0_smoke_test.py` 自动化）
+- [x] 学生：注册 → 加入班 → 看日历 → 申请改课（同上脚本）
+- [x] 老师：审批 → 双方收到通知（同上脚本）
 - [ ] 生产环境无痕窗口复测一遍
 
 ---
@@ -394,8 +433,8 @@ erDiagram
 | **Estimate** | 0.5 天 |
 | **PRD** | F4 |
 
-- [ ] SQL migration
-- [ ] 字段：assignment_id, student_id, content, file_url, grade, feedback, submitted_at
+- [x] SQL migration (`backend/sql/create_assignments.sql`)
+- [x] 字段：assignment_id, student_id, content, file_url, grade, feedback, submitted_at
 
 ---
 
@@ -403,15 +442,18 @@ erDiagram
 
 | | |
 |--|--|
-| **Depends on** | P1-01 |
+| **Depends on** | P1-01, P0-10 |
 | **Backend** | `POST/GET/PATCH /api/assignments` |
 | **Frontend** | `AssignmentsPage` 创建表单 |
 | **Estimate** | 1.5 天 |
 | **PRD** | F4 |
 
-- [ ] 按班级布置
-- [ ] 截止日期
-- [ ] 发布时通知（接 P0-07）
+- [x] 按班级布置
+- [x] 截止日期
+- [x] **发布时通知**：站内（P0-07）+ **邮件**（P0-10）— 类型 `assignment_published`
+- [x] 邮件正文含：作业标题、班级、截止日期、跳转 Assignments 链接
+- [x] 仅通知该班已加入学生；尊重 `email_notifications`
+- [x] `DELETE /api/assignments/:id`（老师删除）
 
 ---
 
@@ -645,7 +687,7 @@ flowchart TD
     P0A --> P0B[P0-04~06 改课申请]
     P0B --> P0C[P0-07~08 通知]
     PRE --> P0D[P0-09 重复课 + P0-11 课次备注]
-    P0C --> P0E[P0-12 冒烟测试]
+    P0C --> P0E[P0-13 新建排课通知 + P0-12 冒烟]
     P0D --> P0E
     P0E --> P1A[P1-01~04 作业]
     P0E --> P1B[P1-05~07 搜索/出勤/学费]
@@ -684,6 +726,7 @@ flowchart TD
 | 日历 | `backend/app/blueprints/sessions.py`, `CalendarPage.tsx`, `Dashboard.tsx` |
 | 用户 | `backend/app/blueprints/users.py`, `SettingsPage.tsx` |
 | SQL | `backend/sql/*.sql` |
+| 邮件 / Resend | `backend/app/services/email.py`, `backend/.env`, [Resend Domains](https://resend.com/domains) |
 | 部署 | `DEPLOY.md` |
 
 ---

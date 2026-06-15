@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import request, jsonify, g
-from app.extensions import supabase
+from app.extensions import supabase, supabase_auth
 
 
 def _load_user_record():
@@ -34,7 +34,7 @@ def require_auth(f):
         #按照空格切开拿取第二个字段也就是token字符串#
 
         try:
-            user = supabase.auth.get_user(token)
+            user = supabase_auth.auth.get_user(token)
             #这个函数会验证token的有效性，如果token无效或者过期会抛出异常 去supabase里面拿取token对应的信息#
             if not user or not user.user:
                 return jsonify({'error': 'Invalid token'}), 401

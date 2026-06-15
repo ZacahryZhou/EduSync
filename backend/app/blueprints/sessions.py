@@ -9,6 +9,7 @@ from app.middleware.auth import require_auth, require_role
 from app.services.notifications import (
     notify_recurring_series_cancelled,
     notify_session_cancelled,
+    notify_session_created,
     notify_session_schedule_changed,
 )
 
@@ -230,6 +231,7 @@ def create_session():
     start_time = (data.get('start_time') or '').strip()
     end_time = (data.get('end_time') or '').strip()
     location = (data.get('location') or '').strip()
+    notes = (data.get('notes') or '').strip()
     session_type = (data.get('type') or 'one-time').strip().lower()
     recurrence_rule = (data.get('recurrence_rule') or '').strip().lower()
     recurrence_end_date = (data.get('recurrence_end_date') or '').strip()
@@ -283,6 +285,7 @@ def create_session():
                 'start_time': normalized_start,
                 'end_time': normalized_end,
                 'location': location or None,
+                'notes': notes or None,
                 'type': 'recurring',
                 'recurrence_rule': 'weekly',
                 'recurrence_group_id': group_id,
@@ -303,10 +306,18 @@ def create_session():
             _serialize_session(row, classes_by_id)
             for row in result.data
         ]
+        first_row = result.data[0]
+        notified = notify_session_created(
+            first_row,
+            classes_by_id,
+            session_count=len(serialized),
+            last_date=result.data[-1].get('date'),
+        )
         return jsonify({
             'session': serialized[0],
             'sessions': serialized,
             'count': len(serialized),
+            'notified_students': notified,
         }), 201
 
     if session_type not in ('one-time', 'recurring'):
@@ -319,6 +330,7 @@ def create_session():
         'start_time': normalized_start,
         'end_time': normalized_end,
         'location': location or None,
+        'notes': notes or None,
         'type': 'one-time',
     }
 
@@ -331,9 +343,11 @@ def create_session():
         return jsonify({'error': 'Failed to create session'}), 500
 
     classes_by_id = _class_map([class_id])
+    notified = notify_session_created(result.data[0], classes_by_id)
     return jsonify({
         'session': _serialize_session(result.data[0], classes_by_id),
         'count': 1,
+        'notified_students': notified,
     }), 201
 
 

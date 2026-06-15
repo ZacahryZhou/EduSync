@@ -3,7 +3,9 @@ import { format, parseISO } from "date-fns";
 import {
   Bell,
   CalendarClock,
+  CalendarPlus,
   CheckCheck,
+  FileText,
   MessageSquareWarning,
   RefreshCw,
 } from "lucide-react";
@@ -22,6 +24,12 @@ import {
 import { cn } from "@/lib/utils";
 
 function notificationIcon(type: NotificationType) {
+  if (type === "assignment_published") {
+    return FileText;
+  }
+  if (type === "session_scheduled") {
+    return CalendarPlus;
+  }
   if (type === "reschedule_requested") {
     return MessageSquareWarning;
   }
@@ -32,6 +40,12 @@ function notificationIcon(type: NotificationType) {
 }
 
 function notificationAccent(type: NotificationType): string {
+  if (type === "assignment_published") {
+    return "border-l-violet-500 bg-violet-500/5";
+  }
+  if (type === "session_scheduled") {
+    return "border-l-sky-500 bg-sky-500/5";
+  }
   if (type === "reschedule_requested") {
     return "border-l-amber-500 bg-amber-500/5";
   }

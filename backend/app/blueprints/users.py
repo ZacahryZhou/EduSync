@@ -3,11 +3,24 @@ from app.middleware.auth import require_auth
 from app.extensions import supabase
 
 users_bp = Blueprint('users', __name__)
+
+
+def _serialize_user(user):
+    return {
+        'id': user['id'],
+        'email': user['email'],
+        'role': user['role'],
+        'display_name': user['display_name'],
+        'email_notifications': user.get('email_notifications', True),
+        'created_at': user.get('created_at'),
+    }
+
+
 @users_bp.route('/api/users', methods=['GET'])
-@require_auth #这个装饰器的作用是让这个路由在访问的时候先调用require_auth这个函数来验证token的有效性，如果token无效或者过期会返回401错误，如果token有效则继续执行get_user函数#
+@require_auth
 def get_user():
-    user_id = g.current_user.id #获取用户ID#
-    
+    user_id = g.current_user.id
+
     try:
         user_data = supabase.table('users').select('*').eq('id', user_id).execute()
 
@@ -15,14 +28,8 @@ def get_user():
             return jsonify({'error': 'User not found'}), 404
         user = user_data.data[0]
 
-        return jsonify({
-            'id': user['id'],
-            'email': user['email'],
-            'role': user['role'],
-            'display_name': user['display_name'],
-            'created_at' : user['created_at']
-            }), 200
-    except Exception as e:
+        return jsonify(_serialize_user(user)), 200
+    except Exception:
         return jsonify({'error': 'something went wrong'}), 500
 
 
@@ -34,30 +41,26 @@ def update_user():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
 
-    display_name = data.get('display_name')
-    if display_name is None:
-        return jsonify({'error': 'display_name is required'}), 400
+    updates = {}
 
-    display_name = str(display_name).strip()
-    if not display_name:
-        return jsonify({'error': 'display_name cannot be empty'}), 400
+    if 'display_name' in data:
+        display_name = str(data.get('display_name') or '').strip()
+        if not display_name:
+            return jsonify({'error': 'display_name cannot be empty'}), 400
+        updates['display_name'] = display_name
+
+    if 'email_notifications' in data:
+        updates['email_notifications'] = bool(data.get('email_notifications'))
+
+    if not updates:
+        return jsonify({'error': 'No valid fields to update'}), 400
 
     try:
-        result = supabase.table('users').update({
-            'display_name': display_name,
-        }).eq('id', user_id).execute()
+        result = supabase.table('users').update(updates).eq('id', user_id).execute()
     except Exception:
         return jsonify({'error': 'Failed to update profile'}), 500
 
     if not result.data:
         return jsonify({'error': 'User not found'}), 404
 
-    user = result.data[0]
-    return jsonify({
-        'id': user['id'],
-        'email': user['email'],
-        'role': user['role'],
-        'display_name': user['display_name'],
-        'created_at': user.get('created_at'),
-    }), 200
-
+    return jsonify(_serialize_user(result.data[0])), 200

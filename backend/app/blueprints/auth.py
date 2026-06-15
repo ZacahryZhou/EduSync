@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.extensions import supabase
+from app.extensions import supabase, supabase_auth
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -16,7 +16,7 @@ def _register_user(role):
     if not email or not password or not display_name:
         return jsonify({'error': 'Please provide all information'}), 400
     try:
-        auth_response = supabase.auth.sign_up({
+        auth_response = supabase_auth.auth.sign_up({
             'email': email,
             'password': password
         })
@@ -41,7 +41,7 @@ def _register_user(role):
                 'role': role
             }).execute()
         except Exception as ab_error:
-            supabase.auth.admin.delete_user(user_id)
+            supabase_auth.auth.admin.delete_user(user_id)
             return jsonify({'error': 'Failed to save your information, try again'}), 500
         
         return jsonify({
@@ -73,7 +73,7 @@ def login():
     if not email or not password:
         return jsonify({'error': 'Please provide both email and password'}), 400
     try:
-        auth_response = supabase.auth.sign_in_with_password({
+        auth_response = supabase_auth.auth.sign_in_with_password({
             'email': email,
             'password': password
         })
@@ -143,7 +143,7 @@ def oauth_complete():
         return jsonify({'error': 'No token provided'}), 400
 
     try:
-        auth_response = supabase.auth.get_user(token)
+        auth_response = supabase_auth.auth.get_user(token)
         if not auth_response or not auth_response.user:
             return jsonify({'error': 'Invalid token'}), 401
 
@@ -187,7 +187,7 @@ def oauth_register():
         return jsonify({'error': 'Invalid role'}), 400
 
     try:
-        auth_response = supabase.auth.get_user(token)
+        auth_response = supabase_auth.auth.get_user(token)
         if not auth_response or not auth_response.user:
             return jsonify({'error': 'Invalid token'}), 401
 

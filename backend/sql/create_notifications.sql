@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS notifications (
                 CHECK (type IN (
                   'schedule_changed',
                   'reschedule_requested',
-                  'reschedule_resolved'
+                  'reschedule_resolved',
+                  'session_scheduled',
+                  'assignment_published'
                 )),
   title       TEXT NOT NULL,
   body        TEXT NOT NULL DEFAULT '',

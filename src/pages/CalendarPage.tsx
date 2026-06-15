@@ -138,6 +138,7 @@ export default function CalendarPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [location, setLocation] = useState("");
+  const [createNotes, setCreateNotes] = useState("");
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
 
@@ -199,6 +200,7 @@ export default function CalendarPage() {
       setCreateOpen(false);
       setTitle("");
       setLocation("");
+      setCreateNotes("");
       setRepeatWeekly(false);
       setRecurrenceEndDate("");
       const created = result.session;
@@ -210,6 +212,11 @@ export default function CalendarPage() {
       } else {
         toast.success(
           `Session scheduled for ${format(createdDate, "MMM d")} at ${formatTimeLabel(created.start_time)}`,
+        );
+      }
+      if ((result.notified_students ?? 0) > 0) {
+        toast.message(
+          `${result.notified_students} student${result.notified_students === 1 ? "" : "s"} notified`,
         );
       }
     },
@@ -406,6 +413,7 @@ export default function CalendarPage() {
       start_time: startTime,
       end_time: endTime,
       location: location.trim() || undefined,
+      notes: createNotes.trim() || undefined,
       ...(repeatWeekly
         ? {
             type: "recurring" as const,
@@ -593,6 +601,17 @@ export default function CalendarPage() {
                       disabled={createMutation.isPending}
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="session-notes">Session notes (optional)</Label>
+                    <Textarea
+                      id="session-notes"
+                      value={createNotes}
+                      onChange={(e) => setCreateNotes(e.target.value)}
+                      placeholder="Homework, feedback, or reminders for students"
+                      rows={3}
+                      disabled={createMutation.isPending}
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={createMutation.isPending}>
@@ -704,6 +723,19 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
+                                aria-label={`Session notes for ${session.title}`}
+                                title="Session notes"
+                                onClick={() => openEditDialog(session)}
+                              >
+                                <MessageSquare
+                                  className={`h-3.5 w-3.5 ${session.notes ? "text-primary" : ""}`}
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
                                 aria-label={`Edit ${session.title}`}
                                 onClick={() => openEditDialog(session)}
                               >
@@ -754,6 +786,14 @@ export default function CalendarPage() {
                             <span className="font-medium text-foreground/80">Notes: </span>
                             {session.notes}
                           </p>
+                        ) : isTeacher ? (
+                          <button
+                            type="button"
+                            className="mt-2 text-xs text-primary hover:underline"
+                            onClick={() => openEditDialog(session)}
+                          >
+                            + Add session notes for students
+                          </button>
                         ) : null}
                       </div>
                     ))}
@@ -868,6 +908,10 @@ export default function CalendarPage() {
             <form onSubmit={handleEditSubmit}>
               <DialogHeader>
                 <DialogTitle>Edit session</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Scroll down to <span className="font-medium text-foreground">Session notes</span> to
+                  add homework or feedback for students.
+                </p>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 {editingSession ? (

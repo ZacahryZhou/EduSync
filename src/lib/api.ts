@@ -409,6 +409,7 @@ export type CurrentUserResponse = {
   email: string;
   role: string;
   display_name: string;
+  email_notifications?: boolean;
   created_at?: string;
 };
 
@@ -457,7 +458,8 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
 
 /** Update the logged-in user's profile / 更新当前用户资料 */
 export async function updateCurrentUser(input: {
-  display_name: string;
+  display_name?: string;
+  email_notifications?: boolean;
 }): Promise<CurrentUserResponse> {
   const response = await apiFetch("/users/me", {
     method: "PATCH",
@@ -747,6 +749,7 @@ export type CreateSessionResult = {
   session: SessionItem;
   count: number;
   sessions?: SessionItem[];
+  notified_students?: number;
 };
 
 /** Teacher creates a session (one-time or weekly recurring) */
@@ -757,6 +760,7 @@ export async function createSession(input: {
   start_time: string;
   end_time: string;
   location?: string;
+  notes?: string;
   type?: "one-time" | "recurring";
   recurrence_rule?: "weekly";
   recurrence_end_date?: string;
@@ -922,10 +926,79 @@ export async function rejectRescheduleRequest(
   return data.request;
 }
 
+export type AssignmentItem = {
+  id: string;
+  class_id: string;
+  class_name: string;
+  color: string;
+  title: string;
+  description: string;
+  due_date: string | null;
+  attachment_url: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+/** List assignments for classes the user can access */
+export async function listAssignments(classId?: string): Promise<AssignmentItem[]> {
+  const params = new URLSearchParams();
+  if (classId) {
+    params.set("class_id", classId);
+  }
+  const query = params.toString();
+  const response = await apiFetch(`/assignments${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load assignments"));
+  }
+
+  const data = (await response.json()) as { assignments: AssignmentItem[] };
+  return data.assignments ?? [];
+}
+
+/** Teacher creates an assignment for a class */
+export async function createAssignment(input: {
+  class_id: string;
+  title: string;
+  description?: string;
+  due_date?: string | null;
+  attachment_url?: string;
+}): Promise<{ assignment: AssignmentItem; students_notified: number }> {
+  const response = await apiFetch("/assignments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to create assignment"));
+  }
+
+  return (await response.json()) as {
+    assignment: AssignmentItem;
+    students_notified: number;
+  };
+}
+
+/** Teacher deletes an assignment */
+export async function deleteAssignment(assignmentId: string): Promise<void> {
+  const response = await apiFetch(`/assignments/${assignmentId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to delete assignment"));
+  }
+}
+
 export type NotificationType =
   | "schedule_changed"
   | "reschedule_requested"
-  | "reschedule_resolved";
+  | "reschedule_resolved"
+  | "session_scheduled"
+  | "assignment_published";
 
 export type NotificationItem = {
   id: string;

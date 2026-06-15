@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -13,13 +14,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
-import { updateCurrentUser } from "@/lib/api";
+import { getCurrentUser, updateCurrentUser } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuth();
+  const queryClient = useQueryClient();
   const [name, setName] = useState(user?.name ?? "");
   const [lang, setLang] = useState("en");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+
+  const profileQuery = useQuery({
+    queryKey: ["current-user"],
+    queryFn: getCurrentUser,
+    enabled: Boolean(user?.id),
+  });
 
   useEffect(() => {
     if (user?.name) {
@@ -27,7 +36,13 @@ export default function SettingsPage() {
     }
   }, [user?.name]);
 
-  const email = user?.email ?? "";
+  useEffect(() => {
+    if (profileQuery.data?.email_notifications !== undefined) {
+      setEmailNotifications(profileQuery.data.email_notifications);
+    }
+  }, [profileQuery.data?.email_notifications]);
+
+  const email = user?.email ?? profileQuery.data?.email ?? "";
   const roleLabel =
     user?.role === "teacher"
       ? "Teacher"
@@ -39,10 +54,28 @@ export default function SettingsPage() {
     mutationFn: () => updateCurrentUser({ display_name: name.trim() }),
     onSuccess: (profile) => {
       updateUser({ name: profile.display_name });
+      queryClient.invalidateQueries({ queryKey: ["current-user"] });
       toast.success("Profile updated");
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  const emailPrefMutation = useMutation({
+    mutationFn: (enabled: boolean) => updateCurrentUser({ email_notifications: enabled }),
+    onSuccess: (profile) => {
+      setEmailNotifications(profile.email_notifications ?? true);
+      queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      toast.success(
+        profile.email_notifications
+          ? "Email notifications enabled"
+          : "Email notifications turned off",
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+      setEmailNotifications((prev) => !prev);
     },
   });
 
@@ -54,6 +87,11 @@ export default function SettingsPage() {
       return;
     }
     saveMutation.mutate();
+  }
+
+  function handleEmailNotificationsChange(checked: boolean) {
+    setEmailNotifications(checked);
+    emailPrefMutation.mutate(checked);
   }
 
   return (
@@ -104,6 +142,31 @@ export default function SettingsPage() {
               {saveMutation.isPending ? "Saving…" : "Save Changes"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base font-semibold">Notifications</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="email-notifications" className="text-sm font-medium">
+                Email notifications
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Schedule changes, reschedule updates, and class reminders (day before).
+                In-app notifications are always on.
+              </p>
+            </div>
+            <Switch
+              id="email-notifications"
+              checked={emailNotifications}
+              onCheckedChange={handleEmailNotificationsChange}
+              disabled={emailPrefMutation.isPending || profileQuery.isLoading}
+            />
+          </div>
         </CardContent>
       </Card>
 

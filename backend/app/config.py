@@ -7,4 +7,7 @@ class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+    RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "EduSync <onboarding@resend.dev>")
+    CRON_SECRET = os.getenv("CRON_SECRET")
 
