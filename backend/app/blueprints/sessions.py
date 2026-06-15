@@ -1,16 +1,20 @@
 import calendar as cal
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 
 from flask import Blueprint, g, jsonify, request
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role
 from app.services.notifications import (
+    notify_recurring_series_cancelled,
     notify_session_cancelled,
     notify_session_schedule_changed,
 )
 
 sessions_bp = Blueprint('sessions', __name__)
+
+MAX_RECURRING_SESSIONS = 52
 
 
 def _get_user_record(user_id):
@@ -57,6 +61,9 @@ def _serialize_session(row, classes_by_id):
         'end_time': row['end_time'],
         'location': row.get('location') or '',
         'type': row['type'],
+        'recurrence_rule': row.get('recurrence_rule') or '',
+        'recurrence_group_id': row.get('recurrence_group_id'),
+        'notes': row.get('notes') or '',
         'created_at': row.get('created_at'),
     }
 
@@ -146,6 +153,25 @@ def _validate_time_range(start_time, end_time):
     return None
 
 
+def _weekly_session_dates(start_date_str, end_date_str):
+    start = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    if end < start:
+        return None, 'recurrence_end_date must be on or after the first session date'
+
+    dates = []
+    current = start
+    while current <= end:
+        dates.append(current.strftime('%Y-%m-%d'))
+        if len(dates) > MAX_RECURRING_SESSIONS:
+            return None, (
+                f'Recurring series cannot exceed {MAX_RECURRING_SESSIONS} sessions'
+            )
+        current += timedelta(days=7)
+
+    return dates, None
+
+
 @sessions_bp.route('/api/sessions', methods=['GET'])
 @require_auth
 def list_sessions():
@@ -204,15 +230,14 @@ def create_session():
     start_time = (data.get('start_time') or '').strip()
     end_time = (data.get('end_time') or '').strip()
     location = (data.get('location') or '').strip()
-    session_type = data.get('type', 'one-time')
+    session_type = (data.get('type') or 'one-time').strip().lower()
+    recurrence_rule = (data.get('recurrence_rule') or '').strip().lower()
+    recurrence_end_date = (data.get('recurrence_end_date') or '').strip()
 
     if not class_id or not title or not date or not start_time or not end_time:
         return jsonify({
             'error': 'class_id, title, date, start_time, and end_time are required'
         }), 400
-
-    if session_type != 'one-time':
-        return jsonify({'error': 'Only one-time sessions are supported in MVP'}), 400
 
     try:
         datetime.strptime(date, '%Y-%m-%d')
@@ -231,12 +256,68 @@ def create_session():
     if not _teacher_owns_class(class_id, g.current_user.id):
         return jsonify({'error': 'Class not found'}), 404
 
+    normalized_start = _normalize_time_for_db(start_time)
+    normalized_end = _normalize_time_for_db(end_time)
+
+    is_recurring = session_type == 'recurring' and recurrence_rule == 'weekly'
+
+    if session_type == 'recurring' and recurrence_rule != 'weekly':
+        return jsonify({'error': 'Only weekly recurrence is supported'}), 400
+
+    if is_recurring:
+        if not recurrence_end_date:
+            return jsonify({'error': 'recurrence_end_date is required for weekly sessions'}), 400
+        if not _validate_date(recurrence_end_date):
+            return jsonify({'error': 'recurrence_end_date must be YYYY-MM-DD'}), 400
+
+        dates, dates_err = _weekly_session_dates(date, recurrence_end_date)
+        if dates_err:
+            return jsonify({'error': dates_err}), 400
+
+        group_id = str(uuid.uuid4())
+        payloads = [
+            {
+                'class_id': class_id,
+                'title': title,
+                'date': session_date,
+                'start_time': normalized_start,
+                'end_time': normalized_end,
+                'location': location or None,
+                'type': 'recurring',
+                'recurrence_rule': 'weekly',
+                'recurrence_group_id': group_id,
+            }
+            for session_date in dates
+        ]
+
+        try:
+            result = supabase.table('sessions').insert(payloads).execute()
+        except Exception:
+            return jsonify({'error': 'Failed to create recurring sessions'}), 500
+
+        if not result.data:
+            return jsonify({'error': 'Failed to create recurring sessions'}), 500
+
+        classes_by_id = _class_map([class_id])
+        serialized = [
+            _serialize_session(row, classes_by_id)
+            for row in result.data
+        ]
+        return jsonify({
+            'session': serialized[0],
+            'sessions': serialized,
+            'count': len(serialized),
+        }), 201
+
+    if session_type not in ('one-time', 'recurring'):
+        return jsonify({'error': 'type must be one-time or recurring'}), 400
+
     payload = {
         'class_id': class_id,
         'title': title,
         'date': date,
-        'start_time': _normalize_time_for_db(start_time),
-        'end_time': _normalize_time_for_db(end_time),
+        'start_time': normalized_start,
+        'end_time': normalized_end,
         'location': location or None,
         'type': 'one-time',
     }
@@ -252,6 +333,7 @@ def create_session():
     classes_by_id = _class_map([class_id])
     return jsonify({
         'session': _serialize_session(result.data[0], classes_by_id),
+        'count': 1,
     }), 201
 
 
@@ -301,6 +383,9 @@ def update_session(session_id):
         location = (data.get('location') or '').strip()
         updates['location'] = location or None
 
+    if 'notes' in data:
+        updates['notes'] = (data.get('notes') or '').strip() or None
+
     if not updates:
         return jsonify({'error': 'No valid fields to update'}), 400
 
@@ -322,7 +407,9 @@ def update_session(session_id):
 
     updated_row = result.data[0]
     classes_by_id = _class_map([row['class_id']])
-    notify_session_schedule_changed(updated_row, classes_by_id)
+    schedule_fields = {'title', 'date', 'start_time', 'end_time', 'location'}
+    if updates.keys() & schedule_fields:
+        notify_session_schedule_changed(updated_row, classes_by_id)
 
     return jsonify({
         'session': _serialize_session(updated_row, classes_by_id),
@@ -339,13 +426,29 @@ def delete_session(session_id):
     if not _teacher_owns_class(row['class_id'], g.current_user.id):
         return jsonify({'error': 'Session not found'}), 404
 
+    scope = (request.args.get('scope') or 'this').strip().lower()
     classes_by_id = _class_map([row['class_id']])
+    group_id = row.get('recurrence_group_id')
 
     try:
+        if scope == 'series' and group_id:
+            siblings = supabase.table('sessions').select('id').eq(
+                'recurrence_group_id', group_id
+            ).eq('class_id', row['class_id']).execute()
+            deleted_count = len(siblings.data or [])
+            supabase.table('sessions').delete().eq(
+                'recurrence_group_id', group_id
+            ).eq('class_id', row['class_id']).execute()
+            notify_recurring_series_cancelled(row, deleted_count, classes_by_id)
+            return jsonify({
+                'message': 'Recurring series deleted',
+                'deleted_count': deleted_count,
+            }), 200
+
         supabase.table('sessions').delete().eq('id', session_id).execute()
     except Exception:
         return jsonify({'error': 'Failed to delete session'}), 500
 
     notify_session_cancelled(row, classes_by_id)
 
-    return jsonify({'message': 'Session deleted'}), 200
+    return jsonify({'message': 'Session deleted', 'deleted_count': 1}), 200

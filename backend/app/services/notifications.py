@@ -151,3 +151,23 @@ def notify_session_cancelled(session_row, classes_by_id=None):
         body,
         related_id=session_row.get('id'),
     )
+
+
+def notify_recurring_series_cancelled(session_row, deleted_count, classes_by_id=None):
+    class_id = session_row.get('class_id')
+    class_info = (classes_by_id or {}).get(class_id, {})
+    class_name = class_info.get('name') or 'your class'
+    title_text = session_row.get('title') or 'Session'
+    count_label = deleted_count if deleted_count > 1 else 1
+    body = (
+        f'{title_text} ({class_name}) — {count_label} weekly '
+        f'session{"s" if count_label != 1 else ""} cancelled.'
+    )
+    student_ids = _class_student_ids(class_id)
+    create_notifications(
+        student_ids,
+        'schedule_changed',
+        'Recurring sessions cancelled',
+        body,
+        related_id=session_row.get('recurrence_group_id') or session_row.get('id'),
+    )

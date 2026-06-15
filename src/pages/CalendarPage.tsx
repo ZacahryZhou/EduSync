@@ -46,7 +46,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PageEmptyState } from "@/components/PageEmptyState";
 import { useAuth } from "@/context/AuthContext";
 import {
   createRescheduleRequest,
@@ -118,6 +117,12 @@ function parseDateKey(dateKey: string): Date {
   return new Date(year, month - 1, day);
 }
 
+function addWeeksToDateKey(dateKey: string, weeks: number): string {
+  const next = parseDateKey(dateKey);
+  next.setDate(next.getDate() + weeks * 7);
+  return toDateKey(next);
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
@@ -133,6 +138,8 @@ export default function CalendarPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [location, setLocation] = useState("");
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
@@ -141,6 +148,7 @@ export default function CalendarPage() {
   const [editStartTime, setEditStartTime] = useState("09:00");
   const [editEndTime, setEditEndTime] = useState("10:00");
   const [editLocation, setEditLocation] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<SessionItem | null>(null);
 
@@ -185,18 +193,25 @@ export default function CalendarPage() {
 
   const createMutation = useMutation({
     mutationFn: createSession,
-    onSuccess: (created) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setCreateOpen(false);
       setTitle("");
       setLocation("");
+      setRepeatWeekly(false);
+      setRecurrenceEndDate("");
+      const created = result.session;
       const createdDate = parseDateKey(created.date);
       setSelectedDate(createdDate);
       setCalendarMonth(new Date(createdDate.getFullYear(), createdDate.getMonth(), 1));
-      toast.success(
-        `Session scheduled for ${format(createdDate, "MMM d")} at ${formatTimeLabel(created.start_time)}`,
-      );
+      if (result.count > 1) {
+        toast.success(`${result.count} weekly sessions scheduled`);
+      } else {
+        toast.success(
+          `Session scheduled for ${format(createdDate, "MMM d")} at ${formatTimeLabel(created.start_time)}`,
+        );
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -215,6 +230,7 @@ export default function CalendarPage() {
         start_time: string;
         end_time: string;
         location?: string;
+        notes?: string;
       };
     }) => updateSession(sessionId, input),
     onSuccess: (updated) => {
@@ -235,12 +251,22 @@ export default function CalendarPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (sessionId: string) => deleteSession(sessionId),
-    onSuccess: () => {
+    mutationFn: ({
+      sessionId,
+      scope,
+    }: {
+      sessionId: string;
+      scope?: "this" | "series";
+    }) => deleteSession(sessionId, { scope }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       setDeleteTarget(null);
-      toast.success("Session deleted");
+      if (result.deleted_count > 1) {
+        toast.success(`${result.deleted_count} sessions deleted`);
+      } else {
+        toast.success("Session deleted");
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -329,6 +355,7 @@ export default function CalendarPage() {
 
   function openCreateDialog() {
     setSessionDate(selectedDateKey);
+    setRecurrenceEndDate(addWeeksToDateKey(selectedDateKey, 7));
     if (!classId && teacherClasses.length > 0) {
       setClassId(teacherClasses[0].id);
     }
@@ -342,6 +369,7 @@ export default function CalendarPage() {
     setEditStartTime(toTimeInputValue(session.start_time));
     setEditEndTime(toTimeInputValue(session.end_time));
     setEditLocation(session.location ?? "");
+    setEditNotes(session.notes ?? "");
     setEditOpen(true);
   }
 
@@ -361,6 +389,16 @@ export default function CalendarPage() {
       toast.error(timeError);
       return;
     }
+    if (repeatWeekly) {
+      if (!recurrenceEndDate) {
+        toast.error("Please choose a repeat end date");
+        return;
+      }
+      if (recurrenceEndDate < sessionDate) {
+        toast.error("Repeat end date must be on or after the first session");
+        return;
+      }
+    }
     createMutation.mutate({
       class_id: classId,
       title: trimmedTitle,
@@ -368,6 +406,13 @@ export default function CalendarPage() {
       start_time: startTime,
       end_time: endTime,
       location: location.trim() || undefined,
+      ...(repeatWeekly
+        ? {
+            type: "recurring" as const,
+            recurrence_rule: "weekly" as const,
+            recurrence_end_date: recurrenceEndDate,
+          }
+        : { type: "one-time" as const }),
     });
   }
 
@@ -394,6 +439,7 @@ export default function CalendarPage() {
         start_time: editStartTime,
         end_time: editEndTime,
         location: editLocation.trim() || undefined,
+        notes: editNotes,
       },
     });
   }
@@ -494,6 +540,45 @@ export default function CalendarPage() {
                       />
                     </div>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label>Repeat</Label>
+                    <Select
+                      value={repeatWeekly ? "weekly" : "none"}
+                      onValueChange={(value) => {
+                        const weekly = value === "weekly";
+                        setRepeatWeekly(weekly);
+                        if (weekly && !recurrenceEndDate) {
+                          setRecurrenceEndDate(addWeeksToDateKey(sessionDate, 7));
+                        }
+                      }}
+                      disabled={createMutation.isPending}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Does not repeat</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {repeatWeekly ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrence-end">Repeat until</Label>
+                      <Input
+                        id="recurrence-end"
+                        type="date"
+                        value={recurrenceEndDate}
+                        min={sessionDate}
+                        onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                        required
+                        disabled={createMutation.isPending}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Creates one session each week through this date (max 52).
+                      </p>
+                    </div>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
                     Set date and times to the minute. Joined students see this on
                     their Calendar and Dashboard.
@@ -527,9 +612,9 @@ export default function CalendarPage() {
       ) : null}
 
       <div className="space-y-5">
-        <Card className="overflow-hidden border-border/60 shadow-sm">
+        <Card className="overflow-hidden border-border/60 p-0 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-stretch">
-            <div className="shrink-0 border-b border-border/60 bg-muted/30 p-3 sm:p-4 lg:border-b-0 lg:border-r">
+            <div className="shrink-0 p-4 lg:border-r lg:border-border/50">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -549,8 +634,8 @@ export default function CalendarPage() {
               />
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="shrink-0 border-b border-border/60 bg-muted/10 px-4 py-3 sm:px-5">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/50 lg:border-t-0">
+              <div className="shrink-0 border-b border-border/50 px-4 py-3 sm:px-5">
                 <p className="text-base font-semibold tracking-tight">
                   {format(selectedDate, "EEEE, MMM d, yyyy")}
                   {sessionsOnSelectedDay.length > 0 ? (
@@ -562,7 +647,7 @@ export default function CalendarPage() {
                 </p>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 max-h-[min(22rem,calc(100dvh-14rem))] lg:max-h-none">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 sm:py-4">
                 {sessionsQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading sessions…</p>
                 ) : sessionsQuery.isError ? (
@@ -570,15 +655,15 @@ export default function CalendarPage() {
                     {(sessionsQuery.error as Error).message}
                   </p>
                 ) : sessionsOnSelectedDay.length === 0 ? (
-                  <PageEmptyState
-                    icon={CalendarIcon}
-                    title="No sessions on this day"
-                    description={
-                      isTeacher
+                  <div className="flex h-full min-h-[9rem] flex-col items-center justify-center py-8 text-center">
+                    <CalendarIcon className="mb-2 h-7 w-7 text-muted-foreground/40" />
+                    <p className="text-sm font-medium">No sessions on this day</p>
+                    <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                      {isTeacher
                         ? "Select another day or add a new session."
-                        : "No classes are scheduled for this day."
-                    }
-                  />
+                        : "No classes are scheduled for this day."}
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {sessionsOnSelectedDay.map((session) => (
@@ -594,6 +679,7 @@ export default function CalendarPage() {
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
                               {session.class_name}
+                              {session.type === "recurring" ? " · Weekly" : ""}
                             </p>
                             {isStudent ? (
                               (() => {
@@ -663,6 +749,12 @@ export default function CalendarPage() {
                             </span>
                           ) : null}
                         </div>
+                        {session.notes ? (
+                          <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground/80">Notes: </span>
+                            {session.notes}
+                          </p>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -840,6 +932,20 @@ export default function CalendarPage() {
                     disabled={updateMutation.isPending}
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-session-notes">Session notes</Label>
+                  <Textarea
+                    id="edit-session-notes"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Homework, feedback, or reminders for this class"
+                    rows={4}
+                    disabled={updateMutation.isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Visible to students on their calendar (read-only).
+                  </p>
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -964,26 +1070,62 @@ export default function CalendarPage() {
             <AlertDialogTitle>Delete session?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `"${deleteTarget.title}" on ${deleteTarget.date} will be permanently removed.`
+                ? deleteTarget.recurrence_group_id
+                  ? `"${deleteTarget.title}" on ${deleteTarget.date} is part of a weekly series. Delete only this occurrence, or the entire series?`
+                  : `"${deleteTarget.title}" on ${deleteTarget.date} will be permanently removed.`
                 : "This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
             <AlertDialogCancel disabled={deleteMutation.isPending}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMutation.isPending || !deleteTarget}
-              onClick={(e) => {
-                e.preventDefault();
-                if (deleteTarget) {
-                  deleteMutation.mutate(deleteTarget.id);
-                }
-              }}
-            >
-              {deleteMutation.isPending ? "Deleting…" : "Delete session"}
-            </AlertDialogAction>
+            {deleteTarget?.recurrence_group_id ? (
+              <>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "this",
+                    });
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "This session only"}
+                </AlertDialogAction>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "series",
+                    });
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Entire series"}
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteMutation.isPending || !deleteTarget}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (deleteTarget) {
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "this",
+                    });
+                  }
+                }}
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete session"}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

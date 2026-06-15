@@ -2,7 +2,7 @@
 > 专为新手定制 · 目标：7周内交付可测试的 MVP
 > 更新于 2026-06-03
 
-**当前进度 / Current focus：** P0-07 站内通知 ✅ · P0-08 课程变更通知 ✅ · **下一步：P0-09 重复课程** — 见 [`docs/DEVELOPMENT-ROADMAP.md`](docs/DEVELOPMENT-ROADMAP.md)
+**当前进度 / Current focus：** P0-11 Session 老师备注 ✅ · **下一步：P0-12 冒烟测试** — 见 [`docs/DEVELOPMENT-ROADMAP.md`](docs/DEVELOPMENT-ROADMAP.md)
 
 ---
 

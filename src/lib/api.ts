@@ -708,6 +708,9 @@ export type SessionItem = {
   end_time: string;
   location: string;
   type: "one-time" | "recurring";
+  recurrence_rule?: string;
+  recurrence_group_id?: string | null;
+  notes?: string;
   created_at?: string;
 };
 
@@ -717,6 +720,8 @@ type SessionsListResponse = {
 
 type SessionResponse = {
   session: SessionItem;
+  count?: number;
+  sessions?: SessionItem[];
 };
 
 /** List sessions for the current month (optional class filter). */
@@ -738,7 +743,13 @@ export async function listSessions(month: string, classId?: string): Promise<Ses
   return data.sessions;
 }
 
-/** Teacher creates a one-time session / 教师创建单次课程 */
+export type CreateSessionResult = {
+  session: SessionItem;
+  count: number;
+  sessions?: SessionItem[];
+};
+
+/** Teacher creates a session (one-time or weekly recurring) */
 export async function createSession(input: {
   class_id: string;
   title: string;
@@ -746,11 +757,14 @@ export async function createSession(input: {
   start_time: string;
   end_time: string;
   location?: string;
-}): Promise<SessionItem> {
+  type?: "one-time" | "recurring";
+  recurrence_rule?: "weekly";
+  recurrence_end_date?: string;
+}): Promise<CreateSessionResult> {
   const response = await apiFetch("/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...input, type: "one-time" }),
+    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
@@ -758,7 +772,11 @@ export async function createSession(input: {
   }
 
   const data = (await response.json()) as SessionResponse;
-  return data.session;
+  return {
+    session: data.session,
+    count: data.count ?? 1,
+    sessions: data.sessions,
+  };
 }
 
 /** Teacher updates a session / 教师更新课程 */
@@ -770,6 +788,7 @@ export async function updateSession(
     start_time?: string;
     end_time?: string;
     location?: string;
+    notes?: string;
   },
 ): Promise<SessionItem> {
   const response = await apiFetch(`/sessions/${sessionId}`, {
@@ -786,15 +805,22 @@ export async function updateSession(
   return data.session;
 }
 
-/** Teacher deletes a session / 教师删除课程 */
-export async function deleteSession(sessionId: string): Promise<void> {
-  const response = await apiFetch(`/sessions/${sessionId}`, {
+/** Teacher deletes a session (optionally the full recurring series) */
+export async function deleteSession(
+  sessionId: string,
+  options?: { scope?: "this" | "series" },
+): Promise<{ deleted_count: number }> {
+  const scope = options?.scope ?? "this";
+  const response = await apiFetch(`/sessions/${sessionId}?scope=${scope}`, {
     method: "DELETE",
   });
 
   if (!response.ok) {
     throw new Error(await readApiError(response, "Failed to delete session"));
   }
+
+  const data = (await response.json()) as { deleted_count?: number };
+  return { deleted_count: data.deleted_count ?? 1 };
 }
 
 export type RescheduleRequest = {

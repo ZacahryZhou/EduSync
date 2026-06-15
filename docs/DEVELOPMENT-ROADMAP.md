@@ -1,7 +1,7 @@
 # EduSync 开发路线图 / Development Roadmap
 
 > **用途 / Purpose：** P0、P1 可执行任务清单；P2 记入 backlog；预留 AI / Agent 扩展位。  
-> **更新 / Updated：** 2026-06-10  
+> **更新 / Updated：** 2026-06-03  
 > **对照需求 / PRD ref：** `Project网站核心功能.pdf`（F1–F8）  
 > **当前基线 / Baseline：** Auth ✅ · Google OAuth ✅ · 班级/日历 API ✅ · 生产部署 ✅
 
@@ -18,7 +18,7 @@
 | 阶段 Phase | 范围 Scope | 任务数 Tasks | 状态 Status |
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
-| **Phase 1 — P0** | 独立老师日常可用 | 12 | 🔄 P0-01~08 ✅ · 下一步 P0-09 |
+| **Phase 1 — P0** | 独立老师日常可用 | 12 | 🔄 P0-01~11 ✅ · 下一步 P0-12 冒烟测试 |
 | **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | ⬜ 待开始 |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
@@ -317,8 +317,10 @@ erDiagram
 | **Estimate** | 2 天 |
 | **PRD** | F3 |
 
-- [ ] 最小实现：每周重复 + 结束日期
-- [ ] 删除单条 vs 整组
+- [x] 最小实现：每周重复 + 结束日期
+- [x] 删除单条 vs 整组
+
+**下一步 / Next after this：** → **P0-11 Session 老师备注**（或 P0-10 邮件提醒可选）
 
 ---
 
@@ -353,8 +355,10 @@ erDiagram
 | **Estimate** | 0.5 天 |
 | **PRD** | F3(3) 轻量版 |
 
-- [ ] PATCH session notes
-- [ ] 学生日历展示 notes
+- [x] PATCH session notes
+- [x] 学生日历展示 notes
+
+**下一步 / Next after this：** → **P0-12 冒烟测试清单**
 
 ---
 
