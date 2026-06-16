@@ -348,7 +348,17 @@ export default function TuitionPage() {
   }
 
   const loading = balancesQuery.isLoading || transactionsQuery.isLoading;
-  const error = balancesQuery.error || transactionsQuery.error;
+  const error = balancesQuery.error ?? transactionsQuery.error;
+
+  function errorMessage(err: unknown): string {
+    if (err instanceof Error && err.message) {
+      return err.message;
+    }
+    if (typeof err === "string" && err) {
+      return err;
+    }
+    return "Failed to load tuition data.";
+  }
 
   let detailTitle: ReactNode = "Tuition details";
   if (detailTarget) {
@@ -465,7 +475,7 @@ export default function TuitionPage() {
         <p className="text-sm text-muted-foreground">Loading tuition data…</p>
       ) : error ? (
         <p className="text-sm text-destructive" role="alert">
-          {(error as Error).message}
+          {errorMessage(error)}
         </p>
       ) : balances.length === 0 ? (
         <PageEmptyState

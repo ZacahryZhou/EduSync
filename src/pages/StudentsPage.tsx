@@ -3,6 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Mail, Plus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,12 +53,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import {
+  cancelClassInvite,
   getStudentNote,
   getStudentReport,
   inviteClassStudent,
   listClasses,
   listTeacherStudents,
+  removeClassStudent,
   saveStudentNote,
+  type StudentClassEnrollment,
   type StudentReport,
   type StudentReportPeriod,
   type TeacherStudent,
@@ -97,6 +110,11 @@ function classSummary(student: TeacherStudent): string {
 const ALL_GRADES = "all";
 const NO_GRADE = "__none__";
 
+type ClassRemovalTarget = {
+  classItem: StudentClassEnrollment;
+  student: TeacherStudent;
+};
+
 const REPORT_PERIODS: Array<{ value: StudentReportPeriod; label: string }> = [
   { value: "week", label: "Last 7 days" },
   { value: "half_month", label: "Last 15 days" },
@@ -122,6 +140,9 @@ export default function StudentsPage() {
   const [addGrade, setAddGrade] = useState("");
   const [addClassId, setAddClassId] = useState("");
   const [addNote, setAddNote] = useState("");
+  const [removeClassTarget, setRemoveClassTarget] = useState<ClassRemovalTarget | null>(
+    null,
+  );
 
   const queryClient = useQueryClient();
 
@@ -131,16 +152,6 @@ export default function StudentsPage() {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
-
-  useEffect(() => {
-    if (!addOpen) {
-      return;
-    }
-    const classes = classesQuery.data ?? [];
-    if (classes.length > 0 && !addClassId) {
-      setAddClassId(classes[0].id);
-    }
-  }, [addOpen, classesQuery.data, addClassId]);
 
   const studentsQuery = useQuery({
     queryKey: [
@@ -164,6 +175,16 @@ export default function StudentsPage() {
     enabled: Boolean(user?.id && isTeacher),
     staleTime: 5 * 60_000,
   });
+
+  useEffect(() => {
+    if (!addOpen) {
+      return;
+    }
+    const classes = classesQuery.data ?? [];
+    if (classes.length > 0 && !addClassId) {
+      setAddClassId(classes[0].id);
+    }
+  }, [addOpen, classesQuery.data, addClassId]);
 
   const inviteMutation = useMutation({
     mutationFn: (payload: {
@@ -189,6 +210,37 @@ export default function StudentsPage() {
       setAddGrade("");
       setAddClassId("");
       setAddNote("");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const removeFromClassMutation = useMutation({
+    mutationFn: async (target: ClassRemovalTarget) => {
+      const { classItem, student } = target;
+      if (classItem.enrollment_status === "pending" && classItem.invite_id) {
+        await cancelClassInvite(classItem.id, classItem.invite_id);
+        return;
+      }
+      if (isPendingOnlyStudent(student)) {
+        throw new Error("This student has not registered yet");
+      }
+      await removeClassStudent(classItem.id, student.id);
+    },
+    onSuccess: (_result, target) => {
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      queryClient.invalidateQueries({ queryKey: ["class-students"] });
+      queryClient.invalidateQueries({ queryKey: ["classes"] });
+      setRemoveClassTarget(null);
+      const wasPending = target.classItem.enrollment_status === "pending";
+      toast.success(wasPending ? "Invite cancelled" : "Student removed from class");
+      if (
+        selectedStudent?.id === target.student.id &&
+        target.student.classes.length <= 1
+      ) {
+        setSelectedStudent(null);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -423,7 +475,23 @@ export default function StudentsPage() {
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-6 space-y-3">
-                <h3 className="text-sm font-medium">Classes</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium">Classes</h3>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => {
+                      setAddEmail(selectedStudent.email || "");
+                      setAddName(selectedStudent.display_name || "");
+                      setAddOpen(true);
+                    }}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add to class
+                  </Button>
+                </div>
                 {selectedStudent.classes.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Not enrolled in any class.
@@ -432,7 +500,7 @@ export default function StudentsPage() {
                   <ul className="divide-y divide-border rounded-lg border border-border/60">
                     {selectedStudent.classes.map((classItem) => (
                       <li
-                        key={classItem.id}
+                        key={`${classItem.id}-${classItem.invite_id ?? "active"}`}
                         className="flex items-start gap-3 px-4 py-3 text-sm"
                       >
                         <span
@@ -447,6 +515,23 @@ export default function StudentsPage() {
                               : `Joined ${formatJoinedAt(classItem.joined_at)}`}
                           </p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 shrink-0 px-2 text-xs text-destructive hover:text-destructive"
+                          disabled={removeFromClassMutation.isPending}
+                          onClick={() =>
+                            setRemoveClassTarget({
+                              classItem,
+                              student: selectedStudent,
+                            })
+                          }
+                        >
+                          {classItem.enrollment_status === "pending"
+                            ? "Cancel"
+                            : "Remove"}
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -721,6 +806,53 @@ export default function StudentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={removeClassTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveClassTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {removeClassTarget?.classItem.enrollment_status === "pending"
+                ? "Cancel invite?"
+                : "Remove from class?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeClassTarget
+                ? removeClassTarget.classItem.enrollment_status === "pending"
+                  ? `Cancel the invite for ${studentDisplayName(removeClassTarget.student)} to join "${removeClassTarget.classItem.name}".`
+                  : `Remove ${studentDisplayName(removeClassTarget.student)} from "${removeClassTarget.classItem.name}". They can rejoin with the class code or a new invite.`
+                : "This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeFromClassMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removeFromClassMutation.isPending || !removeClassTarget}
+              onClick={(e) => {
+                e.preventDefault();
+                if (removeClassTarget) {
+                  removeFromClassMutation.mutate(removeClassTarget);
+                }
+              }}
+            >
+              {removeFromClassMutation.isPending
+                ? "Working…"
+                : removeClassTarget?.classItem.enrollment_status === "pending"
+                  ? "Cancel invite"
+                  : "Remove student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

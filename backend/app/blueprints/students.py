@@ -241,42 +241,46 @@ def list_teacher_students():
         return jsonify({'error': 'Failed to load enrollments'}), 500
 
     enrollments = enrollments_result.data or []
-    if not enrollments:
-        return jsonify({'students': [], 'total': 0, 'grades': []}), 200
-
-    student_ids = list({row['student_id'] for row in enrollments})
-
-    try:
-        users_result = supabase.table('users').select(
-            'id, email, display_name, grade'
-        ).in_('id', student_ids).execute()
-    except Exception:
-        return jsonify({'error': 'Failed to load students'}), 500
-
-    users_by_id = {row['id']: row for row in (users_result.data or [])}
 
     by_student = {}
-    for row in enrollments:
-        student_id = row['student_id']
-        class_info = class_by_id.get(row['class_id'], {})
-        class_entry = {
-            'id': row['class_id'],
-            'name': class_info.get('name') or '',
-            'color': class_info.get('color') or '#6366f1',
-            'joined_at': row.get('joined_at'),
-            'enrollment_status': 'active',
-        }
+    users_by_id = {}
 
-        if student_id not in by_student:
-            by_student[student_id] = []
-        by_student[student_id].append(class_entry)
+    if enrollments:
+        student_ids = list({row['student_id'] for row in enrollments})
+
+        try:
+            users_result = supabase.table('users').select(
+                'id, email, display_name, grade'
+            ).in_('id', student_ids).execute()
+        except Exception:
+            return jsonify({'error': 'Failed to load students'}), 500
+
+        users_by_id = {row['id']: row for row in (users_result.data or [])}
+
+        for row in enrollments:
+            student_id = row['student_id']
+            class_info = class_by_id.get(row['class_id'], {})
+            class_entry = {
+                'id': row['class_id'],
+                'name': class_info.get('name') or '',
+                'color': class_info.get('color') or '#6366f1',
+                'joined_at': row.get('joined_at'),
+                'enrollment_status': 'active',
+            }
+
+            if student_id not in by_student:
+                by_student[student_id] = []
+            by_student[student_id].append(class_entry)
 
     students = [
         _serialize_student(student_id, users_by_id.get(student_id), class_rows)
         for student_id, class_rows in by_student.items()
     ]
 
-    pending_rows = fetch_pending_for_classes(class_ids)
+    try:
+        pending_rows = fetch_pending_for_classes(class_ids)
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
     pending_by_email = {}
     for row in pending_rows:
         email = normalize_email(row.get('email'))
@@ -355,7 +359,14 @@ def list_teacher_students():
     if query or grade_filter:
         filtered = []
         for row in students:
-            user = users_by_id.get(row['id'], {})
+            if str(row.get('id', '')).startswith('pending:'):
+                user = {
+                    'display_name': row.get('display_name') or '',
+                    'email': row.get('email') or '',
+                    'grade': row.get('grade'),
+                }
+            else:
+                user = users_by_id.get(row['id'], {})
             if not _matches_search(user, query):
                 continue
             if not _matches_grade(user, grade_filter):
