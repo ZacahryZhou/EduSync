@@ -1,7 +1,7 @@
 # EduSync 开发路线图 / Development Roadmap
 
 > **用途 / Purpose：** P0、P1 可执行任务清单；P2 记入 backlog；预留 AI / Agent 扩展位。  
-> **更新 / Updated：** 2026-06-03  
+> **更新 / Updated：** 2026-06-16  
 > **对照需求 / PRD ref：** `Project网站核心功能.pdf`（F1–F8）  
 > **当前基线 / Baseline：** Auth ✅ · Google OAuth ✅ · 班级/日历 API ✅ · 生产部署 ✅
 
@@ -19,9 +19,10 @@
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
 | **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
-| **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | 🔄 P1-01~14 ✅ · **下一步 P1-15** |
+| **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | ✅ 已完成（P1-15 冒烟测试） |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
-| **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
+| **Phase 3 — AI** | 教师 Agent（DeepSeek） | 3 | 🔄 **当前：AI-0 → AI-2** |
+| **Future — AI+** | 学生助手 / 自动化 | 3 | ⏸️ v1 不做 |
 
 ---
 
@@ -636,10 +637,10 @@ erDiagram
 
 ### P1-15 · P1 完成冒烟测试
 
-- [ ] 老师：布置作业 → 学生提交 → 批改 → 通知
-- [ ] 老师：记录出勤 → 查看学费余额
-- [ ] 中英文切换
-- [ ] 导出 iCal 到手机日历
+- [x] 老师：布置作业 → 学生提交 → 批改 → 通知
+- [x] 老师：记录出勤 → 查看学费余额
+- [x] 中英文切换
+- [x] 导出 iCal 到手机日历
 
 ---
 
@@ -660,47 +661,147 @@ erDiagram
 
 ---
 
-## Future — AI & Agent 模块（已规划）
+## Phase 3 — AI：教师 Agent（v1 范围）
 
-> **用户告知：** 项目未来将增加 **AI 部分和 Agent**。以下在架构上预留，**不阻塞 P0/P1**。  
-> **排期备忘（2026-06）：** P1-12~15 完成后再做 **AI-0**；优先 **学生只读问答**（课表、作业、余额）；家长只读助手依赖 P2-03 家长门户。  
-> **已确认（2026-06-15）：** 老师上传文件（Excel/PDF/图片）→ **DeepSeek** 抽取学生/家长/班级字段 → **前端预览 + 老师确认** → 调用现有 API（建班、加班、写备注）。v1 用 **LLM + 确认流**，不做全自动 Agent 直写库；多步 Agent（去重、建班、通知）放在 AI-1 之后。
+> **决策（2026-06-16）：** P1 测试完成后启动 **AI-0 → AI-2**。  
+> **v1 仅服务老师**：自然语言查数据 + 经确认后代为调用现有 API。**学生端不做 AI**（AI-3/AI-4 暂缓）。  
+> **LLM：** DeepSeek API（已有 key）。  
+> **核心交互：** 写入类操作一律 **预览 → 老师点确认 → 后端调 API**，禁止模型直写数据库。
+
+### 能力对照（避免误解）
+
+| 阶段 | 老师能做什么 | 能否「帮操作」 |
+|------|----------------|----------------|
+| **AI-1** | 查课表、学生、作业、余额、改课申请等，整理成自然语言回答 | ❌ 只读，不改数据 |
+| **AI-2** | 排课、改课、布置作业、记出勤、充课时、写备注、审批改课等 | ✅ 可以，但**必须经确认卡**后才执行 |
+
+第一版可同时交付 AI-1 + AI-2（查 + 操作），不必等很久才开放写入。
 
 ### 设计原则 / Design principles
 
-1. **AI 不替代核心业务表** — 排课、作业、出勤仍以 PostgreSQL 为准；AI 读写通过 API，不直接改库（除非经后端审核）。  
-2. **Agent 需要「工具」** — 每个业务 API（classes, sessions, assignments）应语义清晰，便于将来封装为 agent tools。  
-3. **按角色隔离** — Teacher agent / Student agent 权限分离；学生 agent 不能批准改课。  
-4. **可观测** — 记录 `ai_interactions` 日志（prompt、tool calls、user_id）便于调试与合规。
+1. **AI 不替代核心业务表** — PostgreSQL 仍是唯一真相；AI 只通过既有 REST 读写。  
+2. **Tool = 现有 API** — 每个 tool 映射 `classes` / `sessions` / `assignments` / `tuition` 等 blueprint，不重复业务逻辑。  
+3. **教师专用** — 所有 `/api/ai/*` 路由 `@require_role('teacher')`；v1 无学生 Agent。  
+4. **写入需确认** — AI 生成 `pending_action`（含人类可读摘要 + 结构化 payload）；老师确认后才 `POST` 到业务 API。  
+5. **可观测** — `ai_interactions` 表记录 user_id、prompt、tool calls、结果、是否已确认。  
+6. **危险操作默认关闭** — 删班、删课、批量踢学生等 v1 不提供或需二次确认。
 
-### 建议阶段划分 / Phased AI rollout
+### 阶段划分 / Phased rollout
 
-| 阶段 | 中文 | English | 依赖业务 |
-|------|------|---------|----------|
-| **AI-0** | 基础设施 | LLM API key、后端 `ai/` blueprint、流式 SSE | P0 完成 |
-| **AI-1** | 教师助手（只读） | 「这周有哪些课？」「谁没交作业？」自然语言查数据 | P0-07, P1-02 |
-| **AI-2** | 教师助手（写入，需确认） | 「把周三的课改到周五」→ 生成 draft → 老师点确认执行 | P0-06, P0-PRE-02 |
-| **AI-3** | 学生助手 | 「我的下一节课？」「帮我写改课申请理由」 | P0-05 |
-| **AI-4** | 作业辅导 Agent | 不直接给答案；苏格拉底式提问；作业上下文来自 `assignments` | P1-03 |
-| **AI-5** | 自动化 Agent | 定时总结学情、建议排课、风险学生提醒（缺勤+余额低） | P1-06, P1-07 |
+| 阶段 | 中文 | English | 依赖 |
+|------|------|---------|------|
+| **AI-0** | 基础设施 | DeepSeek 客户端、`ai` blueprint、`POST /api/ai/chat`（SSE）、`DEEPSEEK_API_KEY`、`ai_interactions` 表 | P1 完成 |
+| **AI-1** | 教师助手（只读） | 「这周有哪些课？」「谁没交作业？」→ tool 查库 → 回答 | AI-0 |
+| **AI-2** | 教师助手（写入 + 确认） | 「给 math 10 排周三 3 点」→ 确认卡 → `createSession` | AI-1 |
+| **AI-2b** | 文件导入（可选并行） | Excel/PDF/图片 → DeepSeek 抽取字段 → 预览 → 建班/加学生/备注 | AI-0 |
+| **AI-3** | 学生助手 | ⏸️ **v1 不做** | P0-05 |
+| **AI-4** | 作业辅导 Agent | ⏸️ **v1 不做** | P1-03 |
+| **AI-5** | 自动化 / 学情提醒 | 定时总结、余额/缺勤预警（P2 后） | P1-06, P1-07 |
 
-### AI 相关预备任务（现在可做，工作量小）
+### AI-0 · 基础设施
 
-| ID | 任务 | 说明 |
+| | |
+|--|--|
+| **Backend** | `backend/app/blueprints/ai.py`, `backend/app/services/deepseek.py`, `backend/app/services/ai_tools.py` |
+| **DB** | `backend/sql/create_ai_interactions.sql` |
+| **Frontend** | `CalendarPage.tsx` AI 卡片 → 真实 Chat；`src/lib/api.ts` `streamAiChat` |
+| **Env** | `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`（如 `deepseek-chat`） |
+
+- [x] DeepSeek 调用 + 超时/重试
+- [x] `POST /api/ai/chat`（teacher only，SSE 流式）
+- [ ] `ai_interactions` 写入日志（需跑 SQL）
+- [x] 前端 Chat UI 替换「Coming soon」
+
+### AI-1 · 教师只读查询
+
+**首批 read tools（示例）：**
+
+| Tool | 对应能力 |
+|------|----------|
+| `list_my_classes` | 老师的班级列表 |
+| `list_sessions` | 按月份/班级查课次 |
+| `list_class_students` | 班级学生 |
+| `list_assignments` | 作业及提交状态 |
+| `get_student_balances` | 学费/课时余额 |
+| `list_pending_reschedules` | 待审批改课 |
+
+- [ ] Tool 定义 + 后端执行（复用 service 层，带 teacher 权限校验）
+- [ ] 多轮对话 + 引用数据来源（班级名、日期）
+- [ ] 拒绝越权（不能查其他老师的班）
+
+### AI-2 · 教师写入（确认后执行）
+
+**交互流程：**
+
+```mermaid
+sequenceDiagram
+    participant T as 老师
+    participant UI as Chat UI
+    participant API as /api/ai/*
+    participant LLM as DeepSeek
+    participant Biz as 现有 REST API
+
+    T->>UI: 自然语言指令
+    UI->>API: chat message
+    API->>LLM: messages + tools
+    LLM-->>API: propose write tool + args
+    API-->>UI: 确认卡（摘要 + pending_action_id）
+    T->>UI: 点击确认
+    UI->>API: POST /api/ai/actions/:id/confirm
+    API->>Biz: createSession / updateSession / ...
+    Biz-->>API: 成功
+    API-->>UI: 操作结果
+```
+
+**写入 tool 分批上线：**
+
+| 批次 | Tools | 风险 |
+|------|-------|------|
+| **2a** | `create_session`, `update_session`, `delete_session` | 中 |
+| **2b** | `create_assignment`, `save_attendance` | 中 |
+| **2c** | `topup_balance`, `save_student_note`, `resolve_reschedule` | 中 |
+| **2d** | `create_class`, `enroll_student` | 中高 |
+| **2e** | 文件导入 → 批量预览 → 确认 | 高 |
+| **v1 不做** | `delete_class`, 批量删除 | 高 |
+
+- [ ] `pending_actions` 表或内存 TTL + 确认端点
+- [ ] 确认卡 UI（摘要、取消、确认）
+- [ ] 2a 排课/改课 tool 端到端
+- [ ] 2b~2d 按优先级迭代
+
+### 风险与缓解 / Risks & mitigations
+
+| 风险 | 说明 | 缓解措施 |
+|------|------|----------|
+| **误操作** | 模型理解错班级/时间，老师没看清就点确认 | 确认卡展示完整字段；敏感操作高亮；默认不自动确认 |
+| **越权** | 查到或改了别的老师的数据 | Tool 层强制 `teacher_id` 过滤；确认前再校验 ownership |
+| **幻觉** | 编造不存在的课次/学生 | 写入只许调 API；只读结果必须来自 tool 返回值，不许编造 |
+| **Prompt 注入** | 学生备注等用户文本影响模型 | 用户内容与 system prompt 分离；tool 参数 schema 校验 |
+| **成本 / 延迟** | DeepSeek 调用过多 | 日志监控 token；只读可先缓存短 TTL；流式降低体感延迟 |
+| **密钥泄露** | API key 进前端或 git | 仅后端 `DEEPSEEK_API_KEY`；`.env` 不入库 |
+| **合规** | 学生 PII 进第三方 LLM | 日志脱敏选项；告知老师；必要时最小字段原则 |
+
+在 **预览 → 确认 → API** 流程下，风险可控；最大残留风险是**老师确认前未核对摘要**，靠 UI 和文案降低，无法靠技术完全消除。
+
+### AI 预备任务
+
+| ID | 任务 | 状态 |
 |----|------|------|
-| AI-PREP-01 | API 文档化 | 为现有 REST 端点写 OpenAPI 或 `docs/API.md`（Agent 当 tools 用） |
-| AI-PREP-02 | 统一错误码 | `{ error, code, details }` 方便 LLM 解析 |
-| AI-PREP-03 | `docs/AI-ARCHITECTURE.md` | P0/P1 做完后再写详细设计；本 roadmap 仅占位 |
-| AI-PREP-04 | 前端 Chat 壳子 | 侧边栏浮动按钮 + 空 Chat UI（不接模型也可先占位） |
+| AI-PREP-01 | `docs/API.md` 或 OpenAPI（Agent tools 索引） | [ ] |
+| AI-PREP-02 | 统一 API 错误码 `{ error, code }` | [ ] |
+| AI-PREP-03 | `docs/AI-ARCHITECTURE.md` 详细设计 | [x] |
+| AI-PREP-05 | `docs/AI-SAFETY-POLICY.md` 回答范围与保密 | [x] |
+| AI-PREP-04 | Calendar AI Chat 壳子 | [x] 已接 DeepSeek（AI-0） |
 
-### 技术选型备忘（未最终决定）
+### 技术选型（已定 / 待定）
 
-| 层级 | 候选 |
+| 层级 | 决定 |
 |------|------|
-| LLM | OpenAI / Anthropic / 国内兼容 API |
-| Agent 框架 | 自研 tool loop / LangGraph / Cursor Agent SDK |
-| RAG | 课件与作业说明向量化（P2 资料库之后更有意义） |
-| 部署 | AI 路由放 Railway 同一 Flask 或独立 `ai-service` |
+| **LLM** | **DeepSeek**（`DEEPSEEK_API_KEY`） |
+| **Agent 循环** | 自研 tool loop（Flask 内，先不引入 LangGraph） |
+| **流式** | SSE `text/event-stream` |
+| **部署** | 与主 API 同 Railway 实例（`ai` blueprint） |
+| **RAG** | v1 不做；P2 资料库后再考虑 |
 
 ---
 
@@ -717,11 +818,14 @@ flowchart TD
     P0E --> P1A[P1-01~04 作业]
     P0E --> P1B[P1-05~07 搜索/出勤/学费]
     P0E --> P1C[P1-08~10 iCal/i18n/头像]
-    P1A --> P1D[P1-14 冒烟测试]
+    P1A --> P1D[P1-15 冒烟测试]
     P1B --> P1D
     P1C --> P1D
-    P1D --> AI[AI-0 基础设施]
-    P1D --> P2BK[P2 Backlog 按需]
+    P1D --> AI0[AI-0 基础设施]
+    AI0 --> AI1[AI-1 教师只读]
+    AI1 --> AI2[AI-2 写入+确认]
+    AI2 --> P2BK[P2 Backlog 按需]
+    AI2 -.-> AI3[AI-3 学生助手 暂缓]
 ```
 
 **第一周建议 / Week 1 suggestion：**  
@@ -749,6 +853,7 @@ flowchart TD
 | 认证 | `src/context/AuthContext.tsx`, `backend/app/blueprints/auth.py` |
 | 班级 | `backend/app/blueprints/classes.py`, `ClassesPage.tsx` |
 | 日历 | `backend/app/blueprints/sessions.py`, `CalendarPage.tsx`, `Dashboard.tsx` |
+| **AI** | `backend/app/blueprints/ai.py`, `CalendarPage.tsx`（Chat）, `docs/DEVELOPMENT-ROADMAP.md` Phase 3 |
 | 用户 | `backend/app/blueprints/users.py`, `SettingsPage.tsx` |
 | SQL | `backend/sql/*.sql` |
 | 邮件 / Resend | `backend/app/services/email.py`, `backend/.env`, [Resend Domains](https://resend.com/domains) |
@@ -756,4 +861,4 @@ flowchart TD
 
 ---
 
-*EduSync Development Roadmap · 随任务完成更新 checkbox · AI/Agent 模块待 P1 后启动*
+*EduSync Development Roadmap · P1 完成 · Phase 3 AI（教师 Agent）进行中*

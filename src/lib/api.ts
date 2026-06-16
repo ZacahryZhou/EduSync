@@ -1648,6 +1648,101 @@ export async function markAllNotificationsRead(): Promise<void> {
   }
 }
 
+/** --- Teacher AI (DeepSeek) --- */
+
+export type AiChatRole = "user" | "assistant";
+
+export type AiChatMessage = {
+  role: AiChatRole;
+  content: string;
+};
+
+export type AiStreamEvent =
+  | { type: "token"; content: string }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+export type AiStatus = {
+  configured: boolean;
+  model: string;
+};
+
+/** Whether DeepSeek is configured on the backend */
+export async function getAiStatus(): Promise<AiStatus> {
+  const response = await apiFetch("/ai/status", { method: "GET" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load AI status"));
+  }
+  return (await response.json()) as AiStatus;
+}
+
+/**
+ * Stream a teacher chat completion (SSE).
+ * Events: token chunks, done, or error.
+ */
+export async function streamAiChat(
+  messages: AiChatMessage[],
+  onEvent: (event: AiStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await apiFetch("/ai/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (!response.ok) {
+    onEvent({
+      type: "error",
+      message: await readApiError(response, "AI request failed"),
+    });
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    onEvent({ type: "error", message: "Streaming is not supported in this browser" });
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const line = part
+        .split("\n")
+        .map((row) => row.trim())
+        .find((row) => row.startsWith("data:"));
+      if (!line) {
+        continue;
+      }
+      const payload = line.slice(5).trim();
+      if (!payload) {
+        continue;
+      }
+      try {
+        const event = JSON.parse(payload) as AiStreamEvent;
+        onEvent(event);
+      } catch {
+        // ignore malformed chunks
+      }
+    }
+  }
+}
+
 /** 知识点：
  * 1: async and await -> 异步编程 因为网络请求需要时间 await means wait for the response to come back before moving on to the next line of code//
  * response.ok -> 判断请求是否成功 200-299 为成功 其他为失败//

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  Bot,
   Calendar as CalendarIcon,
   ClipboardCheck,
   Clock,
@@ -12,7 +11,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Sparkles,
   Trash2,
   Video,
 } from "lucide-react";
@@ -50,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AiAssistant } from "@/components/AiAssistant";
 import { useAuth } from "@/context/AuthContext";
 import {
   createRescheduleRequest,
@@ -998,36 +997,7 @@ export default function CalendarPage() {
 
         {isTeacher ? (
           <div className="grid gap-5 lg:grid-cols-2">
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  AI Assistant
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <p className="text-sm text-muted-foreground">
-                  Smart tools for lesson planning and class insights — coming soon.
-                </p>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    Draft session plans from your syllabus
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    Summarize student progress before class
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    Suggest follow-up after each session
-                  </li>
-                </ul>
-                <Button type="button" size="sm" variant="outline" className="w-full" disabled>
-                  Coming soon
-                </Button>
-              </CardContent>
-            </Card>
+            <AiAssistant />
 
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">

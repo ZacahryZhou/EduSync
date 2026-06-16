@@ -15,6 +15,7 @@ from app.blueprints.cron import cron_bp
 from app.blueprints.assignments import assignments_bp
 from app.blueprints.tuition import tuition_bp
 from app.blueprints.dashboard import dashboard_bp
+from app.blueprints.ai import ai_bp
 
 def create_app():
     app = Flask(__name__)
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(assignments_bp)
     app.register_blueprint(tuition_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(ai_bp)
     # register the health_bp into the falsk, then the /api/health will be activated#
 
     print('Flask app created successfully')
