@@ -634,6 +634,9 @@ export type ClassStudent = {
   display_name: string;
   email: string;
   joined_at?: string;
+  status?: "active" | "pending";
+  invite_id?: string;
+  grade?: string | null;
 };
 
 /** Teacher lists enrolled students for a class / 教师查看班级学生名单 */
@@ -648,6 +651,60 @@ export async function listClassStudents(classId: string): Promise<ClassStudent[]
 
   const data = (await response.json()) as { students: ClassStudent[] };
   return data.students;
+}
+
+export type ClassInviteResult = {
+  status: "pending" | "active";
+  message: string;
+  student_id?: string;
+  email?: string;
+  display_name?: string;
+  invite?: {
+    id: string;
+    class_id: string;
+    email: string;
+    display_name: string;
+    grade?: string | null;
+    status: string;
+    invited_at?: string;
+  };
+};
+
+/** Teacher invites a student by email (pending until they register, or instant if account exists). */
+export async function inviteClassStudent(
+  classId: string,
+  payload: {
+    email: string;
+    display_name: string;
+    grade?: string;
+    teacher_note?: string;
+  },
+): Promise<ClassInviteResult> {
+  const response = await apiFetch(`/classes/${classId}/invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to invite student"));
+  }
+
+  return (await response.json()) as ClassInviteResult;
+}
+
+/** Cancel a pending class invite. */
+export async function cancelClassInvite(
+  classId: string,
+  inviteId: string,
+): Promise<void> {
+  const response = await apiFetch(`/classes/${classId}/invites/${inviteId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to cancel invite"));
+  }
 }
 
 export type ClassMaterial = {
@@ -742,6 +799,8 @@ export type StudentClassEnrollment = {
   name: string;
   color: string;
   joined_at?: string;
+  enrollment_status?: "active" | "pending";
+  invite_id?: string;
 };
 
 export type TeacherStudent = {
@@ -750,6 +809,7 @@ export type TeacherStudent = {
   email: string;
   grade?: string | null;
   classes: StudentClassEnrollment[];
+  status?: "active" | "pending" | "mixed";
 };
 
 export type StudentReportPeriod = "week" | "half_month" | "month";

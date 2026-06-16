@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, FileText, Mail, Plus, Search, Users } from "lucide-react";
+import { FileText, Mail, Plus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,13 @@ import {
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import {
   getStudentNote,
   getStudentReport,
+  inviteClassStudent,
+  listClasses,
   listTeacherStudents,
   saveStudentNote,
   type StudentReport,
@@ -75,6 +78,10 @@ function studentDisplayName(student: TeacherStudent): string {
     return name;
   }
   return student.email?.split("@")[0] || "Student";
+}
+
+function isPendingOnlyStudent(student: TeacherStudent): boolean {
+  return student.status === "pending" || student.id.startsWith("pending:");
 }
 
 function classSummary(student: TeacherStudent): string {
@@ -110,6 +117,11 @@ export default function StudentsPage() {
   const [gradeFilter, setGradeFilter] = useState(ALL_GRADES);
   const [reportPeriod, setReportPeriod] = useState<StudentReportPeriod>("week");
   const [reportPreview, setReportPreview] = useState<StudentReport | null>(null);
+  const [addEmail, setAddEmail] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addGrade, setAddGrade] = useState("");
+  const [addClassId, setAddClassId] = useState("");
+  const [addNote, setAddNote] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -119,6 +131,16 @@ export default function StudentsPage() {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
+
+  useEffect(() => {
+    if (!addOpen) {
+      return;
+    }
+    const classes = classesQuery.data ?? [];
+    if (classes.length > 0 && !addClassId) {
+      setAddClassId(classes[0].id);
+    }
+  }, [addOpen, classesQuery.data, addClassId]);
 
   const studentsQuery = useQuery({
     queryKey: [
@@ -136,10 +158,47 @@ export default function StudentsPage() {
     staleTime: 30_000,
   });
 
+  const classesQuery = useQuery({
+    queryKey: ["classes", user?.id, role] as const,
+    queryFn: listClasses,
+    enabled: Boolean(user?.id && isTeacher),
+    staleTime: 5 * 60_000,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (payload: {
+      classId: string;
+      email: string;
+      display_name: string;
+      grade?: string;
+      teacher_note?: string;
+    }) =>
+      inviteClassStudent(payload.classId, {
+        email: payload.email,
+        display_name: payload.display_name,
+        grade: payload.grade,
+        teacher_note: payload.teacher_note,
+      }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      queryClient.invalidateQueries({ queryKey: ["class-students"] });
+      toast.success(result.message);
+      setAddOpen(false);
+      setAddEmail("");
+      setAddName("");
+      setAddGrade("");
+      setAddClassId("");
+      setAddNote("");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const noteQuery = useQuery({
     queryKey: ["student-note", selectedStudent?.id] as const,
     queryFn: () => getStudentNote(selectedStudent!.id),
-    enabled: Boolean(selectedStudent?.id),
+    enabled: Boolean(selectedStudent?.id && !isPendingOnlyStudent(selectedStudent)),
     staleTime: 30_000,
   });
 
@@ -219,8 +278,8 @@ export default function StudentsPage() {
 
       <OnboardingHint
         id="students-page"
-        title="Tip: students appear here after they join with a class code"
-        description="Click a student row to add private notes or generate a parent-friendly progress report. Students cannot see your private notes."
+        title="Tip: add students by email or class code"
+        description="Invite students who have not registered yet — they join automatically when they sign up with the same email. Students with accounts are added instantly."
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -270,7 +329,7 @@ export default function StudentsPage() {
             description={
               hasFilters
                 ? "Try a different name, email, or grade filter."
-                : "Create a class and share its code so students can join. They will appear here automatically."
+                : "Create a class and invite students by email, or share a class code for self-join."
             }
           />
           {!hasFilters ? (
@@ -290,6 +349,7 @@ export default function StudentsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden sm:table-cell">Email</TableHead>
                 <TableHead className="hidden lg:table-cell">Grade</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Classes</TableHead>
                 <TableHead className="hidden md:table-cell text-right">
                   Enrolled in
@@ -304,13 +364,27 @@ export default function StudentsPage() {
                   onClick={() => setSelectedStudent(student)}
                 >
                   <TableCell className="font-medium">
-                    {studentDisplayName(student)}
+                    <span className="inline-flex items-center gap-2">
+                      {studentDisplayName(student)}
+                      {isPendingOnlyStudent(student) ? (
+                        <Badge variant="secondary" className="text-[10px] font-normal">
+                          Invited
+                        </Badge>
+                      ) : null}
+                    </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {student.email || "—"}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
                     {student.grade || "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {isPendingOnlyStudent(student)
+                      ? "Awaiting signup"
+                      : student.status === "mixed"
+                        ? "Active + invited"
+                        : "Active"}
                   </TableCell>
                   <TableCell>{classSummary(student)}</TableCell>
                   <TableCell className="hidden md:table-cell text-right text-muted-foreground">
@@ -368,7 +442,9 @@ export default function StudentsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium">{classItem.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Joined {formatJoinedAt(classItem.joined_at)}
+                            {classItem.enrollment_status === "pending"
+                              ? `Invited ${formatJoinedAt(classItem.joined_at)}`
+                              : `Joined ${formatJoinedAt(classItem.joined_at)}`}
                           </p>
                         </div>
                       </li>
@@ -376,6 +452,14 @@ export default function StudentsPage() {
                   </ul>
                 )}
               </div>
+              {isPendingOnlyStudent(selectedStudent) ? (
+                <div className="mt-6 rounded-lg border border-dashed border-border/80 bg-muted/30 p-4 text-sm text-muted-foreground">
+                  This student has been invited but has not registered yet. Progress
+                  reports, private notes, and attendance are available after they sign
+                  up with <strong className="text-foreground">{selectedStudent.email}</strong>.
+                </div>
+              ) : (
+                <>
               <div className="mt-6 space-y-3 rounded-lg border border-border/60 p-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-medium">Progress report</h3>
@@ -457,6 +541,8 @@ export default function StudentsPage() {
                   {saveNoteMutation.isPending ? "Saving…" : "Save note"}
                 </Button>
               </div>
+                </>
+              )}
             </>
           ) : null}
         </SheetContent>
@@ -515,35 +601,124 @@ export default function StudentsPage() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add students</DialogTitle>
+            <DialogTitle>Add student</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2 text-sm text-muted-foreground">
-            <p>
-              Students join EduSync with their own account using a{" "}
-              <strong className="text-foreground">class code</strong> from your
-              Classes page.
+          <form
+            className="space-y-4 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!addClassId) {
+                toast.error("Select a class");
+                return;
+              }
+              inviteMutation.mutate({
+                classId: addClassId,
+                email: addEmail.trim(),
+                display_name: addName.trim(),
+                grade: addGrade.trim() || undefined,
+                teacher_note: addNote.trim() || undefined,
+              });
+            }}
+          >
+            <p className="text-sm text-muted-foreground">
+              If the student already has an account, they are added immediately.
+              Otherwise they are invited and will join automatically when they register
+              with the same email.
             </p>
-            <ol className="list-decimal space-y-2 pl-5">
-              <li>Create a class (or open an existing one).</li>
-              <li>Copy the class code and send it to the student.</li>
-              <li>They sign in as a student and enter the code on Classes.</li>
-            </ol>
-            <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
-              <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <p>
-                There is no manual “add student” yet — enrollment happens when
-                they join with the code.
-              </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-class">Class</Label>
+              <Select value={addClassId} onValueChange={setAddClassId}>
+                <SelectTrigger id="add-class" className="h-9">
+                  <SelectValue placeholder="Select a class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(classesQuery.data ?? []).map((classItem) => (
+                    <SelectItem key={classItem.id} value={classItem.id}>
+                      {classItem.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(classesQuery.data ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  <Link to="/classes" className="underline underline-offset-2">
+                    Create a class
+                  </Link>{" "}
+                  first.
+                </p>
+              ) : null}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
-              Close
-            </Button>
-            <Button asChild>
-              <Link to="/classes">Open Classes</Link>
-            </Button>
-          </DialogFooter>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-name">Student name</Label>
+              <Input
+                id="add-name"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="Alex Chen"
+                required
+                disabled={inviteMutation.isPending}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-email">Email</Label>
+              <Input
+                id="add-email"
+                type="email"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                placeholder="student@example.com"
+                required
+                disabled={inviteMutation.isPending}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-grade">Grade (optional)</Label>
+              <Select value={addGrade || NO_GRADE} onValueChange={(v) => setAddGrade(v === NO_GRADE ? "" : v)}>
+                <SelectTrigger id="add-grade" className="h-9">
+                  <SelectValue placeholder="No grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_GRADE}>No grade</SelectItem>
+                  {STUDENT_GRADE_OPTIONS.map((grade) => (
+                    <SelectItem key={grade} value={grade}>
+                      {grade}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-note">Private note (optional)</Label>
+              <Textarea
+                id="add-note"
+                value={addNote}
+                onChange={(e) => setAddNote(e.target.value)}
+                placeholder="Saved to your notes when the student registers."
+                rows={3}
+                disabled={inviteMutation.isPending}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddOpen(false)}
+                disabled={inviteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  inviteMutation.isPending ||
+                  !addClassId ||
+                  (classesQuery.data ?? []).length === 0
+                }
+              >
+                {inviteMutation.isPending ? "Adding…" : "Add student"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

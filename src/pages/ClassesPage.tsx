@@ -33,15 +33,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { PageEmptyState } from "@/components/PageEmptyState";
 import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
 import { useAuth } from "@/context/AuthContext";
 import {
+  cancelClassInvite,
   createClass,
   deleteClass,
   deleteClassMaterial,
   getMaterialUsage,
+  inviteClassStudent,
   joinClass,
   listClassMaterials,
   listClassStudents,
@@ -140,6 +143,8 @@ export default function ClassesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ClassItem | null>(null);
   const [rosterClass, setRosterClass] = useState<ClassItem | null>(null);
+  const [rosterInviteName, setRosterInviteName] = useState("");
+  const [rosterInviteEmail, setRosterInviteEmail] = useState("");
   const [materialsClass, setMaterialsClass] = useState<ClassItem | null>(null);
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialFile, setMaterialFile] = useState<File | null>(null);
@@ -159,6 +164,33 @@ export default function ClassesPage() {
     queryFn: () => listClassStudents(rosterClass!.id),
     enabled: Boolean(isTeacher && rosterClass?.id),
     staleTime: 60_000,
+  });
+
+  const rosterInviteMutation = useMutation({
+    mutationFn: (payload: { email: string; display_name: string }) =>
+      inviteClassStudent(rosterClass!.id, payload),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["class-students"] });
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      toast.success(result.message);
+      setRosterInviteName("");
+      setRosterInviteEmail("");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const cancelInviteMutation = useMutation({
+    mutationFn: (inviteId: string) => cancelClassInvite(rosterClass!.id, inviteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class-students"] });
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      toast.success("Invite cancelled");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
   });
 
   const materialsQuery = useQuery({
@@ -727,6 +759,8 @@ export default function ClassesPage() {
           onOpenChange={(open) => {
             if (!open) {
               setRosterClass(null);
+              setRosterInviteName("");
+              setRosterInviteEmail("");
             }
           }}
         >
@@ -736,6 +770,42 @@ export default function ClassesPage() {
                 {rosterClass ? `${rosterClass.name} — Students` : "Class roster"}
               </DialogTitle>
             </DialogHeader>
+            {isTeacher && rosterClass ? (
+              <form
+                className="grid gap-3 rounded-lg border border-border/60 p-3 sm:grid-cols-[1fr_1fr_auto]"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  rosterInviteMutation.mutate({
+                    email: rosterInviteEmail.trim(),
+                    display_name: rosterInviteName.trim(),
+                  });
+                }}
+              >
+                <Input
+                  value={rosterInviteName}
+                  onChange={(e) => setRosterInviteName(e.target.value)}
+                  placeholder="Student name"
+                  required
+                  disabled={rosterInviteMutation.isPending}
+                />
+                <Input
+                  type="email"
+                  value={rosterInviteEmail}
+                  onChange={(e) => setRosterInviteEmail(e.target.value)}
+                  placeholder="Email"
+                  required
+                  disabled={rosterInviteMutation.isPending}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="sm:self-end"
+                  disabled={rosterInviteMutation.isPending}
+                >
+                  {rosterInviteMutation.isPending ? "Adding…" : "Add"}
+                </Button>
+              </form>
+            ) : null}
             <div className="py-2">
               {rosterQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading roster…</p>
@@ -748,7 +818,7 @@ export default function ClassesPage() {
                   <Users className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   <p className="font-medium text-foreground">No students yet</p>
                   <p className="mt-1">
-                    Share the class code
+                    Add a student by email above, or share the class code
                     {rosterClass?.code ? (
                       <>
                         {" "}
@@ -756,8 +826,8 @@ export default function ClassesPage() {
                           {rosterClass.code}
                         </code>
                       </>
-                    ) : null}{" "}
-                    so students can join.
+                    ) : null}
+                    .
                   </p>
                 </div>
               ) : (
@@ -769,16 +839,37 @@ export default function ClassesPage() {
                       className="flex items-start justify-between gap-3 px-4 py-3 text-sm"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium truncate">
+                        <p className="font-medium truncate inline-flex items-center gap-2">
                           {studentDisplayName(student)}
+                          {student.status === "pending" ? (
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              Invited
+                            </Badge>
+                          ) : null}
                         </p>
                         <p className="truncate text-muted-foreground">
                           {student.email || "No email"}
                         </p>
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        Joined {formatJoinedAt(student.joined_at)}
-                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-xs text-muted-foreground">
+                          {student.status === "pending"
+                            ? `Invited ${formatJoinedAt(student.joined_at)}`
+                            : `Joined ${formatJoinedAt(student.joined_at)}`}
+                        </span>
+                        {student.status === "pending" && student.invite_id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={cancelInviteMutation.isPending}
+                            onClick={() => cancelInviteMutation.mutate(student.invite_id!)}
+                          >
+                            Cancel invite
+                          </Button>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
