@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.config import Config
 from app.extensions import supabase, supabase_auth
-from app.services.pending_enrollments import normalize_email
+from app.services.email_utils import normalize_email
 
 DEFAULT_STUDENT_PASSWORD = (Config.DEFAULT_STUDENT_PASSWORD or '123456').strip() or '123456'
 

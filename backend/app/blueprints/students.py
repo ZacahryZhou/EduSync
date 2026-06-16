@@ -4,7 +4,8 @@ from flask import Blueprint, g, jsonify, request
 
 from app.extensions import supabase
 from app.middleware.auth import require_role
-from app.services.pending_enrollments import fetch_pending_for_classes, normalize_email
+from app.services.email_utils import normalize_email
+from app.services.pending_enrollments import fetch_pending_for_classes
 from app.services.roster_ids import is_pending_roster_id
 
 students_bp = Blueprint('students', __name__)

@@ -1,9 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import supabase, supabase_auth
-from app.services.pending_enrollments import (
-    claim_pending_enrollments,
-    normalize_email,
-)
+from app.services.email_utils import normalize_email
+from app.services.pending_enrollments import claim_pending_enrollments
 from app.services.student_accounts import (
     DEFAULT_STUDENT_PASSWORD,
     find_auth_user_id_by_email,

@@ -8,6 +8,7 @@ from app.services.balances import (
     merge_pending_balance_into_student,
     reassign_pending_billing_records,
 )
+from app.services.email_utils import normalize_email
 from app.services.student_accounts import (
     DEFAULT_STUDENT_PASSWORD,
     friendly_provision_error,
@@ -17,10 +18,6 @@ from app.services.student_accounts import (
 from app.services.notifications import create_notification
 
 PENDING_STATUSES = frozenset({'pending', 'claimed', 'cancelled'})
-
-
-def normalize_email(email):
-    return (email or '').strip().lower()
 
 
 def _now_iso():
