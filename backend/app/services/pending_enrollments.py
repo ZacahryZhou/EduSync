@@ -3,6 +3,11 @@
 from datetime import datetime, timezone
 
 from app.extensions import supabase
+from app.services.balances import (
+    delete_pending_billing_records,
+    merge_pending_balance_into_student,
+    reassign_pending_billing_records,
+)
 from app.services.notifications import create_notification
 
 PENDING_STATUSES = frozenset({'pending', 'claimed', 'cancelled'})
@@ -185,6 +190,7 @@ def cancel_pending_invite(invite_id, teacher_id):
         'status': 'cancelled',
         'cancelled_at': _now_iso(),
     }).eq('id', invite_id).execute()
+    delete_pending_billing_records(invite_id)
     return True, None
 
 
@@ -331,6 +337,8 @@ def claim_pending_enrollments(user_id, email):
         class_id = row['class_id']
         class_name = (classes_by_id.get(class_id) or {}).get('name') or 'your class'
         enrolled = _enroll_student_in_class(user_id, class_id)
+        merge_pending_balance_into_student(row['id'], user_id, class_id)
+        reassign_pending_billing_records(row['id'], user_id)
         supabase.table('pending_enrollments').update({
             'status': 'claimed',
             'claimed_user_id': user_id,
@@ -344,6 +352,8 @@ def claim_pending_enrollments(user_id, email):
             _migrate_teacher_note(
                 row.get('teacher_id'), user_id, row.get('teacher_note')
             )
+            merge_pending_balance_into_student(row['id'], user_id, class_id)
+            reassign_pending_billing_records(row['id'], user_id)
             _notify_class_joined(user_id, class_name, class_id)
             assignments = _open_assignments_for_class(class_id)
             _notify_open_assignments(user_id, class_name, assignments)

@@ -5,6 +5,7 @@ from flask import Blueprint, g, jsonify, request
 from app.extensions import supabase
 from app.middleware.auth import require_role
 from app.services.pending_enrollments import fetch_pending_for_classes, normalize_email
+from app.services.roster_ids import is_pending_roster_id
 
 students_bp = Blueprint('students', __name__)
 
@@ -384,6 +385,10 @@ def list_teacher_students():
 @students_bp.route('/api/students/<student_id>/notes', methods=['GET'])
 @require_role('teacher')
 def get_student_note(student_id):
+    if is_pending_roster_id(student_id):
+        return jsonify({
+            'error': 'Private notes are available after the student registers',
+        }), 400
     teacher_id = g.current_user.id
     if not _teacher_has_student(teacher_id, student_id):
         return jsonify({'error': 'Student not found'}), 404
@@ -408,6 +413,10 @@ def get_student_note(student_id):
 @students_bp.route('/api/students/<student_id>/report', methods=['GET'])
 @require_role('teacher')
 def student_report(student_id):
+    if is_pending_roster_id(student_id):
+        return jsonify({
+            'error': 'Progress reports are available after the student registers',
+        }), 400
     teacher_id = g.current_user.id
     if not _teacher_has_student(teacher_id, student_id):
         return jsonify({'error': 'Student not found'}), 404
@@ -474,6 +483,10 @@ def student_report(student_id):
 @students_bp.route('/api/students/<student_id>/notes', methods=['PUT'])
 @require_role('teacher')
 def upsert_student_note(student_id):
+    if is_pending_roster_id(student_id):
+        return jsonify({
+            'error': 'Private notes are available after the student registers',
+        }), 400
     teacher_id = g.current_user.id
     if not _teacher_has_student(teacher_id, student_id):
         return jsonify({'error': 'Student not found'}), 404
