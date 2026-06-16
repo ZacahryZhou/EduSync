@@ -12,6 +12,7 @@ import {
   FolderOpen,
   MapPin,
   Users,
+  Video,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -608,6 +609,17 @@ export default function Dashboard() {
                         <MapPin className="h-4 w-4" />
                         {session.location}
                       </span>
+                    ) : null}
+                    {session.meeting_url ? (
+                      <a
+                        href={session.meeting_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
+                      >
+                        <Video className="h-4 w-4" />
+                        {t("calendar.joinMeeting")}
+                      </a>
                     ) : null}
                   </div>
                 </div>

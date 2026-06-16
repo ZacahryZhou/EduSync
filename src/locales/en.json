@@ -121,7 +121,10 @@
     "dayEmpty": "No sessions on this day.",
     "dayEmptyHintTeacher": "Select another day or add a new session.",
     "dayEmptyHintStudent": "No classes are scheduled for this day.",
-    "selectDay": "Select a day to see sessions"
+    "selectDay": "Select a day to see sessions",
+    "meetingUrl": "Video meeting link",
+    "meetingUrlPlaceholder": "https://zoom.us/j/... or Google Meet link",
+    "joinMeeting": "Join meeting"
   },
   "classes": {
     "title": "Classes",

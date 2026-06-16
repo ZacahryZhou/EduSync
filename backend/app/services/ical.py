@@ -66,6 +66,9 @@ def build_sessions_ics(sessions, calendar_name='EduSync Schedule'):
         notes = session.get('notes') or ''
         if notes:
             description_parts.append(notes)
+        meeting_url = session.get('meeting_url') or ''
+        if meeting_url:
+            description_parts.append(f'Meeting: {meeting_url}')
 
         lines.append('BEGIN:VEVENT')
         lines.append(f'UID:{uid}')
@@ -75,6 +78,9 @@ def build_sessions_ics(sessions, calendar_name='EduSync Schedule'):
         lines.append(f'SUMMARY:{_escape_ical_text(summary)}')
         if location:
             lines.append(f'LOCATION:{_escape_ical_text(location)}')
+        meeting_url = session.get('meeting_url') or ''
+        if meeting_url:
+            lines.append(f'URL:{_escape_ical_text(meeting_url)}')
         if description_parts:
             description = '\\n'.join(_escape_ical_text(part) for part in description_parts)
             lines.append(f'DESCRIPTION:{description}')

@@ -121,7 +121,10 @@
     "dayEmpty": "当天没有课程。",
     "dayEmptyHintTeacher": "选择其他日期或添加新课程。",
     "dayEmptyHintStudent": "当天没有安排的课程。",
-    "selectDay": "选择日期查看课程"
+    "selectDay": "选择日期查看课程",
+    "meetingUrl": "视频会议链接",
+    "meetingUrlPlaceholder": "https://zoom.us/j/... 或 Google Meet 链接",
+    "joinMeeting": "加入会议"
   },
   "classes": {
     "title": "班级",

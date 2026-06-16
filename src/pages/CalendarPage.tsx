@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
+  Video,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -168,6 +169,7 @@ export default function CalendarPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [location, setLocation] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
   const [createNotes, setCreateNotes] = useState("");
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
@@ -179,6 +181,7 @@ export default function CalendarPage() {
   const [editStartTime, setEditStartTime] = useState("09:00");
   const [editEndTime, setEditEndTime] = useState("10:00");
   const [editLocation, setEditLocation] = useState("");
+  const [editMeetingUrl, setEditMeetingUrl] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<SessionItem | null>(null);
@@ -254,6 +257,7 @@ export default function CalendarPage() {
       setCreateOpen(false);
       setTitle("");
       setLocation("");
+      setMeetingUrl("");
       setCreateNotes("");
       setRepeatWeekly(false);
       setRecurrenceEndDate("");
@@ -291,6 +295,7 @@ export default function CalendarPage() {
         start_time: string;
         end_time: string;
         location?: string;
+        meeting_url?: string;
         notes?: string;
       };
     }) => updateSession(sessionId, input),
@@ -459,6 +464,7 @@ export default function CalendarPage() {
     setEditStartTime(toTimeInputValue(session.start_time));
     setEditEndTime(toTimeInputValue(session.end_time));
     setEditLocation(session.location ?? "");
+    setEditMeetingUrl(session.meeting_url ?? "");
     setEditNotes(session.notes ?? "");
     setEditOpen(true);
   }
@@ -522,6 +528,7 @@ export default function CalendarPage() {
       start_time: startTime,
       end_time: endTime,
       location: location.trim() || undefined,
+      meeting_url: meetingUrl.trim() || undefined,
       notes: createNotes.trim() || undefined,
       ...(repeatWeekly
         ? {
@@ -556,6 +563,7 @@ export default function CalendarPage() {
         start_time: editStartTime,
         end_time: editEndTime,
         location: editLocation.trim() || undefined,
+        meeting_url: editMeetingUrl.trim() || undefined,
         notes: editNotes,
       },
     });
@@ -729,6 +737,17 @@ export default function CalendarPage() {
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
                       placeholder="Room 201"
+                      disabled={createMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="session-meeting-url">{t("calendar.meetingUrl")}</Label>
+                    <Input
+                      id="session-meeting-url"
+                      type="url"
+                      value={meetingUrl}
+                      onChange={(e) => setMeetingUrl(e.target.value)}
+                      placeholder={t("calendar.meetingUrlPlaceholder")}
                       disabled={createMutation.isPending}
                     />
                   </div>
@@ -911,19 +930,38 @@ export default function CalendarPage() {
                               </Button>
                             </div>
                           ) : isStudent ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 shrink-0 gap-1 px-2 text-xs"
-                              disabled={
-                                rescheduleBySessionId.get(session.id)?.status === "pending"
-                              }
-                              onClick={() => openRescheduleDialog(session)}
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                              Reschedule
-                            </Button>
+                            <div className="flex shrink-0 flex-wrap gap-1">
+                              {session.meeting_url ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 gap-1 px-2 text-xs"
+                                  asChild
+                                >
+                                  <a
+                                    href={session.meeting_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Video className="h-3 w-3" />
+                                    {t("calendar.joinMeeting")}
+                                  </a>
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 px-2 text-xs"
+                                disabled={
+                                  rescheduleBySessionId.get(session.id)?.status === "pending"
+                                }
+                                onClick={() => openRescheduleDialog(session)}
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Reschedule
+                              </Button>
+                            </div>
                           ) : null}
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -1131,6 +1169,17 @@ export default function CalendarPage() {
                     value={editLocation}
                     onChange={(e) => setEditLocation(e.target.value)}
                     placeholder="Room 201"
+                    disabled={updateMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrl")}</Label>
+                  <Input
+                    id="edit-session-meeting-url"
+                    type="url"
+                    value={editMeetingUrl}
+                    onChange={(e) => setEditMeetingUrl(e.target.value)}
+                    placeholder={t("calendar.meetingUrlPlaceholder")}
                     disabled={updateMutation.isPending}
                   />
                 </div>

@@ -820,6 +820,7 @@ export type SessionItem = {
   start_time: string;
   end_time: string;
   location: string;
+  meeting_url?: string;
   type: "one-time" | "recurring";
   recurrence_rule?: string;
   recurrence_group_id?: string | null;
@@ -913,6 +914,7 @@ export async function createSession(input: {
   start_time: string;
   end_time: string;
   location?: string;
+  meeting_url?: string;
   notes?: string;
   type?: "one-time" | "recurring";
   recurrence_rule?: "weekly";
@@ -945,6 +947,7 @@ export async function updateSession(
     start_time?: string;
     end_time?: string;
     location?: string;
+    meeting_url?: string;
     notes?: string;
   },
 ): Promise<SessionItem> {

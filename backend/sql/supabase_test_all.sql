@@ -48,6 +48,7 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS type TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recurrence_rule TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recurrence_group_id UUID;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS meeting_url TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions(class_id);

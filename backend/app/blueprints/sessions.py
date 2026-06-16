@@ -65,6 +65,7 @@ def _serialize_session(row, classes_by_id):
         'start_time': row['start_time'],
         'end_time': row['end_time'],
         'location': row.get('location') or '',
+        'meeting_url': row.get('meeting_url') or '',
         'type': row['type'],
         'recurrence_rule': row.get('recurrence_rule') or '',
         'recurrence_group_id': row.get('recurrence_group_id'),
@@ -82,6 +83,20 @@ def _parse_month(month_str):
         return start, end
     except ValueError:
         return None, None
+
+
+def _normalize_meeting_url(raw):
+    if raw is None:
+        return None, None
+    text = str(raw).strip()
+    if not text:
+        return None, None
+    lower = text.lower()
+    if not (lower.startswith('http://') or lower.startswith('https://')):
+        return None, 'meeting_url must start with http:// or https://'
+    if len(text) > 2048:
+        return None, 'meeting_url is too long'
+    return text, None
 
 
 def _teacher_owns_class(class_id, teacher_id):
@@ -306,6 +321,9 @@ def create_session():
     start_time = (data.get('start_time') or '').strip()
     end_time = (data.get('end_time') or '').strip()
     location = (data.get('location') or '').strip()
+    meeting_url, meeting_err = _normalize_meeting_url(data.get('meeting_url'))
+    if meeting_err:
+        return jsonify({'error': meeting_err}), 400
     notes = (data.get('notes') or '').strip()
     session_type = (data.get('type') or 'one-time').strip().lower()
     recurrence_rule = (data.get('recurrence_rule') or '').strip().lower()
@@ -360,6 +378,7 @@ def create_session():
                 'start_time': normalized_start,
                 'end_time': normalized_end,
                 'location': location or None,
+                'meeting_url': meeting_url,
                 'notes': notes or None,
                 'type': 'recurring',
                 'recurrence_rule': 'weekly',
@@ -405,6 +424,7 @@ def create_session():
         'start_time': normalized_start,
         'end_time': normalized_end,
         'location': location or None,
+        'meeting_url': meeting_url,
         'notes': notes or None,
         'type': 'one-time',
     }
@@ -472,6 +492,12 @@ def update_session(session_id):
         location = (data.get('location') or '').strip()
         updates['location'] = location or None
 
+    if 'meeting_url' in data:
+        meeting_url, meeting_err = _normalize_meeting_url(data.get('meeting_url'))
+        if meeting_err:
+            return jsonify({'error': meeting_err}), 400
+        updates['meeting_url'] = meeting_url
+
     if 'notes' in data:
         updates['notes'] = (data.get('notes') or '').strip() or None
 
@@ -496,7 +522,7 @@ def update_session(session_id):
 
     updated_row = result.data[0]
     classes_by_id = _class_map([row['class_id']])
-    schedule_fields = {'title', 'date', 'start_time', 'end_time', 'location'}
+    schedule_fields = {'title', 'date', 'start_time', 'end_time', 'location', 'meeting_url'}
     if updates.keys() & schedule_fields:
         notify_session_schedule_changed(updated_row, classes_by_id)
 
