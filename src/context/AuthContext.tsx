@@ -43,6 +43,8 @@ export interface AuthUser {
   role: string;
   /** Optional email / 可选邮箱 */
   email?: string;
+  /** Profile photo URL / 头像地址 */
+  avatar?: string;
 }
 // the ? in email: mean optional//
 
@@ -90,6 +92,7 @@ function readStoredUser(): AuthUser | null {
         name: String(o.name),
         role: String(o.role),
         email: o.email != null ? String(o.email) : undefined,
+        avatar: o.avatar != null ? String(o.avatar) : undefined,
       };
     }
     return null;
@@ -113,12 +116,14 @@ function mapApiUserToAuthUser(apiUser: {
   email: string;
   role: string;
   display_name: string;
+  avatar_url?: string | null;
 }): AuthUser {
   return {
     id: apiUser.id,
     name: apiUser.display_name,
     role: apiUser.role,
     email: apiUser.email,
+    avatar: apiUser.avatar_url ?? undefined,
   };
 }
 

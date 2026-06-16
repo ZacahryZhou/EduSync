@@ -8,10 +8,12 @@ import {
   Check,
   Clock,
   FileText,
+  FolderOpen,
   MapPin,
   Users,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ import {
   approveRescheduleRequest,
   listAssignments,
   listClasses,
+  listRecentMaterials,
   listRescheduleRequests,
   listSessions,
   listTeacherStudents,
@@ -60,6 +63,7 @@ function compareSessions(a: SessionItem, b: SessionItem): number {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const displayName = user?.name ?? "there";
@@ -109,6 +113,13 @@ export default function Dashboard() {
     queryKey: ["assignments", user?.id, role] as const,
     queryFn: () => listAssignments(),
     enabled: Boolean(user?.id && isStudent),
+    staleTime: 60_000,
+  });
+
+  const recentMaterialsQuery = useQuery({
+    queryKey: ["recent-materials", user?.id, role] as const,
+    queryFn: () => listRecentMaterials(5),
+    enabled: Boolean(user?.id && (isTeacher || isStudent)),
     staleTime: 60_000,
   });
 
@@ -172,22 +183,18 @@ export default function Dashboard() {
   }, [sessions, todayKey]);
 
   const teacherStats = [
-    { label: "Students", value: studentCount, icon: Users },
-    { label: "Classes", value: classes.length, icon: BookOpen },
-    { label: "Today's sessions", value: todaysSessions.length, icon: CalendarIcon },
-    { label: "Pending assignments", value: 0, icon: FileText },
-  ];
+    { key: "students", value: studentCount, icon: Users },
+    { key: "classes", value: classes.length, icon: BookOpen },
+    { key: "todaySessions", value: todaysSessions.length, icon: CalendarIcon },
+    { key: "pendingAssignments", value: 0, icon: FileText },
+  ] as const;
 
   const studentStats = [
-    { label: "Classes joined", value: classes.length, icon: BookOpen },
-    { label: "Open assignments", value: openAssignments, icon: FileText },
-    { label: "Today's sessions", value: todaysSessions.length, icon: CalendarIcon },
-    {
-      label: "Upcoming sessions",
-      value: upcomingSessions.length,
-      icon: CalendarDays,
-    },
-  ];
+    { key: "classesJoined", value: classes.length, icon: BookOpen },
+    { key: "openAssignments", value: openAssignments, icon: FileText },
+    { key: "todaySessions", value: todaysSessions.length, icon: CalendarIcon },
+    { key: "upcomingSessions", value: upcomingSessions.length, icon: CalendarDays },
+  ] as const;
 
   const stats = isTeacher ? teacherStats : studentStats;
 
@@ -202,8 +209,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="page-header">Dashboard</h1>
-        <p className="page-subtitle">Welcome back, {displayName}.</p>
+        <h1 className="page-header">{t("dashboard.title")}</h1>
+        <p className="page-subtitle">{t("dashboard.welcome", { name: displayName })}</p>
       </div>
 
       <div
@@ -212,15 +219,18 @@ export default function Dashboard() {
         }`}
       >
         {stats.map((stat) => (
-          <Card key={stat.label} className="border-border/60 shadow-sm">
+          <Card key={stat.key} className="border-border/60 shadow-sm">
             <CardContent className="p-4">
               <stat.icon className="mb-3 h-5 w-5 text-muted-foreground" />
               <p className="text-2xl font-bold tracking-tight">
-                {isLoading || (isStudent && stat.label === "Open assignments" && assignmentsQuery.isLoading)
+                {isLoading ||
+                (isStudent && stat.key === "openAssignments" && assignmentsQuery.isLoading)
                   ? "—"
                   : stat.value}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(`dashboard.stats.${stat.key}`)}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -229,48 +239,90 @@ export default function Dashboard() {
       {isStudent ? (
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-            <CardTitle className="text-base font-semibold">Homework</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("dashboard.homework")}</CardTitle>
             <Link
               to="/assignments"
               className="text-xs font-medium text-primary hover:underline shrink-0"
             >
-              View assignments
+              {t("dashboard.viewAssignments")}
             </Link>
           </CardHeader>
           <CardContent>
             {assignmentsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading assignments…</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.homeworkLoading")}</p>
             ) : assignmentsQuery.isError ? (
               <p className="text-sm text-destructive" role="alert">
                 {(assignmentsQuery.error as Error).message}
               </p>
             ) : (assignmentsQuery.data?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No assignments yet. After you join a class, homework from your teacher
-                will appear here and under Assignments in the sidebar.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.homeworkEmpty")}</p>
             ) : openAssignments > 0 ? (
               <p className="text-sm text-muted-foreground">
-                You have{" "}
-                <span className="font-medium text-foreground">
-                  {openAssignments} assignment{openAssignments === 1 ? "" : "s"}
-                </span>{" "}
-                waiting to submit. Open Assignments to upload your work.
+                {t("dashboard.homeworkPending", { count: openAssignments })}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                You are caught up on homework. Check Assignments for grades and feedback.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.homeworkDone")}</p>
             )}
           </CardContent>
         </Card>
       ) : null}
 
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+          <CardTitle className="text-base font-semibold">{t("dashboard.recentMaterials")}</CardTitle>
+          <Link
+            to="/classes"
+            className="text-xs font-medium text-primary hover:underline shrink-0"
+          >
+            {t("dashboard.openClasses")}
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {recentMaterialsQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">{t("dashboard.materialsLoading")}</p>
+          ) : recentMaterialsQuery.isError ? (
+            <p className="text-sm text-muted-foreground">
+              {t("dashboard.materialsEmptyTeacher")}
+            </p>
+          ) : (recentMaterialsQuery.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {isTeacher
+                ? t("dashboard.materialsEmptyTeacher")
+                : t("dashboard.materialsEmptyStudent")}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {recentMaterialsQuery.data?.map((material) => (
+                <li
+                  key={material.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0 flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">{material.title}</span>
+                  </div>
+                  {material.download_url ? (
+                    <a
+                      href={material.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-xs font-medium text-primary hover:underline"
+                    >
+                      {t("dashboard.download")}
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
       {isTeacher ? (
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">
-              Pending reschedule requests
+              {t("dashboard.pendingReschedule")}
               {pendingRequests.length > 0 ? (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({pendingRequests.length})
@@ -287,7 +339,7 @@ export default function Dashboard() {
               </p>
             ) : pendingRequests.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No pending requests. Students can request a new time from Calendar.
+                {t("dashboard.pendingRescheduleEmpty")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -365,14 +417,12 @@ export default function Dashboard() {
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
-          <CardTitle className="text-base font-semibold">
-            {isTeacher ? "Upcoming schedule" : "Your upcoming sessions"}
-          </CardTitle>
+          <CardTitle className="text-base font-semibold">{t("dashboard.upcoming")}</CardTitle>
           <Link
             to="/calendar"
             className="text-xs font-medium text-primary hover:underline shrink-0"
           >
-            View calendar
+            {t("nav.calendar")}
           </Link>
         </CardHeader>
         <CardContent>
@@ -381,16 +431,12 @@ export default function Dashboard() {
               {loadError}
             </p>
           ) : isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading schedule…</p>
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : upcomingSessions.length === 0 ? (
             <PageEmptyState
               icon={CalendarIcon}
-              title={isTeacher ? "No upcoming sessions" : "No sessions scheduled"}
-              description={
-                isTeacher
-                  ? "Create sessions on the Calendar page once you have classes."
-                  : "Sessions for your joined classes will appear here and on the Calendar."
-              }
+              title={t("dashboard.upcomingEmpty")}
+              description={t("dashboard.upcomingEmpty")}
             />
           ) : (
             <div className="space-y-3">

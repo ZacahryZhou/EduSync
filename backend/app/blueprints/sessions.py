@@ -2,11 +2,12 @@ import calendar as cal
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, Response, g, jsonify, request
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role, _load_user_record
 from app.services.balances import apply_session_deductions
+from app.services.ical import build_sessions_ics
 from app.services.notifications import (
     notify_recurring_series_cancelled,
     notify_session_cancelled,
@@ -219,6 +220,77 @@ def list_sessions():
             for row in rows
         ]
     }), 200
+
+
+def _validate_export_date(date_str, label):
+    if not date_str:
+        return None
+    if not _validate_date(date_str):
+        return f'{label} must be YYYY-MM-DD'
+    return None
+
+
+@sessions_bp.route('/api/sessions/export.ics', methods=['GET'])
+@require_auth
+def export_sessions_ics():
+    user = _get_user_record(g.current_user.id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    class_ids = _accessible_class_ids(user)
+    if class_ids is None:
+        return jsonify({'error': 'Forbidden'}), 403
+    if not class_ids:
+        body = build_sessions_ics([], calendar_name='EduSync Schedule')
+        return Response(
+            body,
+            mimetype='text/calendar; charset=utf-8',
+            headers={
+                'Content-Disposition': 'attachment; filename="edusync-schedule.ics"',
+            },
+        )
+
+    from_date = request.args.get('from', '').strip()
+    to_date = request.args.get('to', '').strip()
+    class_id = request.args.get('class_id', '').strip()
+
+    from_error = _validate_export_date(from_date, 'from')
+    if from_error:
+        return jsonify({'error': from_error}), 400
+    to_error = _validate_export_date(to_date, 'to')
+    if to_error:
+        return jsonify({'error': to_error}), 400
+
+    if class_id and class_id not in class_ids:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        query = supabase.table('sessions').select('*').in_('class_id', class_ids)
+        if class_id:
+            query = query.eq('class_id', class_id)
+        if from_date:
+            query = query.gte('date', from_date)
+        if to_date:
+            query = query.lte('date', to_date)
+        result = query.order('date').order('start_time').execute()
+    except Exception:
+        return jsonify({'error': 'Failed to export sessions'}), 500
+
+    rows = result.data or []
+    classes_by_id = _class_map(class_ids)
+    sessions = [_serialize_session(row, classes_by_id) for row in rows]
+
+    display_name = user.get('display_name') or user.get('email') or 'EduSync'
+    calendar_name = f'EduSync — {display_name}'
+
+    body = build_sessions_ics(sessions, calendar_name=calendar_name)
+    return Response(
+        body,
+        mimetype='text/calendar; charset=utf-8',
+        headers={
+            'Content-Disposition': 'attachment; filename="edusync-schedule.ics"',
+        },
+    )
 
 
 @sessions_bp.route('/api/sessions', methods=['POST'])

@@ -121,7 +121,8 @@ export type LoginUserResponse = {
     email: string;
     display_name: string;
     role: string;
-  }; 
+    avatar_url?: string | null;
+  };
 };
 
 /**
@@ -175,6 +176,7 @@ export type OAuthUserPayload = {
   email: string;
   display_name: string;
   role: string;
+  avatar_url?: string | null;
 };
 
 export type OAuthCompleteOk = {
@@ -233,6 +235,7 @@ export async function registerOAuthUser(
   accessToken: string,
   role: "teacher" | "student",
   displayName: string,
+  avatarUrl?: string,
 ): Promise<{ token: string; user: OAuthUserPayload }> {
   const response = await apiFetch("/auth/oauth/register", {
     method: "POST",
@@ -243,6 +246,7 @@ export async function registerOAuthUser(
       access_token: accessToken,
       role,
       display_name: displayName,
+      ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
     }),
   });
 
@@ -413,6 +417,7 @@ export type CurrentUserResponse = {
   display_name: string;
   email_notifications?: boolean;
   grade?: string | null;
+  avatar_url?: string | null;
   created_at?: string;
 };
 
@@ -464,6 +469,7 @@ export async function updateCurrentUser(input: {
   display_name?: string;
   email_notifications?: boolean;
   grade?: string | null;
+  avatar_url?: string | null;
 }): Promise<CurrentUserResponse> {
   const response = await apiFetch("/users/me", {
     method: "PATCH",
@@ -484,6 +490,23 @@ export async function updateCurrentUser(input: {
     }
 
     throw new Error(message);
+  }
+
+  return (await response.json()) as CurrentUserResponse;
+}
+
+/** Upload profile photo (JPEG, PNG, or WebP, max 2MB) */
+export async function uploadUserAvatar(file: File): Promise<CurrentUserResponse> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const response = await apiFetch("/users/me/avatar", {
+    method: "POST",
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to upload avatar"));
   }
 
   return (await response.json()) as CurrentUserResponse;
@@ -627,6 +650,74 @@ export async function listClassStudents(classId: string): Promise<ClassStudent[]
   return data.students;
 }
 
+export type ClassMaterial = {
+  id: string;
+  class_id: string;
+  title: string;
+  file_name: string;
+  mime_type: string;
+  download_url: string | null;
+  uploaded_by?: string;
+  uploaded_by_name: string;
+  created_at?: string;
+};
+
+export async function listClassMaterials(classId: string): Promise<ClassMaterial[]> {
+  const response = await apiFetch(`/classes/${classId}/materials`, { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load materials"));
+  }
+
+  const data = (await response.json()) as { materials: ClassMaterial[] };
+  return data.materials ?? [];
+}
+
+export async function uploadClassMaterial(
+  classId: string,
+  input: { title: string; file: File },
+): Promise<ClassMaterial> {
+  const form = new FormData();
+  form.append("title", input.title.trim());
+  form.append("file", input.file);
+
+  const response = await apiFetch(`/classes/${classId}/materials`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to upload material"));
+  }
+
+  const data = (await response.json()) as { material: ClassMaterial };
+  return data.material;
+}
+
+export async function deleteClassMaterial(
+  classId: string,
+  materialId: string,
+): Promise<void> {
+  const response = await apiFetch(`/classes/${classId}/materials/${materialId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to delete material"));
+  }
+}
+
+export async function listRecentMaterials(limit = 5): Promise<ClassMaterial[]> {
+  const response = await apiFetch(`/materials/recent?limit=${limit}`, { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load recent materials"));
+  }
+
+  const data = (await response.json()) as { materials: ClassMaterial[] };
+  return data.materials ?? [];
+}
+
 export type StudentClassEnrollment = {
   id: string;
   name: string;
@@ -763,6 +854,48 @@ export async function listSessions(month: string, classId?: string): Promise<Ses
 
   const data = (await response.json()) as SessionsListResponse;
   return data.sessions;
+}
+
+export type SessionsIcalExportOptions = {
+  classId?: string;
+  from?: string;
+  to?: string;
+};
+
+/** Download all accessible sessions as an .ics file (Apple / Google Calendar import). */
+export async function downloadSessionsIcal(
+  options?: SessionsIcalExportOptions,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (options?.classId) {
+    params.set("class_id", options.classId);
+  }
+  if (options?.from) {
+    params.set("from", options.from);
+  }
+  if (options?.to) {
+    params.set("to", options.to);
+  }
+
+  const query = params.toString();
+  const response = await apiFetch(`/sessions/export.ics${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to export calendar"));
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = "edusync-schedule.ics";
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 export type CreateSessionResult = {

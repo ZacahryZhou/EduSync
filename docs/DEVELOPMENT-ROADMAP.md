@@ -19,7 +19,7 @@
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
 | **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
-| **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | 🔄 P1-01~07 ✅ · **下一步 P1-08 / P1-09** |
+| **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | 🔄 P1-01~11 ✅ · **下一步 P1-12** |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
 
@@ -542,8 +542,8 @@ erDiagram
 | **Frontend** | Settings 或 Calendar「添加到日历」 |
 | **Estimate** | 1 天 |
 
-- [ ] 学生/老师各导出自己的课表
-- [ ] 兼容 Apple Calendar / Google Calendar
+- [x] 学生/老师各导出自己的课表
+- [x] 兼容 Apple Calendar / Google Calendar（下载 .ics 后导入）
 
 ---
 
@@ -558,9 +558,9 @@ erDiagram
 | **Estimate** | 2 天 |
 | **Note** | 由 backlog P2-02 提前；免费 Supabase Storage 可支撑小规模 |
 
-- [ ] 老师按班级上传资料（PDF / 图片）
-- [ ] 学生加入班级后可浏览、下载
-- [ ] 可选：在 Dashboard / Classes 页展示最新资料
+- [x] 老师按班级上传资料（PDF / 图片）
+- [x] 学生加入班级后可浏览、下载
+- [x] 可选：在 Dashboard / Classes 页展示最新资料
 
 ---
 
@@ -573,8 +573,8 @@ erDiagram
 | **Acceptance** | Settings 切换语言后全局 UI 切换 |
 | **Estimate** | 2–3 天 |
 
-- [ ] 先覆盖：侧边栏、登录、Dashboard、Calendar、Classes
-- [ ] 语言 preference 存 localStorage 或 user profile
+- [x] 先覆盖：侧边栏、登录、Dashboard、Calendar、Classes
+- [x] 语言 preference 存 localStorage 或 user profile
 
 ---
 
@@ -588,8 +588,8 @@ erDiagram
 | **Estimate** | 1 天 |
 | **PRD** | F8 |
 
-- [ ] Settings Change Photo 启用
-- [ ] Google OAuth 头像作默认
+- [x] Settings Change Photo 启用
+- [x] Google OAuth 头像作默认
 
 ---
 

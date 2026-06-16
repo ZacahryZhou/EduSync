@@ -460,6 +460,59 @@ def main() -> int:
     if not any(r.get('type') == 'deduction' for r in tx_rows):
         raise SmokeFailure('Missing deduction transaction')
 
+    minimal_pdf = (
+        b'%PDF-1.1\n'
+        b'1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n'
+        b'2 0 obj<</Type/Pages/Count 0>>endobj\n'
+        b'trailer<</Size 3/Root 1 0 R>>\n'
+        b'%%EOF\n'
+    )
+    material_resp = _check(
+        'Upload class material',
+        requests.post(
+            _url(f'/classes/{class_id}/materials'),
+            headers=th,
+            data={'title': 'Smoke handout'},
+            files={'file': ('smoke.pdf', minimal_pdf, 'application/pdf')},
+            timeout=60,
+        ),
+        201,
+    )
+    material_row = (_json(material_resp).get('material') or {})
+    material_id = material_row.get('id')
+    if not material_id or not material_row.get('download_url'):
+        raise SmokeFailure('Upload material missing id or download_url')
+
+    materials_student = _check(
+        'List class materials (student)',
+        requests.get(_url(f'/classes/{class_id}/materials'), headers=sh, timeout=30),
+    )
+    student_materials = _json(materials_student).get('materials') or []
+    if len(student_materials) < 1:
+        raise SmokeFailure('Student should see class materials')
+
+    recent_resp = _check(
+        'Recent materials',
+        requests.get(_url('/materials/recent'), headers=sh, timeout=30),
+    )
+    if not _json(recent_resp).get('materials'):
+        raise SmokeFailure('Recent materials empty for student')
+
+    ics_resp = _check(
+        'Export sessions iCal (teacher)',
+        requests.get(_url('/sessions/export.ics'), headers=th, timeout=30),
+    )
+    ics_body = ics_resp.text or ''
+    if 'BEGIN:VCALENDAR' not in ics_body or 'END:VCALENDAR' not in ics_body:
+        raise SmokeFailure('Invalid iCal export response')
+
+    ics_student = _check(
+        'Export sessions iCal (student)',
+        requests.get(_url('/sessions/export.ics'), headers=sh, timeout=30),
+    )
+    if 'BEGIN:VCALENDAR' not in (ics_student.text or ''):
+        raise SmokeFailure('Student iCal export missing VCALENDAR')
+
     print('\n✅ P0 smoke test passed (local API)')
     print('   Manual: repeat in production incognito when deployed.')
     return 0

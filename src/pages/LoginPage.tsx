@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { AuthDivider, GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,35 +37,31 @@ export default function LoginPage() {
         name: data.user.display_name,
         role: data.user.role,
         email: data.user.email,
+        avatar: data.user.avatar_url ?? undefined,
       });
       navigate(getPostLoginPath(data.user.role, fromPath), { replace: true });
     } catch {
-      setErrorMessage("Invalid email or password, please try again");
+      setErrorMessage(t("login.error"));
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <AuthShell
-      title="Welcome back to your classroom"
-      subtitle="Sign in to manage classes, view your calendar, and stay in sync with your students."
-    >
+    <AuthShell title={t("login.shellTitle")} subtitle={t("login.shellSubtitle")}>
       <form onSubmit={handleSubmit} className="auth-card">
         <div className="space-y-2">
           <div className="inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-foreground">
             EduSync
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-          <p className="text-sm text-muted-foreground">
-            Please use your email and password to login
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("login.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("login.subtitle")}</p>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="login-email" className="text-xs">
-              Email
+              {t("login.email")}
             </Label>
             <Input
               id="login-email"
@@ -80,7 +78,7 @@ export default function LoginPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="login-password" className="text-xs">
-              Password
+              {t("login.password")}
             </Label>
             <Input
               id="login-password"
@@ -104,22 +102,22 @@ export default function LoginPage() {
         ) : null}
 
         <Button type="submit" className="h-10 w-full" disabled={isLoading}>
-          {isLoading ? "Logging in…" : "Login"}
+          {isLoading ? t("login.submitting") : t("login.submit")}
         </Button>
 
         <AuthDivider />
         <GoogleSignInButton />
 
         <p className="text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          {t("login.noAccount")}{" "}
           <Link to="/register" className="font-medium text-foreground hover:underline">
-            Register
+            {t("login.register")}
           </Link>
         </p>
 
         <p className="text-center text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground">
-            Back to home
+            {t("login.backHome")}
           </Link>
         </p>
       </form>

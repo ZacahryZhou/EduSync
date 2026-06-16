@@ -1,13 +1,25 @@
 import random
 import re
 import string
+import mimetypes
+import uuid
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.utils import secure_filename
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role, _load_user_record
 
 classes_bp = Blueprint('classes', __name__)
+
+MATERIALS_BUCKET = 'materials'
+MAX_MATERIAL_BYTES = 20 * 1024 * 1024
+ALLOWED_MATERIAL_MIMES = frozenset({
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+})
 
 CLASS_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
 CLASS_CODE_PATTERN = re.compile(r'[A-Z0-9]{2,6}-[A-Z0-9]{4}')
@@ -26,6 +38,11 @@ def _friendly_db_error(exc):
             return (
                 'Database table "class_enrollments" is missing. '
                 'Run backend/sql/create_mvp_tables.sql in Supabase SQL Editor.'
+            )
+        if 'class_materials' in lower:
+            return (
+                'Database table "class_materials" is missing. '
+                'Run backend/sql/create_class_materials.sql in Supabase SQL Editor.'
             )
     return message or 'Database error'
 
@@ -168,6 +185,103 @@ def _teacher_owns_class(class_id, teacher_id):
         'id', class_id
     ).eq('teacher_id', teacher_id).execute()
     return bool(result.data)
+
+
+def _student_enrolled_in_class(student_id, class_id):
+    result = supabase.table('class_enrollments').select('id').eq(
+        'class_id', class_id
+    ).eq('student_id', student_id).limit(1).execute()
+    return bool(result.data)
+
+
+def _can_access_class(user, class_id):
+    role = (user.get('role') or '').strip().lower()
+    if role == 'teacher':
+        return _teacher_owns_class(class_id, user['id'])
+    if role == 'student':
+        return _student_enrolled_in_class(user['id'], class_id)
+    return False
+
+
+def _safe_storage_name(filename):
+    base = secure_filename(filename or '') or 'upload'
+    return base[:200]
+
+
+def _material_storage_path(class_id, material_id, filename):
+    return f'{class_id}/{material_id}/{_safe_storage_name(filename)}'
+
+
+def _upload_material_file(class_id, material_id, file_storage):
+    if not file_storage or not file_storage.filename:
+        return None, None, None, 'File is required'
+    data = file_storage.read()
+    if not data:
+        return None, None, None, 'Uploaded file is empty'
+    if len(data) > MAX_MATERIAL_BYTES:
+        return None, None, None, 'File must be 20MB or smaller'
+    mime = (file_storage.mimetype or '').split(';')[0].strip().lower()
+    if not mime:
+        mime = mimetypes.guess_type(file_storage.filename)[0] or ''
+    if mime not in ALLOWED_MATERIAL_MIMES:
+        return None, None, None, 'Allowed file types: PDF, JPEG, PNG'
+    path = _material_storage_path(class_id, material_id, file_storage.filename)
+    try:
+        supabase.storage.from_(MATERIALS_BUCKET).upload(
+            path,
+            data,
+            file_options={'content-type': mime, 'upsert': 'true'},
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if 'bucket' in message and 'not found' in message:
+            return None, None, None, (
+                'Storage bucket "materials" is missing. '
+                'Create it in Supabase Storage or run backend/sql/setup_materials_bucket.sql.'
+            )
+        return None, None, None, str(exc) or 'Failed to upload file'
+    return path, _safe_storage_name(file_storage.filename), mime, None
+
+
+def _signed_material_url(storage_path):
+    if not storage_path:
+        return None
+    try:
+        result = supabase.storage.from_(MATERIALS_BUCKET).create_signed_url(
+            storage_path, 3600
+        )
+    except Exception:
+        return None
+    if isinstance(result, dict):
+        return result.get('signedURL') or result.get('signedUrl')
+    return None
+
+
+def _load_uploader_names(user_ids):
+    if not user_ids:
+        return {}
+    result = supabase.table('users').select(
+        'id, display_name, email'
+    ).in_('id', user_ids).execute()
+    names = {}
+    for row in result.data or []:
+        names[row['id']] = row.get('display_name') or row.get('email') or 'Teacher'
+    return names
+
+
+def _serialize_material(row, uploader_names):
+    uploader_id = row.get('uploaded_by')
+    return {
+        'id': row.get('id'),
+        'class_id': row.get('class_id'),
+        'title': row.get('title') or '',
+        'file_name': row.get('file_name') or '',
+        'mime_type': row.get('mime_type') or '',
+        'download_url': _signed_material_url(row.get('file_path')),
+        'uploaded_by': uploader_id,
+        'uploaded_by_name': uploader_names.get(uploader_id, ''),
+        'created_at': row.get('created_at'),
+    }
 
 
 @classes_bp.route('/api/classes/join', methods=['POST'])
@@ -459,3 +573,155 @@ def delete_class(class_id):
         return jsonify({'error': 'Failed to delete class'}), 500
 
     return jsonify({'message': 'Class deleted'}), 200
+
+
+@classes_bp.route('/api/classes/<class_id>/materials', methods=['GET'])
+@require_auth
+def list_class_materials(class_id):
+    user = _load_user_record()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    if not _can_access_class(user, class_id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    try:
+        result = supabase.table('class_materials').select('*').eq(
+            'class_id', class_id
+        ).order('created_at', desc=True).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    rows = result.data or []
+    uploader_ids = list({row.get('uploaded_by') for row in rows if row.get('uploaded_by')})
+    uploader_names = _load_uploader_names(uploader_ids)
+
+    return jsonify({
+        'materials': [
+            _serialize_material(row, uploader_names)
+            for row in rows
+        ],
+    }), 200
+
+
+@classes_bp.route('/api/classes/<class_id>/materials', methods=['POST'])
+@require_role('teacher')
+def upload_class_material(class_id):
+    if not _teacher_owns_class(class_id, g.current_user.id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    title = (request.form.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': 'title is required'}), 400
+
+    file_storage = request.files.get('file')
+    material_id = str(uuid.uuid4())
+    file_path, file_name, mime_type, upload_err = _upload_material_file(
+        class_id, material_id, file_storage
+    )
+    if upload_err:
+        return jsonify({'error': upload_err}), 400
+
+    try:
+        result = supabase.table('class_materials').insert({
+            'id': material_id,
+            'class_id': class_id,
+            'title': title,
+            'file_path': file_path,
+            'file_name': file_name,
+            'mime_type': mime_type,
+            'uploaded_by': g.current_user.id,
+        }).execute()
+    except Exception as exc:
+        try:
+            supabase.storage.from_(MATERIALS_BUCKET).remove([file_path])
+        except Exception:
+            pass
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    if not result.data:
+        return jsonify({'error': 'Failed to save material'}), 500
+
+    row = result.data[0]
+    uploader_names = _load_uploader_names([g.current_user.id])
+    return jsonify({
+        'material': _serialize_material(row, uploader_names),
+    }), 201
+
+
+@classes_bp.route('/api/classes/<class_id>/materials/<material_id>', methods=['DELETE'])
+@require_role('teacher')
+def delete_class_material(class_id, material_id):
+    if not _teacher_owns_class(class_id, g.current_user.id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    try:
+        result = supabase.table('class_materials').select('*').eq(
+            'id', material_id
+        ).eq('class_id', class_id).limit(1).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    if not result.data:
+        return jsonify({'error': 'Material not found'}), 404
+
+    row = result.data[0]
+    file_path = row.get('file_path')
+
+    try:
+        supabase.table('class_materials').delete().eq('id', material_id).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    if file_path:
+        try:
+            supabase.storage.from_(MATERIALS_BUCKET).remove([file_path])
+        except Exception:
+            pass
+
+    return jsonify({'message': 'Material deleted'}), 200
+
+
+@classes_bp.route('/api/materials/recent', methods=['GET'])
+@require_auth
+def list_recent_materials():
+    user = _load_user_record()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    role = (user.get('role') or '').strip().lower()
+    limit = min(max(int(request.args.get('limit', 5)), 1), 20)
+
+    try:
+        if role == 'teacher':
+            class_rows, _ = _fetch_teacher_classes(user['id'])
+            class_ids = [row['id'] for row in class_rows]
+        elif role == 'student':
+            enrollments = supabase.table('class_enrollments').select(
+                'class_id'
+            ).eq('student_id', user['id']).execute()
+            class_ids = [row['class_id'] for row in enrollments.data or []]
+        else:
+            return jsonify({'error': 'Forbidden'}), 403
+    except Exception:
+        return jsonify({'error': 'Failed to load materials'}), 500
+
+    if not class_ids:
+        return jsonify({'materials': []}), 200
+
+    try:
+        result = supabase.table('class_materials').select('*').in_(
+            'class_id', class_ids
+        ).order('created_at', desc=True).limit(limit).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    rows = result.data or []
+    uploader_ids = list({row.get('uploaded_by') for row in rows if row.get('uploaded_by')})
+    uploader_names = _load_uploader_names(uploader_ids)
+
+    return jsonify({
+        'materials': [
+            _serialize_material(row, uploader_names)
+            for row in rows
+        ],
+    }), 200

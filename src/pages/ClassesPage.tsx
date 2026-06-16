@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Copy, List, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { BookOpen, Copy, Download, FolderOpen, List, Pencil, Plus, Trash2, Upload, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -37,11 +38,15 @@ import { useAuth } from "@/context/AuthContext";
 import {
   createClass,
   deleteClass,
+  deleteClassMaterial,
   joinClass,
+  listClassMaterials,
   listClassStudents,
   listClasses,
   updateClass,
+  uploadClassMaterial,
   type ClassItem,
+  type ClassMaterial,
   type ClassStudent,
 } from "@/lib/api";
 import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
@@ -93,6 +98,7 @@ function studentDisplayName(student: ClassStudent): string {
 }
 
 export default function ClassesPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const role = normalizeRole(user?.role);
@@ -119,6 +125,9 @@ export default function ClassesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<ClassItem | null>(null);
   const [rosterClass, setRosterClass] = useState<ClassItem | null>(null);
+  const [materialsClass, setMaterialsClass] = useState<ClassItem | null>(null);
+  const [materialTitle, setMaterialTitle] = useState("");
+  const [materialFile, setMaterialFile] = useState<File | null>(null);
 
   const classesQueryKey = ["classes", user?.id, role] as const;
 
@@ -134,6 +143,53 @@ export default function ClassesPage() {
     queryFn: () => listClassStudents(rosterClass!.id),
     enabled: Boolean(isTeacher && rosterClass?.id),
     staleTime: 60_000,
+  });
+
+  const materialsQuery = useQuery({
+    queryKey: ["class-materials", materialsClass?.id] as const,
+    queryFn: () => listClassMaterials(materialsClass!.id),
+    enabled: Boolean(materialsClass?.id),
+    staleTime: 30_000,
+  });
+
+  const uploadMaterialMutation = useMutation({
+    mutationFn: ({
+      classId,
+      title,
+      file,
+    }: {
+      classId: string;
+      title: string;
+      file: File;
+    }) => uploadClassMaterial(classId, { title, file }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class-materials"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-materials"] });
+      setMaterialTitle("");
+      setMaterialFile(null);
+      toast.success("Material uploaded");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteMaterialMutation = useMutation({
+    mutationFn: ({
+      classId,
+      materialId,
+    }: {
+      classId: string;
+      materialId: string;
+    }) => deleteClassMaterial(classId, materialId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class-materials"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-materials"] });
+      toast.success("Material deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
   });
 
   const createMutation = useMutation({
@@ -292,6 +348,42 @@ export default function ClassesPage() {
     joinMutation.mutate(code);
   }
 
+  function handleMaterialUpload(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!materialsClass) {
+      return;
+    }
+    const title = materialTitle.trim();
+    if (!title) {
+      toast.error("Enter a title for this material");
+      return;
+    }
+    if (!materialFile) {
+      toast.error("Choose a PDF or image file");
+      return;
+    }
+    uploadMaterialMutation.mutate({
+      classId: materialsClass.id,
+      title,
+      file: materialFile,
+    });
+  }
+
+  function formatMaterialDate(iso?: string): string {
+    if (!iso) {
+      return "—";
+    }
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
   const classes = classesQuery.data ?? [];
   const waitingForClasses =
     classesQuery.isPending ||
@@ -302,18 +394,16 @@ export default function ClassesPage() {
     <div className="space-y-5 max-w-6xl">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="page-header">Classes</h1>
+          <h1 className="page-header">{t("classes.title")}</h1>
           <p className="page-subtitle">
-            {isTeacher
-              ? "Create classes and share the class code with students"
-              : "Join a class with the code from your teacher"}
+            {isTeacher ? t("classes.subtitleTeacher") : t("classes.subtitleStudent")}
           </p>
         </div>
         {isTeacher ? (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
-                <Plus className="h-4 w-4" /> Create Class
+                <Plus className="h-4 w-4" /> {t("classes.createClass")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -391,18 +481,21 @@ export default function ClassesPage() {
       {isStudent ? (
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Join a class</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("classes.joinTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-xs text-muted-foreground">
-              Signed in as {user?.email ?? user?.name} ({role || "unknown role"})
+              {t("classes.signedInAs", {
+                email: user?.email ?? user?.name ?? "",
+                role: isStudent ? t("roles.student") : role || "",
+              })}
             </p>
             <form
               onSubmit={handleJoinSubmit}
               className="flex flex-col gap-3 sm:flex-row sm:items-end"
             >
               <div className="flex-1 space-y-1.5">
-                <Label htmlFor="class-code">Class code</Label>
+                <Label htmlFor="class-code">{t("classes.classCode")}</Label>
                 <Input
                   id="class-code"
                   value={classCode}
@@ -414,7 +507,7 @@ export default function ClassesPage() {
                 />
               </div>
               <Button type="submit" disabled={joinMutation.isPending}>
-                {joinMutation.isPending ? "Joining…" : "Join class"}
+                {joinMutation.isPending ? t("classes.joining") : t("classes.join")}
               </Button>
             </form>
           </CardContent>
@@ -422,7 +515,7 @@ export default function ClassesPage() {
       ) : null}
 
       {waitingForClasses ? (
-        <p className="text-sm text-muted-foreground">Loading classes…</p>
+        <p className="text-sm text-muted-foreground">{t("classes.loading")}</p>
       ) : classesQuery.isError ? (
         <p className="text-sm text-destructive" role="alert">
           {(classesQuery.error as Error).message}
@@ -430,11 +523,9 @@ export default function ClassesPage() {
       ) : classes.length === 0 ? (
         <PageEmptyState
           icon={BookOpen}
-          title={isTeacher ? "No classes yet" : "No classes joined"}
+          title={isTeacher ? t("classes.emptyTitleTeacher") : t("classes.emptyTitleStudent")}
           description={
-            isTeacher
-              ? "Create your first class and share the class code with students."
-              : "Enter a class code from your teacher to join a class."
+            isTeacher ? t("classes.emptyTeacher") : t("classes.emptyStudent")
           }
         />
       ) : (
@@ -486,7 +577,7 @@ export default function ClassesPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Class code</span>
+                  <span className="text-muted-foreground">{t("classes.classCodeLabel")}</span>
                   {classItem.code ? (
                     <div className="flex items-center gap-1">
                       <code className="rounded bg-secondary px-2 py-0.5 font-mono text-xs">
@@ -506,12 +597,12 @@ export default function ClassesPage() {
                       ) : null}
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Not set</span>
+                    <span className="text-xs text-muted-foreground">{t("classes.notSet")}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>{classItem.student_count} students</span>
+                  <span>{t("classes.studentsCount", { count: classItem.student_count })}</span>
                 </div>
                 {isTeacher ? (
                   <Button
@@ -522,11 +613,23 @@ export default function ClassesPage() {
                     onClick={() => setRosterClass(classItem)}
                   >
                     <List className="mr-2 h-4 w-4" />
-                    View roster
+                    {t("classes.viewRoster")}
                   </Button>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setMaterialsClass(classItem)}
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {t("classes.materials")}
+                </Button>
                 <div className="text-muted-foreground">
-                  {classItem.billing_mode === "per_hour" ? "Per hour" : "Per session"}
+                  {classItem.billing_mode === "per_hour"
+                    ? t("classes.billingPerHour")
+                    : t("classes.billingPerSession")}
                   {" · $"}
                   {classItem.unit_price.toFixed(2)}
                 </div>
@@ -616,6 +719,140 @@ export default function ClassesPage() {
           </DialogContent>
         </Dialog>
       ) : null}
+
+      <Dialog
+        open={materialsClass !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMaterialsClass(null);
+            setMaterialTitle("");
+            setMaterialFile(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {materialsClass
+                ? `${materialsClass.name} — ${t("classes.materials")}`
+                : t("classes.materials")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {isTeacher && materialsClass ? (
+              <form onSubmit={handleMaterialUpload} className="space-y-3 rounded-lg border border-border/60 p-4">
+                <p className="text-sm font-medium">{t("classes.uploadMaterial")}</p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="material-title">{t("classes.materialTitle")}</Label>
+                  <Input
+                    id="material-title"
+                    value={materialTitle}
+                    onChange={(e) => setMaterialTitle(e.target.value)}
+                    placeholder="Week 3 slides"
+                    disabled={uploadMaterialMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="material-file">{t("classes.materialFile")}</Label>
+                  <Input
+                    id="material-file"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    onChange={(e) => setMaterialFile(e.target.files?.[0] ?? null)}
+                    disabled={uploadMaterialMutation.isPending}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={uploadMaterialMutation.isPending}
+                >
+                  <Upload className="h-4 w-4" />
+                  {uploadMaterialMutation.isPending ? t("classes.uploading") : t("classes.upload")}
+                </Button>
+              </form>
+            ) : null}
+
+            {materialsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t("classes.materialsLoading")}</p>
+            ) : materialsQuery.isError ? (
+              <p className="text-sm text-destructive">
+                {(materialsQuery.error as Error).message}
+              </p>
+            ) : (materialsQuery.data?.length ?? 0) === 0 ? (
+              <div className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+                <FolderOpen className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p className="font-medium text-foreground">{t("classes.materialsEmptyTitle")}</p>
+                <p className="mt-1">
+                  {isTeacher
+                    ? t("classes.materialsEmptyTeacher")
+                    : t("classes.materialsEmptyStudent")}
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border rounded-lg border border-border/60">
+                {(materialsQuery.data ?? []).map((material: ClassMaterial) => (
+                  <li
+                    key={material.id}
+                    className="flex items-start justify-between gap-3 px-4 py-3 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{material.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {material.file_name || "File"} · {formatMaterialDate(material.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      {material.download_url ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          asChild
+                        >
+                          <a
+                            href={material.download_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {t("classes.open")}
+                          </a>
+                        </Button>
+                      ) : null}
+                      {isTeacher && materialsClass ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label={`Delete ${material.title}`}
+                          disabled={deleteMaterialMutation.isPending}
+                          onClick={() =>
+                            deleteMaterialMutation.mutate({
+                              classId: materialsClass.id,
+                              materialId: material.id,
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setMaterialsClass(null)}>
+              {t("classes.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isTeacher ? (
         <Dialog

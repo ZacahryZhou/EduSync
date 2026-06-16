@@ -18,6 +18,7 @@ type OAuthRoleDialogProps = {
   accessToken: string;
   email: string;
   suggestedDisplayName: string;
+  avatarUrl?: string;
   onSuccess: (payload: {
     token: string;
     user: {
@@ -25,6 +26,7 @@ type OAuthRoleDialogProps = {
       email: string;
       display_name: string;
       role: string;
+      avatar_url?: string | null;
     };
   }) => void;
 };
@@ -35,6 +37,7 @@ export function OAuthRoleDialog({
   accessToken,
   email,
   suggestedDisplayName,
+  avatarUrl,
   onSuccess,
 }: OAuthRoleDialogProps) {
   const [displayName, setDisplayName] = useState(suggestedDisplayName);
@@ -65,6 +68,7 @@ export function OAuthRoleDialog({
         accessToken,
         role,
         displayName.trim(),
+        avatarUrl,
       );
       onSuccess(result);
       onOpenChange(false);

@@ -11,6 +11,7 @@ type PendingProfile = {
   accessToken: string;
   email: string;
   suggestedDisplayName: string;
+  avatarUrl?: string;
 };
 
 export default function AuthCallbackPage() {
@@ -85,6 +86,7 @@ export default function AuthCallbackPage() {
             accessToken: result.token,
             email: result.email,
             suggestedDisplayName: result.suggested_display_name,
+            avatarUrl: result.avatar_url,
           });
           setRoleDialogOpen(true);
           setIsProcessing(false);
@@ -96,6 +98,7 @@ export default function AuthCallbackPage() {
           name: result.user.display_name,
           role: result.user.role,
           email: result.user.email,
+          avatar: result.user.avatar_url ?? undefined,
         });
         navigate(getPostLoginPath(result.user.role), { replace: true });
       } catch (error: unknown) {
@@ -121,6 +124,7 @@ export default function AuthCallbackPage() {
       email: string;
       display_name: string;
       role: string;
+      avatar_url?: string | null;
     };
   }) {
     login(payload.token, {
@@ -128,6 +132,7 @@ export default function AuthCallbackPage() {
       name: payload.user.display_name,
       role: payload.user.role,
       email: payload.user.email,
+      avatar: payload.user.avatar_url ?? undefined,
     });
     navigate(getPostLoginPath(payload.user.role), { replace: true });
   }
@@ -162,6 +167,7 @@ export default function AuthCallbackPage() {
           accessToken={pendingProfile.accessToken}
           email={pendingProfile.email}
           suggestedDisplayName={pendingProfile.suggestedDisplayName}
+          avatarUrl={pendingProfile.avatarUrl}
           onSuccess={handleProfileComplete}
         />
       ) : null}

@@ -95,7 +95,7 @@ def login():
             return jsonify({'error': 'User data not found'}), 404
         
         user = user_data.data[0]
-        #取出查询结果的第一条数据 因为select返回的是一个列表 我们只需要第一条就好#
+        from app.blueprints.users import _resolve_avatar_url
 
         return jsonify({
             'token': token,
@@ -103,8 +103,8 @@ def login():
                 'id': user_id,
                 'email':email,
                 'display_name': user['display_name'],
-                'role':user['role']
-
+                'role':user['role'],
+                'avatar_url': _resolve_avatar_url(user.get('avatar_url')),
             }
         }), 200
     except Exception as e:
@@ -124,6 +124,8 @@ def _oauth_display_name(auth_user):
 
 
 def _user_login_payload(user_id, email, user_row, token):
+    from app.blueprints.users import _resolve_avatar_url
+
     return {
         'status': 'ok',
         'token': token,
@@ -132,8 +134,32 @@ def _user_login_payload(user_id, email, user_row, token):
             'email': email,
             'display_name': user_row['display_name'],
             'role': user_row['role'],
+            'avatar_url': _resolve_avatar_url(user_row.get('avatar_url')),
         },
     }
+
+
+def _oauth_avatar_url(auth_user):
+    metadata = auth_user.user_metadata or {}
+    return metadata.get('avatar_url') or metadata.get('picture')
+
+
+def _maybe_backfill_google_avatar(user_id, user_row, auth_user):
+    if user_row.get('avatar_url'):
+        return user_row
+    google_avatar = _oauth_avatar_url(auth_user)
+    if not google_avatar:
+        return user_row
+    try:
+        result = supabase.table('users').update({
+            'avatar_url': google_avatar,
+        }).eq('id', user_id).execute()
+        if result.data:
+            return result.data[0]
+    except Exception:
+        pass
+    user_row['avatar_url'] = google_avatar
+    return user_row
 
 
 @auth_bp.route('/api/auth/oauth/complete', methods=['POST'])
@@ -158,8 +184,11 @@ def oauth_complete():
 
         user_data = supabase.table('users').select('*').eq('id', user_id).execute()
         if user_data.data:
+            user = _maybe_backfill_google_avatar(
+                user_id, user_data.data[0], auth_user
+            )
             return jsonify(_user_login_payload(
-                user_id, email, user_data.data[0], token
+                user_id, email, user, token
             )), 200
 
         metadata = auth_user.user_metadata or {}
@@ -168,7 +197,7 @@ def oauth_complete():
             'token': token,
             'email': email,
             'suggested_display_name': _oauth_display_name(auth_user),
-            'avatar_url': metadata.get('avatar_url') or metadata.get('picture'),
+            'avatar_url': _oauth_avatar_url(auth_user),
         }), 200
     except Exception:
         return jsonify({'error': 'Authentication failed'}), 401
@@ -184,6 +213,7 @@ def oauth_register():
     token = data.get('access_token')
     role = data.get('role')
     display_name = (data.get('display_name') or '').strip()
+    avatar_url = (data.get('avatar_url') or '').strip() or None
 
     if not token or not role or not display_name:
         return jsonify({'error': 'Please provide token, role, and display name'}), 400
@@ -214,7 +244,10 @@ def oauth_register():
             'email': email,
             'display_name': display_name,
             'role': role,
+            **({'avatar_url': avatar_url} if avatar_url else {}),
         }).execute()
+
+        from app.blueprints.users import _resolve_avatar_url
 
         return jsonify({
             'status': 'ok',
@@ -224,6 +257,7 @@ def oauth_register():
                 'email': email,
                 'display_name': display_name,
                 'role': role,
+                'avatar_url': _resolve_avatar_url(avatar_url),
             },
         }), 201
     except Exception:

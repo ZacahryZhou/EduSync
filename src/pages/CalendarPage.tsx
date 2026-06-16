@@ -6,6 +6,7 @@ import {
   Calendar as CalendarIcon,
   ClipboardCheck,
   Clock,
+  Download,
   MapPin,
   MessageSquare,
   Pencil,
@@ -15,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -52,6 +54,7 @@ import {
   createRescheduleRequest,
   createSession,
   deleteSession,
+  downloadSessionsIcal,
   getSessionAttendance,
   listClasses,
   listMyAttendance,
@@ -150,6 +153,7 @@ function addWeeksToDateKey(dateKey: string, weeks: number): string {
 }
 
 export default function CalendarPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
   const isTeacher = isTeacherRole(role);
@@ -178,6 +182,7 @@ export default function CalendarPage() {
   const [editNotes, setEditNotes] = useState("");
 
   const [deleteTarget, setDeleteTarget] = useState<SessionItem | null>(null);
+  const [exportingIcal, setExportingIcal] = useState(false);
 
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSession, setRescheduleSession] = useState<SessionItem | null>(null);
@@ -556,17 +561,39 @@ export default function CalendarPage() {
     });
   }
 
+  async function handleExportIcal() {
+    setExportingIcal(true);
+    try {
+      await downloadSessionsIcal();
+      toast.success(t("calendar.exportSuccess"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("calendar.exportFail"));
+    } finally {
+      setExportingIcal(false);
+    }
+  }
+
   return (
     <div className="space-y-5 max-w-6xl">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="page-header">Calendar</h1>
+          <h1 className="page-header">{t("calendar.title")}</h1>
           <p className="page-subtitle">
-            {isTeacher
-              ? "Pick a day, add sessions, and manage your schedule"
-              : "View sessions for classes you have joined"}
+            {isTeacher ? t("calendar.subtitleTeacher") : t("calendar.subtitleStudent")}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExportIcal}
+            disabled={exportingIcal}
+          >
+            <Download className="h-4 w-4" />
+            {exportingIcal ? t("calendar.exporting") : t("calendar.export")}
+          </Button>
         {isTeacher ? (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
@@ -576,7 +603,7 @@ export default function CalendarPage() {
                 onClick={openCreateDialog}
                 disabled={teacherClasses.length === 0}
               >
-                <Plus className="h-4 w-4" /> Add Session
+                <Plus className="h-4 w-4" /> {t("calendar.addSession")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -726,11 +753,12 @@ export default function CalendarPage() {
             </DialogContent>
           </Dialog>
         ) : null}
+        </div>
       </div>
 
       {isTeacher && teacherClasses.length === 0 && !classesQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">
-          Create a class first on the Classes page before scheduling sessions.
+          {t("calendar.noClassesHint")}
         </p>
       ) : null}
 
@@ -780,11 +808,11 @@ export default function CalendarPage() {
                 ) : sessionsOnSelectedDay.length === 0 ? (
                   <div className="flex h-full min-h-[9rem] flex-col items-center justify-center py-8 text-center">
                     <CalendarIcon className="mb-2 h-7 w-7 text-muted-foreground/40" />
-                    <p className="text-sm font-medium">No sessions on this day</p>
+                    <p className="text-sm font-medium">{t("calendar.dayEmpty")}</p>
                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
                       {isTeacher
-                        ? "Select another day or add a new session."
-                        : "No classes are scheduled for this day."}
+                        ? t("calendar.dayEmptyHintTeacher")
+                        : t("calendar.dayEmptyHintStudent")}
                     </p>
                   </div>
                 ) : (

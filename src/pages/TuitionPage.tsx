@@ -178,6 +178,10 @@ export default function TuitionPage() {
       toast.error("Enter a valid amount greater than 0");
       return;
     }
+    if (topupTarget.unit !== "hours" && !Number.isInteger(amount)) {
+      toast.error("Session top-ups must be whole numbers (e.g. 12, not 12.01)");
+      return;
+    }
     topupMutation.mutate({
       student_id: topupTarget.student_id,
       class_id: topupTarget.class_id,
@@ -378,7 +382,7 @@ export default function TuitionPage() {
                   <Input
                     id="topup-amount"
                     type="number"
-                    min="0.01"
+                    min={topupTarget?.unit === "hours" ? "0.25" : "1"}
                     step={topupTarget?.unit === "hours" ? "0.25" : "1"}
                     value={topupAmount}
                     onChange={(e) => setTopupAmount(e.target.value)}

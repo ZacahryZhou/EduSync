@@ -126,6 +126,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN DEFAULT t
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS grade TEXT;
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_users_grade ON users(grade) WHERE grade IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS email_log (
@@ -237,7 +239,49 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_balance_tx_session_deduction
   ON balance_transactions(session_id, student_id)
   WHERE type = 'deduction' AND session_id IS NOT NULL;
 
--- 验证（应看到 12 行表名）
+-- 11) 班级资料库（P1-09）
+CREATE TABLE IF NOT EXISTS class_materials (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  class_id     UUID NOT NULL REFERENCES class_groups(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  file_path    TEXT NOT NULL,
+  file_name    TEXT NOT NULL DEFAULT '',
+  mime_type    TEXT NOT NULL DEFAULT '',
+  uploaded_by  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_materials_class ON class_materials(class_id);
+CREATE INDEX IF NOT EXISTS idx_class_materials_created ON class_materials(created_at DESC);
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'materials',
+  'materials',
+  false,
+  20971520,
+  ARRAY['application/pdf', 'image/jpeg', 'image/png']::text[]
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- 13) 用户头像 Storage（P1-11）
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'avatars',
+  'avatars',
+  true,
+  2097152,
+  ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- 验证（应看到 13 行表名）
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
@@ -253,6 +297,7 @@ WHERE table_schema = 'public'
     'assignment_submissions',
     'attendance',
     'student_balances',
-    'balance_transactions'
+    'balance_transactions',
+    'class_materials'
   )
 ORDER BY table_name;
