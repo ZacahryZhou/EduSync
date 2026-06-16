@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import { useAuth } from "@/context/AuthContext";
 import {
   listNotifications,
@@ -198,7 +199,7 @@ export default function NotificationsPage() {
           description="Alerts about schedule changes, reschedule requests, and class updates will appear here."
         />
       ) : (
-        <div className="space-y-3">
+        <ScrollableList size="lg" className="space-y-3">
           {notifications.map((item) => (
             <NotificationRow
               key={item.id}
@@ -207,7 +208,7 @@ export default function NotificationsPage() {
               onMarkRead={(id) => markReadMutation.mutate(id)}
             />
           ))}
-        </div>
+        </ScrollableList>
       )}
     </div>
   );

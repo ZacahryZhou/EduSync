@@ -7,6 +7,7 @@ import { GuestRoute } from "@/components/GuestRoute";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./pages/CalendarPage";
+import AiPage from "./pages/AiPage";
 import ClassesPage from "./pages/ClassesPage";
 import StudentsPage from "./pages/StudentsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
@@ -43,6 +44,7 @@ const App = () => (
           <Route element={<AppShell />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/ai" element={<AiPage />} />
             <Route path="/classes" element={<ClassesPage />} />
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/assignments" element={<AssignmentsPage />} />

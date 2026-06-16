@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
 import { StudentReportPreview } from "@/components/StudentReportPreview";
 import {
@@ -282,7 +283,7 @@ export default function StudentsPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border/60 bg-card shadow-sm overflow-hidden">
-          <div className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain">
+          <ScrollableList>
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
               <TableRow>
@@ -320,7 +321,7 @@ export default function StudentsPage() {
               ))}
             </TableBody>
           </Table>
-          </div>
+          </ScrollableList>
         </div>
       )}
 

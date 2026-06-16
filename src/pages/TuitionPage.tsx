@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import {
   Select,
   SelectContent,
@@ -120,7 +121,7 @@ function TransactionsTable({
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-      <div className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain">
+      <ScrollableList>
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow>
@@ -154,7 +155,7 @@ function TransactionsTable({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </ScrollableList>
     </div>
   );
 }
@@ -481,6 +482,7 @@ export default function TuitionPage() {
       ) : (
         <div className="space-y-6">
           <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+            <ScrollableList>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -539,6 +541,7 @@ export default function TuitionPage() {
                 ))}
               </TableBody>
             </Table>
+            </ScrollableList>
           </div>
 
           <div className="space-y-3">

@@ -30,6 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -270,7 +271,8 @@ export default function Dashboard() {
               {t("dashboard.viewAssignments")}
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
+            <ScrollableList className="px-6 pb-6">
             {dashboardSummaryQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">{t("dashboard.homeworkLoading")}</p>
             ) : dashboardSummaryQuery.isError ? (
@@ -313,6 +315,7 @@ export default function Dashboard() {
                 </ul>
               </div>
             )}
+            </ScrollableList>
           </CardContent>
         </Card>
       ) : null}
@@ -335,7 +338,8 @@ export default function Dashboard() {
             {t("dashboard.viewNotifications")}
           </Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          <ScrollableList className="px-6 pb-6">
           {dashboardSummaryQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : dashboardSummaryQuery.isError ? (
@@ -365,6 +369,7 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
+          </ScrollableList>
         </CardContent>
       </Card>
 
@@ -378,7 +383,8 @@ export default function Dashboard() {
             {t("dashboard.openClasses")}
           </Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          <ScrollableList className="px-6 pb-6">
           {recentMaterialsQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">{t("dashboard.materialsLoading")}</p>
           ) : recentMaterialsQuery.isError ? (
@@ -416,6 +422,7 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
+          </ScrollableList>
         </CardContent>
       </Card>
 
@@ -437,7 +444,8 @@ export default function Dashboard() {
               {t("dashboard.gradeInAssignments")}
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
+            <ScrollableList className="px-6 pb-6">
             {dashboardSummaryQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : dashboardSummaryQuery.isError ? (
@@ -470,6 +478,7 @@ export default function Dashboard() {
                 ))}
               </ul>
             )}
+            </ScrollableList>
           </CardContent>
         </Card>
       ) : null}
@@ -486,7 +495,8 @@ export default function Dashboard() {
               ) : null}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
+            <ScrollableList className="px-6 pb-6">
             {pendingRescheduleQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading requests…</p>
             ) : pendingRescheduleQuery.isError ? (
@@ -567,6 +577,7 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
+            </ScrollableList>
           </CardContent>
         </Card>
       ) : null}
@@ -581,7 +592,8 @@ export default function Dashboard() {
             {t("nav.calendar")}
           </Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+          <ScrollableList size="lg" className="px-6 pb-6">
           {loadError ? (
             <p className="text-sm text-destructive" role="alert">
               {loadError}
@@ -641,6 +653,7 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+          </ScrollableList>
         </CardContent>
       </Card>
 

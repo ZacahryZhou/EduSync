@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -608,7 +609,8 @@ export default function ClassesPage() {
           description={t("classes.searchNoResults", { query: searchQuery.trim() })}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ScrollableList size="lg">
+          <div className="grid gap-4 p-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredClasses.map((classItem) => (
             <Card
               key={classItem.id}
@@ -715,7 +717,8 @@ export default function ClassesPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        </ScrollableList>
       )}
 
       {isTeacher ? (
@@ -758,7 +761,8 @@ export default function ClassesPage() {
                   </p>
                 </div>
               ) : (
-                <ul className="divide-y divide-border rounded-lg border border-border/60">
+                <ScrollableList className="rounded-lg border border-border/60">
+                <ul className="divide-y divide-border">
                   {(rosterQuery.data ?? []).map((student) => (
                     <li
                       key={student.id}
@@ -778,6 +782,7 @@ export default function ClassesPage() {
                     </li>
                   ))}
                 </ul>
+                </ScrollableList>
               )}
             </div>
             <DialogFooter>
@@ -895,7 +900,8 @@ export default function ClassesPage() {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-border rounded-lg border border-border/60">
+              <ScrollableList className="rounded-lg border border-border/60">
+              <ul className="divide-y divide-border">
                 {(materialsQuery.data ?? []).map((material: ClassMaterial) => (
                   <li
                     key={material.id}
@@ -948,6 +954,7 @@ export default function ClassesPage() {
                   </li>
                 ))}
               </ul>
+              </ScrollableList>
             )}
           </div>
           <DialogFooter>

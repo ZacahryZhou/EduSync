@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AiAssistant } from "@/components/AiAssistant";
+import { ScrollableList } from "@/components/ScrollableList";
 import { useAuth } from "@/context/AuthContext";
 import {
   createRescheduleRequest,
@@ -778,7 +779,7 @@ export default function CalendarPage() {
 
       <div className="space-y-5">
         <Card className="overflow-hidden border-border/60 p-0 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-stretch">
+          <div className="flex flex-col lg:max-h-[min(75vh,36rem)] lg:flex-row lg:items-stretch">
             <div className="shrink-0 p-4 lg:border-r lg:border-border/50">
               <Calendar
                 mode="single"
@@ -799,7 +800,7 @@ export default function CalendarPage() {
               />
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/50 lg:border-t-0">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/50 max-h-[min(55vh,28rem)] lg:max-h-none lg:border-t-0">
               <div className="shrink-0 border-b border-border/50 px-4 py-3 sm:px-5">
                 <p className="text-base font-semibold tracking-tight">
                   {format(selectedDate, "EEEE, MMM d, yyyy")}
@@ -812,7 +813,7 @@ export default function CalendarPage() {
                 </p>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 sm:py-4">
+              <ScrollableList size="lg" className="min-h-0 flex-1 px-4 py-3 sm:px-5 sm:py-4 lg:max-h-none">
                 {sessionsQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading sessions…</p>
                 ) : sessionsQuery.isError ? (
@@ -990,7 +991,7 @@ export default function CalendarPage() {
                     ))}
                   </div>
                 )}
-              </div>
+              </ScrollableList>
             </div>
           </div>
         </Card>
@@ -1016,7 +1017,7 @@ export default function CalendarPage() {
                   ) : null}
                 </div>
               </CardHeader>
-              <CardContent className="max-h-48 space-y-2 overflow-y-auto pt-0">
+              <ScrollableList className="space-y-2 px-6 pb-6 pt-0">
                 {teacherPendingRescheduleQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading updates…</p>
                 ) : teacherPendingRescheduleQuery.isError ? (
@@ -1050,7 +1051,7 @@ export default function CalendarPage() {
                     </div>
                   ))
                 )}
-              </CardContent>
+              </ScrollableList>
             </Card>
           </div>
         ) : null}
@@ -1292,7 +1293,7 @@ export default function CalendarPage() {
                   </p>
                 ) : null}
               </DialogHeader>
-              <div className="max-h-72 space-y-2 overflow-y-auto py-4">
+              <ScrollableList className="space-y-2 py-4">
                 {attendanceQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading students…</p>
                 ) : attendanceQuery.isError ? (
@@ -1334,7 +1335,7 @@ export default function CalendarPage() {
                     </div>
                   ))
                 )}
-              </div>
+              </ScrollableList>
               <DialogFooter>
                 <Button
                   type="button"

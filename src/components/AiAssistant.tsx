@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, Loader2, Send } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ const STARTER_PROMPTS = [
   "这周有哪些课？",
 ];
 
-export function AiAssistant() {
+export function AiAssistant({ className }: { className?: string }) {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -113,7 +114,12 @@ export function AiAssistant() {
   const configured = statusQuery.data?.configured ?? false;
 
   return (
-    <Card className="flex max-h-[min(70vh,32rem)] flex-col border-border/60 shadow-sm">
+    <Card
+      className={cn(
+        "flex max-h-[min(70vh,32rem)] flex-col border-border/60 shadow-sm",
+        className,
+      )}
+    >
       <CardHeader className="shrink-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Bot className="h-4 w-4 text-primary" />

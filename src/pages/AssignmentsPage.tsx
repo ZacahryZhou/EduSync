@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { ScrollableList } from "@/components/ScrollableList";
 import { useAuth } from "@/context/AuthContext";
 import {
   createAssignment,
@@ -565,7 +566,8 @@ export default function AssignmentsPage() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <ScrollableList size="lg">
+          <div className="grid gap-4 p-1 sm:grid-cols-2">
           {assignments.map((item) => (
             <AssignmentCard
               key={item.id}
@@ -576,7 +578,8 @@ export default function AssignmentsPage() {
               onViewSubmissions={setSubmissionsItem}
             />
           ))}
-        </div>
+          </div>
+        </ScrollableList>
       )}
 
       <SubmitAssignmentDialog

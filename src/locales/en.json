@@ -3,6 +3,7 @@
     "main": "Main",
     "dashboard": "Dashboard",
     "calendar": "Calendar",
+    "ai": "AI Assistant",
     "classes": "Classes",
     "students": "Students",
     "assignments": "Assignments",
@@ -169,5 +170,8 @@
   },
   "common": {
     "loading": "Loading…"
+  },
+  "ai": {
+    "pageSubtitle": "Ask about your classes, schedule, and EduSync workflows. Teacher-only."
   }
 }

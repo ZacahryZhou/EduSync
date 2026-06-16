@@ -3,6 +3,7 @@
     "main": "主导航",
     "dashboard": "工作台",
     "calendar": "日历",
+    "ai": "AI 助手",
     "classes": "班级",
     "students": "学生",
     "assignments": "作业",
@@ -169,5 +170,8 @@
   },
   "common": {
     "loading": "加载中…"
+  },
+  "ai": {
+    "pageSubtitle": "可询问班级、课表和 EduSync 操作说明。仅老师可用。"
   }
 }

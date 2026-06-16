@@ -6,6 +6,7 @@ import {
   FileText,
   DollarSign,
   Bell,
+  Bot,
   Settings,
   GraduationCap,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 const teacherMainNav = [
   { titleKey: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar },
+  { titleKey: "nav.ai", url: "/ai", icon: Bot },
   { titleKey: "nav.classes", url: "/classes", icon: BookOpen },
   { titleKey: "nav.students", url: "/students", icon: Users },
   { titleKey: "nav.assignments", url: "/assignments", icon: FileText },
