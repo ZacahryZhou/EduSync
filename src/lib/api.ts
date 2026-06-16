@@ -1825,6 +1825,40 @@ export async function streamAiChat(
   }
 }
 
+export type FeatureVote = "support" | "oppose";
+
+export type FeatureFeedback = {
+  feature_id: string;
+  support: number;
+  oppose: number;
+  my_vote: FeatureVote | null;
+};
+
+export async function getFeatureFeedback(featureId: string): Promise<FeatureFeedback> {
+  const response = await apiFetch(`/feedback/features/${encodeURIComponent(featureId)}`, {
+    method: "GET",
+  });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load feedback"));
+  }
+  return (await response.json()) as FeatureFeedback;
+}
+
+export async function submitFeatureFeedback(
+  featureId: string,
+  vote: FeatureVote,
+): Promise<FeatureFeedback> {
+  const response = await apiFetch(`/feedback/features/${encodeURIComponent(featureId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ vote }),
+  });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to save feedback"));
+  }
+  return (await response.json()) as FeatureFeedback;
+}
+
 /** 知识点：
  * 1: async and await -> 异步编程 因为网络请求需要时间 await means wait for the response to come back before moving on to the next line of code//
  * response.ok -> 判断请求是否成功 200-299 为成功 其他为失败//

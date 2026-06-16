@@ -127,7 +127,26 @@
     "meetingUrlPlaceholder": "https://zoom.us/j/... 或 Google Meet 链接",
     "meetingUrlOptional": "视频会议链接（选填）",
     "sessionTitleOptional": "标题（选填）",
-    "joinMeeting": "加入会议"
+    "joinMeeting": "加入会议",
+    "featurePreview": {
+      "badge": "即将推出",
+      "title": "拖拽排课：点日历、选学生、拖到课表",
+      "description": "我们正在设计更直观的日历排课方式，让排课像拖文件一样简单。",
+      "pointClick": "直接点击日历上的日期/时段，弹出时间选择",
+      "pointDrag": "左侧选择学生，拖到右侧日历格子里完成排课",
+      "pointVisual": "所见即所得，减少表单填写",
+      "mockStudents": "学生",
+      "mockCalendar": "日历",
+      "prompt": "这个功能对你有帮助吗？",
+      "support": "支持",
+      "oppose": "不支持",
+      "thanks": "感谢反馈，已记录",
+      "saveFailed": "未能同步到服务器，已在本地记录",
+      "youSupported": "你已选择：支持",
+      "youOpposed": "你已选择：不支持",
+      "tally": "{{support}} 支持 · {{oppose}} 不支持",
+      "dismiss": "关闭预告"
+    }
   },
   "classes": {
     "title": "班级",
