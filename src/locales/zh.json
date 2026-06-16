@@ -124,6 +124,8 @@
     "selectDay": "选择日期查看课程",
     "meetingUrl": "视频会议链接",
     "meetingUrlPlaceholder": "https://zoom.us/j/... 或 Google Meet 链接",
+    "meetingUrlOptional": "视频会议链接（选填）",
+    "sessionTitleOptional": "标题（选填）",
     "joinMeeting": "加入会议"
   },
   "classes": {
@@ -155,6 +157,7 @@
     "uploadMaterial": "上传资料",
     "materialTitle": "标题",
     "materialFile": "文件（PDF 或图片）",
+    "materialUploadHint": "单个文件最大 20 MB，仅支持 PDF、JPEG、PNG。超出大小或格式不对会上传失败并弹出提示。应用内没有「老师总容量」上限，实际存储受 Supabase 项目套餐限制。",
     "upload": "上传",
     "uploading": "上传中…",
     "materialsLoading": "加载资料中…",

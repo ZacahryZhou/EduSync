@@ -92,8 +92,10 @@ def _normalize_meeting_url(raw):
     if not text:
         return None, None
     lower = text.lower()
+    if lower in ('none', 'n/a', 'na', '-'):
+        return None, None
     if not (lower.startswith('http://') or lower.startswith('https://')):
-        return None, 'meeting_url must start with http:// or https://'
+        return None, None
     if len(text) > 2048:
         return None, 'meeting_url is too long'
     return text, None
@@ -336,9 +338,9 @@ def create_session():
     recurrence_rule = (data.get('recurrence_rule') or '').strip().lower()
     recurrence_end_date = (data.get('recurrence_end_date') or '').strip()
 
-    if not class_id or not title or not date or not start_time or not end_time:
+    if not class_id or not date or not start_time or not end_time:
         return jsonify({
-            'error': 'class_id, title, date, start_time, and end_time are required'
+            'error': 'class_id, date, start_time, and end_time are required'
         }), 400
 
     try:
@@ -380,7 +382,7 @@ def create_session():
         payloads = [
             _with_meeting_url({
                 'class_id': class_id,
-                'title': title,
+                'title': title or None,
                 'date': session_date,
                 'start_time': normalized_start,
                 'end_time': normalized_end,
@@ -425,7 +427,7 @@ def create_session():
 
     payload = _with_meeting_url({
         'class_id': class_id,
-        'title': title,
+        'title': title or None,
         'date': date,
         'start_time': normalized_start,
         'end_time': normalized_end,
@@ -469,9 +471,7 @@ def update_session(session_id):
 
     if 'title' in data:
         title = (data.get('title') or '').strip()
-        if not title:
-            return jsonify({'error': 'title cannot be empty'}), 400
-        updates['title'] = title
+        updates['title'] = title or None
 
     if 'date' in data:
         date = (data.get('date') or '').strip()
@@ -501,8 +501,7 @@ def update_session(session_id):
         meeting_url, meeting_err = _normalize_meeting_url(data.get('meeting_url'))
         if meeting_err:
             return jsonify({'error': meeting_err}), 400
-        if meeting_url:
-            updates['meeting_url'] = meeting_url
+        updates['meeting_url'] = meeting_url
 
     if 'notes' in data:
         updates['notes'] = (data.get('notes') or '').strip() or None

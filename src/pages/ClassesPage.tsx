@@ -807,6 +807,9 @@ export default function ClassesPage() {
                     onChange={(e) => setMaterialFile(e.target.files?.[0] ?? null)}
                     disabled={uploadMaterialMutation.isPending}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {t("classes.materialUploadHint")}
+                  </p>
                 </div>
                 <Button
                   type="submit"

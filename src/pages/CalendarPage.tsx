@@ -502,10 +502,6 @@ export default function CalendarPage() {
       return;
     }
     const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      toast.error("Title is required");
-      return;
-    }
     const timeError = validateTimeRange(startTime, endTime);
     if (timeError) {
       toast.error(timeError);
@@ -546,10 +542,6 @@ export default function CalendarPage() {
       return;
     }
     const trimmedTitle = editTitle.trim();
-    if (!trimmedTitle) {
-      toast.error("Title is required");
-      return;
-    }
     const timeError = validateTimeRange(editStartTime, editEndTime);
     if (timeError) {
       toast.error(timeError);
@@ -640,13 +632,12 @@ export default function CalendarPage() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="session-title">Title</Label>
+                    <Label htmlFor="session-title">{t("calendar.sessionTitleOptional")}</Label>
                     <Input
                       id="session-title"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="Algebra review"
-                      required
                       disabled={createMutation.isPending}
                     />
                   </div>
@@ -741,10 +732,10 @@ export default function CalendarPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="session-meeting-url">{t("calendar.meetingUrl")}</Label>
+                    <Label htmlFor="session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
                     <Input
                       id="session-meeting-url"
-                      type="url"
+                      type="text"
                       value={meetingUrl}
                       onChange={(e) => setMeetingUrl(e.target.value)}
                       placeholder={t("calendar.meetingUrlPlaceholder")}
@@ -1116,12 +1107,11 @@ export default function CalendarPage() {
                   </p>
                 ) : null}
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-title">Title</Label>
+                  <Label htmlFor="edit-session-title">{t("calendar.sessionTitleOptional")}</Label>
                   <Input
                     id="edit-session-title"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    required
                     disabled={updateMutation.isPending}
                   />
                 </div>
@@ -1173,10 +1163,10 @@ export default function CalendarPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrl")}</Label>
+                  <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
                   <Input
                     id="edit-session-meeting-url"
-                    type="url"
+                    type="text"
                     value={editMeetingUrl}
                     onChange={(e) => setEditMeetingUrl(e.target.value)}
                     placeholder={t("calendar.meetingUrlPlaceholder")}

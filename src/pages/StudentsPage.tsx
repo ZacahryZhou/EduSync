@@ -249,9 +249,10 @@ export default function StudentsPage() {
           ) : null}
         </div>
       ) : (
-        <div className="rounded-lg border border-border/60 bg-card shadow-sm">
-          <Table>
-            <TableHeader>
+        <div className="rounded-lg border border-border/60 bg-card shadow-sm overflow-hidden">
+          <div className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden sm:table-cell">Email</TableHead>
@@ -287,6 +288,7 @@ export default function StudentsPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 

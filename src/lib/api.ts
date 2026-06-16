@@ -909,7 +909,7 @@ export type CreateSessionResult = {
 /** Teacher creates a session (one-time or weekly recurring) */
 export async function createSession(input: {
   class_id: string;
-  title: string;
+  title?: string;
   date: string;
   start_time: string;
   end_time: string;

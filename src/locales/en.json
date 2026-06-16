@@ -124,6 +124,8 @@
     "selectDay": "Select a day to see sessions",
     "meetingUrl": "Video meeting link",
     "meetingUrlPlaceholder": "https://zoom.us/j/... or Google Meet link",
+    "meetingUrlOptional": "Video meeting link (optional)",
+    "sessionTitleOptional": "Title (optional)",
     "joinMeeting": "Join meeting"
   },
   "classes": {
@@ -155,6 +157,7 @@
     "uploadMaterial": "Upload material",
     "materialTitle": "Title",
     "materialFile": "File (PDF or image)",
+    "materialUploadHint": "Each file up to 20 MB. Allowed: PDF, JPEG, PNG. Upload fails with a toast if the file is too large or the wrong type. There is no per-teacher total cap in the app — storage is shared by your Supabase project plan.",
     "upload": "Upload",
     "uploading": "Uploading…",
     "materialsLoading": "Loading materials…",

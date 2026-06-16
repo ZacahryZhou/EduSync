@@ -239,13 +239,28 @@ def oauth_register():
                 user_id, email, existing.data[0], token
             )), 200
 
-        supabase.table('users').insert({
+        payload = {
             'id': user_id,
             'email': email,
             'display_name': display_name,
             'role': role,
-            **({'avatar_url': avatar_url} if avatar_url else {}),
-        }).execute()
+        }
+        if avatar_url:
+            payload['avatar_url'] = avatar_url
+
+        try:
+            supabase.table('users').insert(payload).execute()
+        except Exception as insert_err:
+            err_text = str(insert_err).lower()
+            if avatar_url and 'avatar_url' in err_text:
+                supabase.table('users').insert({
+                    'id': user_id,
+                    'email': email,
+                    'display_name': display_name,
+                    'role': role,
+                }).execute()
+            else:
+                raise insert_err
 
         from app.blueprints.users import _resolve_avatar_url
 
@@ -260,8 +275,9 @@ def oauth_register():
                 'avatar_url': _resolve_avatar_url(avatar_url),
             },
         }), 201
-    except Exception:
-        return jsonify({'error': 'Failed to complete Google sign-in'}), 500
+    except Exception as e:
+        message = str(e).strip() or 'Failed to complete Google sign-in'
+        return jsonify({'error': message}), 500
 
 
 
