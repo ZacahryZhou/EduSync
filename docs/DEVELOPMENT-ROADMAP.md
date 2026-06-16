@@ -21,7 +21,7 @@
 | **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
 | **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | ✅ 已完成（P1-15 冒烟测试） |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
-| **Phase 3 — AI** | 教师 Agent（DeepSeek） | 3 | 🔄 **当前：AI-0 → AI-2** |
+| **Phase 3 — AI** | 教师 Agent（DeepSeek） | 3 | 🔄 **当前：AI-1 ✅ → AI-2** |
 | **Future — AI+** | 学生助手 / 自动化 | 3 | ⏸️ v1 不做 |
 
 ---
@@ -725,9 +725,9 @@ erDiagram
 | `get_student_balances` | 学费/课时余额 |
 | `list_pending_reschedules` | 待审批改课 |
 
-- [ ] Tool 定义 + 后端执行（复用 service 层，带 teacher 权限校验）
-- [ ] 多轮对话 + 引用数据来源（班级名、日期）
-- [ ] 拒绝越权（不能查其他老师的班）
+- [x] Tool 定义 + 后端执行（`ai_tools.py`，teacher 权限校验）
+- [x] 多轮 tool 循环 + 前端查询状态（`tool_start` / `tool_done`）
+- [x] 拒绝越权（不能查其他老师的班）
 
 ### AI-2 · 教师写入（确认后执行）
 

@@ -13,15 +13,26 @@ import {
 } from "@/lib/api";
 
 const STARTER_PROMPTS = [
-  "What should I prepare before this week's classes?",
-  "How do I schedule a recurring weekly session?",
+  "What sessions do I have this week?",
+  "Who hasn't submitted homework yet?",
   "这周有哪些课？",
 ];
+
+const TOOL_LABELS: Record<string, string> = {
+  list_my_classes: "Looking up your classes…",
+  list_sessions: "Checking your schedule…",
+  list_class_students: "Loading class roster…",
+  list_assignments: "Loading assignments…",
+  list_pending_submissions: "Checking submissions to grade…",
+  get_student_balances: "Loading tuition balances…",
+  list_pending_reschedules: "Loading reschedule requests…",
+};
 
 export function AiAssistant({ className }: { className?: string }) {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -62,6 +73,7 @@ export function AiAssistant({ className }: { className?: string }) {
     setMessages(nextMessages);
     setInput("");
     setStreaming(true);
+    setToolStatus(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -74,6 +86,7 @@ export function AiAssistant({ className }: { className?: string }) {
         nextMessages,
         (event) => {
           if (event.type === "token") {
+            setToolStatus(null);
             assistantText += event.content;
             setMessages((prev) => {
               const copy = [...prev];
@@ -83,6 +96,12 @@ export function AiAssistant({ className }: { className?: string }) {
               }
               return copy;
             });
+          } else if (event.type === "tool_start") {
+            setToolStatus(
+              TOOL_LABELS[event.name] ?? `Checking ${event.label ?? event.name}…`,
+            );
+          } else if (event.type === "tool_done") {
+            setToolStatus(null);
           } else if (event.type === "error") {
             toast.error(event.message);
             setMessages((prev) => {
@@ -102,6 +121,7 @@ export function AiAssistant({ className }: { className?: string }) {
       }
     } finally {
       setStreaming(false);
+      setToolStatus(null);
       abortRef.current = null;
     }
   }
@@ -129,7 +149,7 @@ export function AiAssistant({ className }: { className?: string }) {
           {statusQuery.isLoading
             ? "Checking AI status…"
             : configured
-              ? `Powered by ${statusQuery.data?.model ?? "DeepSeek"} · read-only for now`
+              ? `Powered by ${statusQuery.data?.model ?? "DeepSeek"} · read-only queries`
               : "Add DEEPSEEK_API_KEY to backend/.env to enable"}
         </p>
       </CardHeader>
@@ -141,9 +161,8 @@ export function AiAssistant({ className }: { className?: string }) {
           {messages.length === 0 ? (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Ask about scheduling, classes, or how to use EduSync. Write actions
-                (e.g. create a session) will come in the next update with confirm
-                cards.
+                Ask about your schedule, classes, students, homework, balances, or
+                pending reschedule requests. I look up live EduSync data before answering.
               </p>
               <div className="flex flex-wrap gap-2">
                 {STARTER_PROMPTS.map((prompt) => (
@@ -176,7 +195,7 @@ export function AiAssistant({ className }: { className?: string }) {
           {streaming ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Thinking…
+              {toolStatus ?? "Thinking…"}
             </div>
           ) : null}
         </div>

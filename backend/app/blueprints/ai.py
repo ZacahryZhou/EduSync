@@ -5,7 +5,13 @@ from flask import Blueprint, Response, g, jsonify, request
 from app.config import Config
 from app.extensions import supabase
 from app.middleware.auth import require_role, _load_user_record
-from app.services.deepseek import is_configured, stream_chat
+from app.services.ai_tools import execute_tool, tool_definitions
+from app.services.deepseek import (
+    MAX_TOOL_ROUNDS,
+    complete_chat,
+    is_configured,
+    stream_chat,
+)
 
 ai_bp = Blueprint('ai', __name__)
 
@@ -17,18 +23,20 @@ TEACHER_SYSTEM_PROMPT = """You are EduSync AI for logged-in teachers only.
 
 SCOPE
 - Answer ONLY using data returned by EduSync tools/API for this teacher, plus the teacher's current message.
+- For schedule, students, homework, balances, or reschedule questions: call the appropriate read tool first.
 - Never invent students, sessions, grades, or balances. If data is missing, say you don't have it.
 - Do not use general world knowledge as if it were this school's records.
-- You cannot change data in this version unless a confirmed tool result says so; suggest using the app UI.
+- You cannot change data in this version; suggest using the app UI for edits.
 
 CONFIDENTIALITY (NEVER disclose)
 - Passwords, tokens, API keys, .env, database credentials.
 - Other teachers' classes or students outside this teacher's access.
-- Unnecessary PII: emails, phones, addresses, full grade/feedback dumps, full uploaded files.
+- Unnecessary PII: student emails, phones, addresses, full grade/feedback dumps, full uploaded files.
 - Claiming an action was executed unless the app confirmed it after teacher approval.
 
 BEHAVIOR
-- Minimize sensitive fields in replies; suggest using the app UI when unsure.
+- After tool results, summarize clearly with class names and dates.
+- Minimize sensitive fields in replies; use display names only.
 - Refuse policy-violating requests briefly and safely.
 - Match the teacher's language (Chinese or English).
 - Destructive or bulk changes: require in-app confirmation flows; do not bypass.
@@ -62,16 +70,42 @@ def _sanitize_messages(raw_messages):
 
 def _log_interaction(user_id, role, model, messages, reply, error_message=None):
     try:
-        supabase.table('ai_interactions').insert({
+        payload = {
             'user_id': user_id,
             'role': role,
             'model': model,
             'messages': messages,
             'reply': reply,
             'error_message': error_message,
-        }).execute()
+        }
+        supabase.table('ai_interactions').insert(payload).execute()
     except Exception:
         pass
+
+
+def _parse_tool_arguments(raw):
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _tool_label(tool_name):
+    labels = {
+        'list_my_classes': 'classes',
+        'list_sessions': 'schedule',
+        'list_class_students': 'students',
+        'list_assignments': 'assignments',
+        'list_pending_submissions': 'submissions',
+        'get_student_balances': 'balances',
+        'list_pending_reschedules': 'reschedule requests',
+    }
+    return labels.get(tool_name, tool_name)
 
 
 @ai_bp.route('/api/ai/status', methods=['GET'])
@@ -80,6 +114,7 @@ def ai_status():
     return jsonify({
         'configured': is_configured(),
         'model': Config.DEEPSEEK_MODEL or 'deepseek-chat',
+        'read_tools': True,
     })
 
 
@@ -107,17 +142,71 @@ def ai_chat():
     )
     model = Config.DEEPSEEK_MODEL or 'deepseek-chat'
     user_id = g.current_user.id
+    teacher_id = user_id
+    tools = tool_definitions()
 
     def generate():
         reply_parts = []
+        agent_messages = list(messages)
+
         try:
-            for token in stream_chat(messages, system_prompt=system_prompt):
-                reply_parts.append(token)
-                payload = json.dumps({'type': 'token', 'content': token})
-                yield f'data: {payload}\n\n'
-            full_reply = ''.join(reply_parts)
-            _log_interaction(user_id, 'teacher', model, messages, full_reply)
-            yield f'data: {json.dumps({"type": "done"})}\n\n'
+            for _ in range(MAX_TOOL_ROUNDS):
+                result = complete_chat(
+                    agent_messages,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                )
+                tool_calls = result.get('tool_calls') or []
+
+                if tool_calls:
+                    assistant_message = {
+                        'role': 'assistant',
+                        'content': result.get('content') or None,
+                        'tool_calls': tool_calls,
+                    }
+                    agent_messages.append(assistant_message)
+
+                    for call in tool_calls:
+                        fn = call.get('function') or {}
+                        tool_name = fn.get('name') or ''
+                        tool_id = call.get('id') or tool_name
+                        args = _parse_tool_arguments(fn.get('arguments'))
+
+                        yield (
+                            f'data: {json.dumps({"type": "tool_start", "name": tool_name, "label": _tool_label(tool_name)})}\n\n'
+                        )
+
+                        tool_result = execute_tool(tool_name, args, teacher_id)
+
+                        agent_messages.append({
+                            'role': 'tool',
+                            'tool_call_id': tool_id,
+                            'content': tool_result,
+                        })
+
+                        yield (
+                            f'data: {json.dumps({"type": "tool_done", "name": tool_name})}\n\n'
+                        )
+                    continue
+
+                final_text = (result.get('content') or '').strip()
+                if final_text:
+                    chunk_size = 24
+                    for index in range(0, len(final_text), chunk_size):
+                        piece = final_text[index:index + chunk_size]
+                        reply_parts.append(piece)
+                        yield f'data: {json.dumps({"type": "token", "content": piece})}\n\n'
+                else:
+                    for token in stream_chat(agent_messages, system_prompt=system_prompt):
+                        reply_parts.append(token)
+                        yield f'data: {json.dumps({"type": "token", "content": token})}\n\n'
+
+                full_reply = ''.join(reply_parts)
+                _log_interaction(user_id, 'teacher', model, messages, full_reply)
+                yield f'data: {json.dumps({"type": "done"})}\n\n'
+                return
+
+            yield f'data: {json.dumps({"type": "error", "message": "Too many tool steps; try a simpler question."})}\n\n'
         except Exception as exc:
             message = str(exc) or 'AI request failed'
             _log_interaction(

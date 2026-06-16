@@ -1,13 +1,14 @@
 """DeepSeek chat API client (OpenAI-compatible)."""
 
 import json
-from typing import Iterator
+from typing import Any, Iterator
 
 import httpx
 
 from app.config import Config
 
-DEFAULT_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+DEFAULT_TIMEOUT = httpx.Timeout(90.0, connect=10.0)
+MAX_TOOL_ROUNDS = 6
 
 
 def is_configured():
@@ -21,6 +22,66 @@ def _api_url():
     return f'{base}/v1/chat/completions'
 
 
+def _headers():
+    key = (Config.DEEPSEEK_API_KEY or '').strip()
+    return {
+        'Authorization': f'Bearer {key}',
+        'Content-Type': 'application/json',
+    }
+
+
+def _model():
+    return Config.DEEPSEEK_MODEL or 'deepseek-chat'
+
+
+def _build_payload_messages(messages, system_prompt=None):
+    payload_messages = []
+    if system_prompt:
+        payload_messages.append({'role': 'system', 'content': system_prompt})
+    payload_messages.extend(messages)
+    return payload_messages
+
+
+def complete_chat(messages, system_prompt=None, tools=None) -> dict[str, Any]:
+    """
+    Non-streaming completion. Returns assistant message dict:
+    { content, tool_calls, finish_reason }.
+    """
+    key = (Config.DEEPSEEK_API_KEY or '').strip()
+    if not key:
+        raise RuntimeError(
+            'DEEPSEEK_API_KEY is not set. Add it to backend/.env and restart Flask.'
+        )
+
+    body: dict[str, Any] = {
+        'model': _model(),
+        'messages': _build_payload_messages(messages, system_prompt),
+        'stream': False,
+        'temperature': 0.3,
+    }
+    if tools:
+        body['tools'] = tools
+        body['tool_choice'] = 'auto'
+
+    with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
+        response = client.post(_api_url(), headers=_headers(), json=body)
+        if response.status_code >= 400:
+            detail = response.text
+            raise RuntimeError(_format_api_error(response.status_code, detail))
+
+        data = response.json()
+        choices = data.get('choices') or []
+        if not choices:
+            raise RuntimeError('DeepSeek returned no choices')
+
+        message = choices[0].get('message') or {}
+        return {
+            'content': message.get('content') or '',
+            'tool_calls': message.get('tool_calls') or [],
+            'finish_reason': choices[0].get('finish_reason') or '',
+        }
+
+
 def stream_chat(messages, system_prompt=None) -> Iterator[str]:
     """Yield assistant text deltas from DeepSeek streaming chat."""
     key = (Config.DEEPSEEK_API_KEY or '').strip()
@@ -29,28 +90,18 @@ def stream_chat(messages, system_prompt=None) -> Iterator[str]:
             'DEEPSEEK_API_KEY is not set. Add it to backend/.env and restart Flask.'
         )
 
-    payload_messages = []
-    if system_prompt:
-        payload_messages.append({'role': 'system', 'content': system_prompt})
-    payload_messages.extend(messages)
-
     body = {
-        'model': Config.DEEPSEEK_MODEL or 'deepseek-chat',
-        'messages': payload_messages,
+        'model': _model(),
+        'messages': _build_payload_messages(messages, system_prompt),
         'stream': True,
         'temperature': 0.3,
-    }
-
-    headers = {
-        'Authorization': f'Bearer {key}',
-        'Content-Type': 'application/json',
     }
 
     with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
         with client.stream(
             'POST',
             _api_url(),
-            headers=headers,
+            headers=_headers(),
             json=body,
         ) as response:
             if response.status_code >= 400:
@@ -83,9 +134,7 @@ def _format_api_error(status_code, detail):
         message = parsed.get('error', {})
         if isinstance(message, dict):
             message = message.get('message') or detail
-        elif isinstance(message, str):
-            pass
-        else:
+        elif not isinstance(message, str):
             message = detail
     except json.JSONDecodeError:
         message = detail or f'HTTP {status_code}'

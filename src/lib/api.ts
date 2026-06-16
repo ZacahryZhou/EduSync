@@ -1659,12 +1659,15 @@ export type AiChatMessage = {
 
 export type AiStreamEvent =
   | { type: "token"; content: string }
+  | { type: "tool_start"; name: string; label?: string }
+  | { type: "tool_done"; name: string }
   | { type: "done" }
   | { type: "error"; message: string };
 
 export type AiStatus = {
   configured: boolean;
   model: string;
+  read_tools?: boolean;
 };
 
 /** Whether DeepSeek is configured on the backend */
