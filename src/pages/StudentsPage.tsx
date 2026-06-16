@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageEmptyState } from "@/components/PageEmptyState";
 import { OnboardingHint } from "@/components/OnboardingHint";
+import { StudentReportPreview } from "@/components/StudentReportPreview";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/api";
 import { isTeacherRole, normalizeRole } from "@/lib/roles";
 import { STUDENT_GRADE_OPTIONS } from "@/lib/student-grades";
+import { downloadStudentReport, printStudentReport } from "@/lib/student-report";
 
 function formatJoinedAt(iso?: string): string {
   if (!iso) {
@@ -93,100 +95,6 @@ const REPORT_PERIODS: Array<{ value: StudentReportPeriod; label: string }> = [
   { value: "month", label: "Last 30 days" },
 ];
 
-function openPrintableReport(report: StudentReport) {
-  const attendance = report.attendance.summary;
-  const assignments = report.assignments;
-  const rows = (content: string) => `<tr>${content}</tr>`;
-  const cell = (content: string) => `<td>${content || "—"}</td>`;
-  const escape = (value: unknown) =>
-    String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;");
-  const html = `<!doctype html>
-<html>
-<head>
-  <title>EduSync report - ${escape(report.student.display_name || report.student.email)}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; margin: 32px; }
-    h1 { margin-bottom: 4px; }
-    h2 { margin-top: 28px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f9fafb; }
-    .muted { color: #6b7280; }
-    .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-    .pill { border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
-    @media print { button { display: none; } body { margin: 18mm; } }
-  </style>
-</head>
-<body>
-  <button onclick="window.print()">Print / Save as PDF</button>
-  <h1>Student Progress Report</h1>
-  <p class="muted">${escape(report.period.start_date)} to ${escape(report.period.end_date)}</p>
-  <p><strong>${escape(report.student.display_name || "Student")}</strong> · ${escape(report.student.email)}${report.student.grade ? ` · Grade ${escape(report.student.grade)}` : ""}</p>
-
-  <h2>Attendance</h2>
-  <div class="summary">
-    <span class="pill">Total sessions: ${attendance.total}</span>
-    <span class="pill">Present: ${attendance.present}</span>
-    <span class="pill">Late: ${attendance.late}</span>
-    <span class="pill">Absent: ${attendance.absent}</span>
-    <span class="pill">Unrecorded: ${attendance.unrecorded}</span>
-  </div>
-  <table>
-    <thead><tr><th>Date</th><th>Class</th><th>Session</th><th>Time</th><th>Status</th><th>Notes</th></tr></thead>
-    <tbody>
-      ${report.attendance.sessions.map((s) => rows(
-        cell(escape(s.date)) +
-        cell(escape(s.class_name)) +
-        cell(escape(s.title)) +
-        cell(`${escape(String(s.start_time || "").slice(0, 5))}-${escape(String(s.end_time || "").slice(0, 5))}`) +
-        cell(escape(s.attendance_status)) +
-        cell(escape(s.notes))
-      )).join("") || rows(`<td colspan="6">No sessions in this period.</td>`)}
-    </tbody>
-  </table>
-
-  <h2>Assignments</h2>
-  <table>
-    <thead><tr><th>Assignment</th><th>Class</th><th>Due</th><th>Status</th><th>Grade</th><th>Feedback</th></tr></thead>
-    <tbody>
-      ${assignments.map((a) => rows(
-        cell(escape(a.title)) +
-        cell(escape(a.class_name)) +
-        cell(escape(a.due_date ? String(a.due_date).slice(0, 10) : "")) +
-        cell(escape(a.status)) +
-        cell(escape(a.grade || "")) +
-        cell(escape(a.feedback))
-      )).join("") || rows(`<td colspan="6">No assignments in this period.</td>`)}
-    </tbody>
-  </table>
-
-  <h2>Balance</h2>
-  <table>
-    <thead><tr><th>Class</th><th>Remaining</th></tr></thead>
-    <tbody>
-      ${report.balances.map((b) => rows(
-        cell(escape(b.class_name)) +
-        cell(`${Number(b.balance).toFixed(Number.isInteger(b.balance) ? 0 : 2)} ${escape(b.unit)}`)
-      )).join("") || rows(`<td colspan="2">No balance records.</td>`)}
-    </tbody>
-  </table>
-
-  <h2>Teacher Note</h2>
-  <p>${escape(report.teacher_note.content || "No teacher note added.")}</p>
-</body>
-</html>`;
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
-  if (!win) {
-    throw new Error("Popup blocked. Please allow popups and try again.");
-  }
-  win.document.write(html);
-  win.document.close();
-}
-
 export default function StudentsPage() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
@@ -200,6 +108,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState(ALL_GRADES);
   const [reportPeriod, setReportPeriod] = useState<StudentReportPeriod>("week");
+  const [reportPreview, setReportPreview] = useState<StudentReport | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -260,11 +169,8 @@ export default function StudentsPage() {
     mutationFn: ({ studentId, period }: { studentId: string; period: StudentReportPeriod }) =>
       getStudentReport(studentId, period),
     onSuccess: (report) => {
-      try {
-        openPrintableReport(report);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not open report");
-      }
+      setReportPreview(report);
+      toast.success("Report ready — preview opened below.");
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -554,6 +460,56 @@ export default function StudentsPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={reportPreview !== null} onOpenChange={(open) => !open && setReportPreview(null)}>
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-border/60 px-5 py-4">
+            <DialogTitle>Student progress report</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {reportPreview ? <StudentReportPreview report={reportPreview} /> : null}
+          </div>
+          <DialogFooter className="border-t border-border/60 px-5 py-4 sm:justify-between">
+            <Button type="button" variant="outline" onClick={() => setReportPreview(null)}>
+              Close
+            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!reportPreview}
+                onClick={() => {
+                  if (!reportPreview) {
+                    return;
+                  }
+                  downloadStudentReport(reportPreview);
+                  toast.success("Report downloaded.");
+                }}
+              >
+                Download HTML
+              </Button>
+              <Button
+                type="button"
+                disabled={!reportPreview}
+                onClick={() => {
+                  if (!reportPreview) {
+                    return;
+                  }
+                  try {
+                    printStudentReport(reportPreview);
+                  } catch (error) {
+                    const message =
+                      error instanceof Error ? error.message : "Could not print report.";
+                    toast.error(message);
+                  }
+                }}
+              >
+                Print / Save as PDF
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-md">

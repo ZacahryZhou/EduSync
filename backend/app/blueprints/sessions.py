@@ -66,7 +66,7 @@ def _serialize_session(row, classes_by_id):
         'end_time': row['end_time'],
         'location': row.get('location') or '',
         'meeting_url': row.get('meeting_url') or '',
-        'type': row['type'],
+        'type': row.get('type') or 'one-time',
         'recurrence_rule': row.get('recurrence_rule') or '',
         'recurrence_group_id': row.get('recurrence_group_id'),
         'notes': row.get('notes') or '',
@@ -106,6 +106,55 @@ def _with_meeting_url(payload, meeting_url):
     if meeting_url:
         payload['meeting_url'] = meeting_url
     return payload
+
+
+def _friendly_db_error(exc):
+    message = str(exc)
+    lower = message.lower()
+    if 'does not exist' in lower or 'could not find' in lower or 'schema cache' in lower:
+        if 'sessions' in lower:
+            if 'meeting_url' in lower:
+                return (
+                    'Database column "sessions.meeting_url" is missing. '
+                    'Run backend/sql/add_meeting_url.sql in Supabase SQL Editor.'
+                )
+            return (
+                'Sessions table is missing required columns (date, start_time, etc.). '
+                'Run backend/sql/fix_sessions_schema.sql in Supabase SQL Editor.'
+            )
+    return message or 'Database error'
+
+
+def _strip_optional_session_columns(rows, exc):
+    """Drop optional columns mentioned in a schema error and retry once."""
+    msg = str(exc).lower()
+    optional = (
+        'meeting_url', 'notes', 'location', 'type',
+        'recurrence_rule', 'recurrence_group_id',
+    )
+    stripped = False
+    for row in rows:
+        for col in optional:
+            if col in msg and col in row:
+                row.pop(col, None)
+                stripped = True
+    return stripped
+
+
+def _insert_sessions(payloads):
+    """Insert session row(s); retry without optional columns if DB schema lags."""
+    rows = [payloads] if isinstance(payloads, dict) else list(payloads)
+    try:
+        result = supabase.table('sessions').insert(rows).execute()
+        return result, None
+    except Exception as exc:
+        if not _strip_optional_session_columns(rows, exc):
+            return None, _friendly_db_error(exc)
+        try:
+            result = supabase.table('sessions').insert(rows).execute()
+            return result, None
+        except Exception as retry_exc:
+            return None, _friendly_db_error(retry_exc)
 
 
 def _teacher_owns_class(class_id, teacher_id):
@@ -395,10 +444,9 @@ def create_session():
             for session_date in dates
         ]
 
-        try:
-            result = supabase.table('sessions').insert(payloads).execute()
-        except Exception:
-            return jsonify({'error': 'Failed to create recurring sessions'}), 500
+        result, insert_err = _insert_sessions(payloads)
+        if insert_err:
+            return jsonify({'error': insert_err}), 500
 
         if not result.data:
             return jsonify({'error': 'Failed to create recurring sessions'}), 500
@@ -409,12 +457,15 @@ def create_session():
             for row in result.data
         ]
         first_row = result.data[0]
-        notified = notify_session_created(
-            first_row,
-            classes_by_id,
-            session_count=len(serialized),
-            last_date=result.data[-1].get('date'),
-        )
+        try:
+            notified = notify_session_created(
+                first_row,
+                classes_by_id,
+                session_count=len(serialized),
+                last_date=result.data[-1].get('date'),
+            )
+        except Exception:
+            notified = 0
         return jsonify({
             'session': serialized[0],
             'sessions': serialized,
@@ -436,16 +487,18 @@ def create_session():
         'type': 'one-time',
     }, meeting_url)
 
-    try:
-        result = supabase.table('sessions').insert(payload).execute()
-    except Exception:
-        return jsonify({'error': 'Failed to create session'}), 500
+    result, insert_err = _insert_sessions(payload)
+    if insert_err:
+        return jsonify({'error': insert_err}), 500
 
     if not result.data:
         return jsonify({'error': 'Failed to create session'}), 500
 
     classes_by_id = _class_map([class_id])
-    notified = notify_session_created(result.data[0], classes_by_id)
+    try:
+        notified = notify_session_created(result.data[0], classes_by_id)
+    except Exception:
+        notified = 0
     return jsonify({
         'session': _serialize_session(result.data[0], classes_by_id),
         'count': 1,
