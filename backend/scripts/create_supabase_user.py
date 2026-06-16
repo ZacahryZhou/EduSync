@@ -51,6 +51,13 @@ def _client():
     return create_client(url, key)
 
 
+def _list_auth_users(client, *, page: int, per_page: int = 100):
+    result = client.auth.admin.list_users(page=page, per_page=per_page)
+    if isinstance(result, list):
+        return result
+    return getattr(result, 'users', None) or []
+
+
 def create_user(
     *,
     email: str,
@@ -80,8 +87,7 @@ def create_user(
             # Try to find existing auth user by listing (small projects / dev)
             page = 1
             while True:
-                result = client.auth.admin.list_users(page=page, per_page=100)
-                users = getattr(result, 'users', None) or []
+                users = _list_auth_users(client, page=page)
                 if not users:
                     break
                 for row in users:
