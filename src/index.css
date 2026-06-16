@@ -127,6 +127,16 @@
       radial-gradient(circle at top left, hsl(220 14% 94% / 0.7), transparent 34rem),
       linear-gradient(180deg, hsl(var(--background)), hsl(220 14% 96%));
   }
+  .landing-hero-ai {
+    background:
+      linear-gradient(135deg, hsl(0 0% 98% / 0.94) 0%, hsl(270 40% 97% / 0.85) 45%, hsl(0 0% 98% / 0.92) 100%);
+  }
+  .landing-hero-ai-mesh {
+    background-image:
+      radial-gradient(circle at 15% 20%, hsl(270 60% 60% / 0.12), transparent 42%),
+      radial-gradient(circle at 85% 10%, hsl(220 70% 60% / 0.08), transparent 38%),
+      radial-gradient(circle at 70% 80%, hsl(270 50% 50% / 0.06), transparent 40%);
+  }
   .landing-hero-image {
     background-image:
       linear-gradient(105deg, hsl(0 0% 98% / 0.97) 42%, hsl(0 0% 98% / 0.72) 58%, transparent 78%),
@@ -137,6 +147,10 @@
   .landing-cta {
     background: linear-gradient(135deg, hsl(220 9% 16%), hsl(220 9% 24%));
     box-shadow: 0 24px 60px -28px hsl(220 9% 10% / 0.45);
+  }
+  .landing-cta-ai {
+    background: linear-gradient(135deg, hsl(262 52% 38%), hsl(230 45% 32%));
+    box-shadow: 0 24px 60px -28px hsl(262 40% 20% / 0.5);
   }
   .landing-preview-shell {
     transform: perspective(1200px) rotateY(-7deg) rotateX(4deg);
