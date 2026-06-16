@@ -514,7 +514,14 @@ export default function TuitionPage() {
                     {isTeacher ? (
                       <TableCell>
                         <div>
-                          <p className="font-medium">{row.student_name}</p>
+                          <p className="font-medium">
+                            {row.student_name}
+                            {row.is_pending ? (
+                              <Badge variant="outline" className="ml-2 text-[10px]">
+                                Invited
+                              </Badge>
+                            ) : null}
+                          </p>
                           {row.student_email ? (
                             <p className="text-xs text-muted-foreground">{row.student_email}</p>
                           ) : null}

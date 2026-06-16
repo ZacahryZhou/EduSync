@@ -131,7 +131,14 @@ export function AiAssistant({ className }: { className?: string }) {
     void sendMessage(input);
   }
 
-  const configured = statusQuery.data?.configured ?? false;
+  const configured = statusQuery.data?.configured === true;
+  const statusHint = statusQuery.isLoading
+    ? "Checking AI status…"
+    : statusQuery.isError
+      ? "Cannot reach the API. Is the backend running? Check VITE_API_URL."
+      : configured
+        ? `Powered by ${statusQuery.data?.model ?? "DeepSeek"} · read-only queries`
+        : "Add DEEPSEEK_API_KEY to backend/.env (local) or Railway Variables (production), then restart the server.";
 
   return (
     <Card
@@ -145,13 +152,7 @@ export function AiAssistant({ className }: { className?: string }) {
           <Bot className="h-4 w-4 text-primary" />
           AI Assistant
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          {statusQuery.isLoading
-            ? "Checking AI status…"
-            : configured
-              ? `Powered by ${statusQuery.data?.model ?? "DeepSeek"} · read-only queries`
-              : "Add DEEPSEEK_API_KEY to backend/.env to enable"}
-        </p>
+        <p className="text-xs text-muted-foreground">{statusHint}</p>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-0">
         <div
@@ -163,6 +164,11 @@ export function AiAssistant({ className }: { className?: string }) {
               <p className="text-sm text-muted-foreground">
                 Ask about your schedule, classes, students, homework, balances, or
                 pending reschedule requests. I look up live EduSync data before answering.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Invited students who have not registered yet can still appear in tuition
+                and attendance, but not in assignments, private notes, or AI class rosters
+                until they sign up with the same email.
               </p>
               <div className="flex flex-wrap gap-2">
                 {STARTER_PROMPTS.map((prompt) => (

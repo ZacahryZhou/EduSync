@@ -1178,6 +1178,7 @@ export type AttendanceRecord = {
   email: string;
   status: AttendanceStatus;
   recorded_at?: string | null;
+  is_pending?: boolean;
 };
 
 type SessionAttendanceResponse = {
@@ -1257,6 +1258,7 @@ export type StudentBalance = {
   balance: number;
   unit: "sessions" | "hours";
   status: BalanceStatus;
+  is_pending?: boolean;
 };
 
 export type BalanceTransaction = {

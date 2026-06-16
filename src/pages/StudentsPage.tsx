@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { PageEmptyState } from "@/components/PageEmptyState";
 import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
+import { InvitedStudentLimitsNotice } from "@/components/InvitedStudentLimitsNotice";
 import { StudentReportPreview } from "@/components/StudentReportPreview";
 import {
   Select,
@@ -334,6 +335,8 @@ export default function StudentsPage() {
         description="Invite students who have not registered yet — they join automatically when they sign up with the same email. Students with accounts are added instantly."
       />
 
+      <InvitedStudentLimitsNotice variant="panel" />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -538,10 +541,12 @@ export default function StudentsPage() {
                 )}
               </div>
               {isPendingOnlyStudent(selectedStudent) ? (
-                <div className="mt-6 rounded-lg border border-dashed border-border/80 bg-muted/30 p-4 text-sm text-muted-foreground">
-                  This student has been invited but has not registered yet. Progress
-                  reports, private notes, and attendance are available after they sign
-                  up with <strong className="text-foreground">{selectedStudent.email}</strong>.
+                <div className="mt-6 space-y-3">
+                  <InvitedStudentLimitsNotice variant="compact" />
+                  <p className="text-sm text-muted-foreground">
+                    Waiting for signup with{" "}
+                    <strong className="text-foreground">{selectedStudent.email}</strong>.
+                  </p>
                 </div>
               ) : (
                 <>
@@ -710,6 +715,7 @@ export default function StudentsPage() {
               Otherwise they are invited and will join automatically when they register
               with the same email.
             </p>
+            <InvitedStudentLimitsNotice variant="compact" />
             <div className="space-y-1.5">
               <Label htmlFor="add-class">Class</Label>
               <Select value={addClassId} onValueChange={setAddClassId}>

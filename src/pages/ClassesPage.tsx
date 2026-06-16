@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageEmptyState } from "@/components/PageEmptyState";
 import { ScrollableList } from "@/components/ScrollableList";
 import { OnboardingHint } from "@/components/OnboardingHint";
+import { InvitedStudentLimitsNotice } from "@/components/InvitedStudentLimitsNotice";
 import { useAuth } from "@/context/AuthContext";
 import {
   cancelClassInvite,
@@ -821,6 +822,9 @@ export default function ClassesPage() {
                   {rosterInviteMutation.isPending ? "Adding…" : "Add"}
                 </Button>
               </form>
+            ) : null}
+            {isTeacher && rosterClass ? (
+              <InvitedStudentLimitsNotice variant="inline" className="px-0.5" />
             ) : null}
             <div className="py-2">
               {rosterQuery.isLoading ? (
