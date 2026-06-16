@@ -34,11 +34,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { OnboardingHint } from "@/components/OnboardingHint";
 import { useAuth } from "@/context/AuthContext";
 import {
   createClass,
   deleteClass,
   deleteClassMaterial,
+  getMaterialUsage,
   joinClass,
   listClassMaterials,
   listClassStudents,
@@ -97,6 +99,18 @@ function studentDisplayName(student: ClassStudent): string {
   return student.email?.split("@")[0] || "Student";
 }
 
+function formatBytes(bytes?: number): string {
+  const value = Number(bytes || 0);
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  const mb = value / (1024 * 1024);
+  if (mb < 1024) {
+    return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  }
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
 export default function ClassesPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -153,6 +167,13 @@ export default function ClassesPage() {
     staleTime: 30_000,
   });
 
+  const materialUsageQuery = useQuery({
+    queryKey: ["material-usage", user?.id] as const,
+    queryFn: getMaterialUsage,
+    enabled: Boolean(user?.id && isTeacher),
+    staleTime: 30_000,
+  });
+
   const uploadMaterialMutation = useMutation({
     mutationFn: ({
       classId,
@@ -166,6 +187,7 @@ export default function ClassesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["class-materials"] });
       queryClient.invalidateQueries({ queryKey: ["recent-materials"] });
+      queryClient.invalidateQueries({ queryKey: ["material-usage"] });
       setMaterialTitle("");
       setMaterialFile(null);
       toast.success("Material uploaded");
@@ -186,6 +208,7 @@ export default function ClassesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["class-materials"] });
       queryClient.invalidateQueries({ queryKey: ["recent-materials"] });
+      queryClient.invalidateQueries({ queryKey: ["material-usage"] });
       toast.success("Material deleted");
     },
     onError: (error: Error) => {
@@ -492,6 +515,16 @@ export default function ClassesPage() {
         ) : null}
       </div>
 
+      <OnboardingHint
+        id={isTeacher ? "classes-teacher" : "classes-student"}
+        title={isTeacher ? "Tip: create a class first, then share the class code" : "Tip: join with the class code from your teacher"}
+        description={
+          isTeacher
+            ? "Students will appear automatically after they join. You can also upload PDFs or images under Class materials for each class."
+            : "After joining, your calendar, assignments, class materials, and tuition balance will sync automatically."
+        }
+      />
+
       {isStudent ? (
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3">
@@ -788,6 +821,28 @@ export default function ClassesPage() {
             {isTeacher && materialsClass ? (
               <form onSubmit={handleMaterialUpload} className="space-y-3 rounded-lg border border-border/60 p-4">
                 <p className="text-sm font-medium">{t("classes.uploadMaterial")}</p>
+                {materialUsageQuery.data ? (
+                  <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>
+                        Used {formatBytes(materialUsageQuery.data.used_bytes)} / {formatBytes(materialUsageQuery.data.quota_bytes)}
+                      </span>
+                      <span>{materialUsageQuery.data.used_percent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-background">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(materialUsageQuery.data.used_percent, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <p>
+                      Remaining {formatBytes(materialUsageQuery.data.remaining_bytes)}. Single file limit:{" "}
+                      {formatBytes(materialUsageQuery.data.single_file_limit_bytes)}.
+                    </p>
+                  </div>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label htmlFor="material-title">{t("classes.materialTitle")}</Label>
                   <Input
@@ -849,7 +904,7 @@ export default function ClassesPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{material.title}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {material.file_name || "File"} · {formatMaterialDate(material.created_at)}
+                        {material.file_name || "File"} · {formatBytes(material.file_size)} · {formatMaterialDate(material.created_at)}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">

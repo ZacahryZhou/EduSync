@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Mail, Plus, Search, Users } from "lucide-react";
+import { BookOpen, FileText, Mail, Plus, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { OnboardingHint } from "@/components/OnboardingHint";
 import {
   Select,
   SelectContent,
@@ -40,8 +41,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import {
   getStudentNote,
+  getStudentReport,
   listTeacherStudents,
   saveStudentNote,
+  type StudentReport,
+  type StudentReportPeriod,
   type TeacherStudent,
 } from "@/lib/api";
 import { isTeacherRole, normalizeRole } from "@/lib/roles";
@@ -83,6 +87,106 @@ function classSummary(student: TeacherStudent): string {
 const ALL_GRADES = "all";
 const NO_GRADE = "__none__";
 
+const REPORT_PERIODS: Array<{ value: StudentReportPeriod; label: string }> = [
+  { value: "week", label: "Last 7 days" },
+  { value: "half_month", label: "Last 15 days" },
+  { value: "month", label: "Last 30 days" },
+];
+
+function openPrintableReport(report: StudentReport) {
+  const attendance = report.attendance.summary;
+  const assignments = report.assignments;
+  const rows = (content: string) => `<tr>${content}</tr>`;
+  const cell = (content: string) => `<td>${content || "—"}</td>`;
+  const escape = (value: unknown) =>
+    String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  const html = `<!doctype html>
+<html>
+<head>
+  <title>EduSync report - ${escape(report.student.display_name || report.student.email)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; margin: 32px; }
+    h1 { margin-bottom: 4px; }
+    h2 { margin-top: 28px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f9fafb; }
+    .muted { color: #6b7280; }
+    .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+    .pill { border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
+    @media print { button { display: none; } body { margin: 18mm; } }
+  </style>
+</head>
+<body>
+  <button onclick="window.print()">Print / Save as PDF</button>
+  <h1>Student Progress Report</h1>
+  <p class="muted">${escape(report.period.start_date)} to ${escape(report.period.end_date)}</p>
+  <p><strong>${escape(report.student.display_name || "Student")}</strong> · ${escape(report.student.email)}${report.student.grade ? ` · Grade ${escape(report.student.grade)}` : ""}</p>
+
+  <h2>Attendance</h2>
+  <div class="summary">
+    <span class="pill">Total sessions: ${attendance.total}</span>
+    <span class="pill">Present: ${attendance.present}</span>
+    <span class="pill">Late: ${attendance.late}</span>
+    <span class="pill">Absent: ${attendance.absent}</span>
+    <span class="pill">Unrecorded: ${attendance.unrecorded}</span>
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Class</th><th>Session</th><th>Time</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      ${report.attendance.sessions.map((s) => rows(
+        cell(escape(s.date)) +
+        cell(escape(s.class_name)) +
+        cell(escape(s.title)) +
+        cell(`${escape(String(s.start_time || "").slice(0, 5))}-${escape(String(s.end_time || "").slice(0, 5))}`) +
+        cell(escape(s.attendance_status)) +
+        cell(escape(s.notes))
+      )).join("") || rows(`<td colspan="6">No sessions in this period.</td>`)}
+    </tbody>
+  </table>
+
+  <h2>Assignments</h2>
+  <table>
+    <thead><tr><th>Assignment</th><th>Class</th><th>Due</th><th>Status</th><th>Grade</th><th>Feedback</th></tr></thead>
+    <tbody>
+      ${assignments.map((a) => rows(
+        cell(escape(a.title)) +
+        cell(escape(a.class_name)) +
+        cell(escape(a.due_date ? String(a.due_date).slice(0, 10) : "")) +
+        cell(escape(a.status)) +
+        cell(escape(a.grade || "")) +
+        cell(escape(a.feedback))
+      )).join("") || rows(`<td colspan="6">No assignments in this period.</td>`)}
+    </tbody>
+  </table>
+
+  <h2>Balance</h2>
+  <table>
+    <thead><tr><th>Class</th><th>Remaining</th></tr></thead>
+    <tbody>
+      ${report.balances.map((b) => rows(
+        cell(escape(b.class_name)) +
+        cell(`${Number(b.balance).toFixed(Number.isInteger(b.balance) ? 0 : 2)} ${escape(b.unit)}`)
+      )).join("") || rows(`<td colspan="2">No balance records.</td>`)}
+    </tbody>
+  </table>
+
+  <h2>Teacher Note</h2>
+  <p>${escape(report.teacher_note.content || "No teacher note added.")}</p>
+</body>
+</html>`;
+  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  if (!win) {
+    throw new Error("Popup blocked. Please allow popups and try again.");
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
 export default function StudentsPage() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
@@ -95,6 +199,7 @@ export default function StudentsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState(ALL_GRADES);
+  const [reportPeriod, setReportPeriod] = useState<StudentReportPeriod>("week");
 
   const queryClient = useQueryClient();
 
@@ -151,6 +256,21 @@ export default function StudentsPage() {
     },
   });
 
+  const reportMutation = useMutation({
+    mutationFn: ({ studentId, period }: { studentId: string; period: StudentReportPeriod }) =>
+      getStudentReport(studentId, period),
+    onSuccess: (report) => {
+      try {
+        openPrintableReport(report);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not open report");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const students = studentsQuery.data?.students ?? [];
   const gradeOptions = studentsQuery.data?.grades ?? [];
   const hasFilters = Boolean(searchQuery) || gradeFilter !== ALL_GRADES;
@@ -189,6 +309,12 @@ export default function StudentsPage() {
           <Plus className="h-4 w-4" /> Add Student
         </Button>
       </div>
+
+      <OnboardingHint
+        id="students-page"
+        title="Tip: students appear here after they join with a class code"
+        description="Click a student row to add private notes or generate a parent-friendly progress report. Students cannot see your private notes."
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-md">
@@ -342,6 +468,44 @@ export default function StudentsPage() {
                     ))}
                   </ul>
                 )}
+              </div>
+              <div className="mt-6 space-y-3 rounded-lg border border-border/60 p-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-medium">Progress report</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Generate a printable report for parents. Use the browser print dialog to save it as PDF, then send it by WeChat yourself.
+                  </p>
+                </div>
+                <Select
+                  value={reportPeriod}
+                  onValueChange={(value) => setReportPeriod(value as StudentReportPeriod)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REPORT_PERIODS.map((period) => (
+                      <SelectItem key={period.value} value={period.value}>
+                        {period.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={reportMutation.isPending}
+                  onClick={() => {
+                    reportMutation.mutate({
+                      studentId: selectedStudent.id,
+                      period: reportPeriod,
+                    });
+                  }}
+                >
+                  <FileText className="h-4 w-4" />
+                  {reportMutation.isPending ? "Generating…" : "Generate report"}
+                </Button>
               </div>
               <div className="mt-6 space-y-2">
                 <Label htmlFor="student-private-note">Private notes</Label>

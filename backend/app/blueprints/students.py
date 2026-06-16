@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, g, jsonify, request
 
@@ -66,6 +66,145 @@ def _matches_grade(user, grade_filter):
     if grade_filter == '__none__':
         return not value
     return value.lower() == grade_filter.lower()
+
+
+def _period_start(period):
+    today = date.today()
+    days_by_period = {
+        'week': 7,
+        'half_month': 15,
+        'month': 30,
+    }
+    days = days_by_period.get(period or 'week', 7)
+    return today - timedelta(days=days - 1), today
+
+
+def _format_date(value):
+    return value.isoformat() if isinstance(value, date) else str(value)
+
+
+def _load_teacher_student_context(teacher_id, student_id):
+    classes_result = supabase.table('class_groups').select(
+        'id, name, billing_mode, unit_price'
+    ).eq('teacher_id', teacher_id).execute()
+    teacher_classes = classes_result.data or []
+    class_ids = [row['id'] for row in teacher_classes]
+    if not class_ids:
+        return [], {}
+
+    enrollments = supabase.table('class_enrollments').select(
+        'class_id'
+    ).eq('student_id', student_id).in_('class_id', class_ids).execute()
+    enrolled_ids = {row['class_id'] for row in (enrollments.data or [])}
+    classes = [row for row in teacher_classes if row['id'] in enrolled_ids]
+    return classes, {row['id']: row for row in classes}
+
+
+def _report_sessions(student_id, class_ids, classes_by_id, start_date, end_date):
+    if not class_ids:
+        return [], {'present': 0, 'late': 0, 'absent': 0, 'unrecorded': 0, 'total': 0}
+
+    sessions_result = supabase.table('sessions').select(
+        'id, class_id, title, date, start_time, end_time, notes'
+    ).in_('class_id', class_ids).gte(
+        'date', _format_date(start_date)
+    ).lte(
+        'date', _format_date(end_date)
+    ).order('date').execute()
+
+    sessions = sessions_result.data or []
+    session_ids = [row['id'] for row in sessions]
+    attendance_by_session = {}
+    if session_ids:
+        attendance_result = supabase.table('attendance').select(
+            'session_id, status, recorded_at'
+        ).eq('student_id', student_id).in_('session_id', session_ids).execute()
+        attendance_by_session = {
+            row['session_id']: row
+            for row in (attendance_result.data or [])
+        }
+
+    summary = {'present': 0, 'late': 0, 'absent': 0, 'unrecorded': 0, 'total': len(sessions)}
+    items = []
+    for row in sessions:
+        attendance = attendance_by_session.get(row['id'])
+        status = (attendance or {}).get('status') or 'unrecorded'
+        if status in summary:
+            summary[status] += 1
+        items.append({
+            'id': row['id'],
+            'class_name': (classes_by_id.get(row['class_id']) or {}).get('name') or '',
+            'title': row.get('title') or 'Session',
+            'date': row.get('date'),
+            'start_time': row.get('start_time'),
+            'end_time': row.get('end_time'),
+            'notes': row.get('notes') or '',
+            'attendance_status': status,
+        })
+    return items, summary
+
+
+def _report_assignments(student_id, class_ids, classes_by_id, start_date, end_date):
+    if not class_ids:
+        return []
+
+    assignments_result = supabase.table('assignments').select(
+        'id, class_id, title, description, due_date, created_at'
+    ).in_('class_id', class_ids).execute()
+    assignments = []
+    for row in assignments_result.data or []:
+        key = row.get('due_date') or row.get('created_at') or ''
+        key_date = str(key)[:10]
+        if _format_date(start_date) <= key_date <= _format_date(end_date):
+            assignments.append(row)
+
+    assignment_ids = [row['id'] for row in assignments]
+    submissions_by_assignment = {}
+    if assignment_ids:
+        submissions_result = supabase.table('assignment_submissions').select(
+            'assignment_id, submitted_at, grade, feedback, content'
+        ).eq('student_id', student_id).in_(
+            'assignment_id', assignment_ids
+        ).execute()
+        submissions_by_assignment = {
+            row['assignment_id']: row
+            for row in (submissions_result.data or [])
+        }
+
+    items = []
+    for row in sorted(assignments, key=lambda item: item.get('due_date') or item.get('created_at') or ''):
+        submission = submissions_by_assignment.get(row['id'])
+        items.append({
+            'id': row['id'],
+            'class_name': (classes_by_id.get(row['class_id']) or {}).get('name') or '',
+            'title': row.get('title') or '',
+            'description': row.get('description') or '',
+            'due_date': row.get('due_date'),
+            'submitted_at': (submission or {}).get('submitted_at'),
+            'grade': (submission or {}).get('grade'),
+            'feedback': (submission or {}).get('feedback') or '',
+            'status': 'submitted' if submission else 'missing',
+        })
+    return items
+
+
+def _report_balances(student_id, class_ids, classes_by_id):
+    if not class_ids:
+        return []
+    result = supabase.table('student_balances').select(
+        'class_id, balance, unit'
+    ).eq('student_id', student_id).in_('class_id', class_ids).execute()
+    rows_by_class = {row['class_id']: row for row in (result.data or [])}
+    balances = []
+    for class_id in class_ids:
+        saved = rows_by_class.get(class_id, {})
+        balances.append({
+            'class_id': class_id,
+            'class_name': (classes_by_id.get(class_id) or {}).get('name') or '',
+            'balance': float(saved.get('balance') or 0),
+            'unit': saved.get('unit') or 'sessions',
+        })
+    return balances
 
 
 @students_bp.route('/api/students', methods=['GET'])
@@ -182,6 +321,72 @@ def get_student_note(student_id):
     return jsonify({
         'content': row.get('content') or '',
         'updated_at': row.get('updated_at'),
+    }), 200
+
+
+@students_bp.route('/api/students/<student_id>/report', methods=['GET'])
+@require_role('teacher')
+def student_report(student_id):
+    teacher_id = g.current_user.id
+    if not _teacher_has_student(teacher_id, student_id):
+        return jsonify({'error': 'Student not found'}), 404
+
+    period = (request.args.get('period') or 'week').strip()
+    if period not in ('week', 'half_month', 'month'):
+        return jsonify({'error': 'period must be week, half_month, or month'}), 400
+
+    start_date, end_date = _period_start(period)
+
+    try:
+        user_result = supabase.table('users').select(
+            'id, email, display_name, grade'
+        ).eq('id', student_id).limit(1).execute()
+        if not user_result.data:
+            return jsonify({'error': 'Student not found'}), 404
+        student = user_result.data[0]
+
+        classes, classes_by_id = _load_teacher_student_context(
+            teacher_id, student_id
+        )
+        class_ids = [row['id'] for row in classes]
+        sessions, attendance_summary = _report_sessions(
+            student_id, class_ids, classes_by_id, start_date, end_date
+        )
+        assignments = _report_assignments(
+            student_id, class_ids, classes_by_id, start_date, end_date
+        )
+        balances = _report_balances(student_id, class_ids, classes_by_id)
+
+        note_result = supabase.table('student_notes').select(
+            'content, updated_at'
+        ).eq('teacher_id', teacher_id).eq('student_id', student_id).limit(1).execute()
+        note = (note_result.data or [{}])[0]
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    return jsonify({
+        'student': {
+            'id': student_id,
+            'display_name': student.get('display_name') or '',
+            'email': student.get('email') or '',
+            'grade': (student.get('grade') or '').strip() or None,
+        },
+        'period': {
+            'type': period,
+            'start_date': _format_date(start_date),
+            'end_date': _format_date(end_date),
+        },
+        'classes': classes,
+        'attendance': {
+            'summary': attendance_summary,
+            'sessions': sessions,
+        },
+        'assignments': assignments,
+        'balances': balances,
+        'teacher_note': {
+            'content': note.get('content') or '',
+            'updated_at': note.get('updated_at'),
+        },
     }), 200
 
 

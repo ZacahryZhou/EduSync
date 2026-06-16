@@ -14,6 +14,7 @@ classes_bp = Blueprint('classes', __name__)
 
 MATERIALS_BUCKET = 'materials'
 MAX_MATERIAL_BYTES = 20 * 1024 * 1024
+MATERIAL_STORAGE_QUOTA_BYTES = 500 * 1024 * 1024
 ALLOWED_MATERIAL_MIMES = frozenset({
     'application/pdf',
     'image/jpeg',
@@ -40,6 +41,11 @@ def _friendly_db_error(exc):
                 'Run backend/sql/create_mvp_tables.sql in Supabase SQL Editor.'
             )
         if 'class_materials' in lower:
+            if 'file_size' in lower:
+                return (
+                    'Database column "class_materials.file_size" is missing. '
+                    'Run backend/sql/add_material_file_size.sql in Supabase SQL Editor.'
+                )
             return (
                 'Database table "class_materials" is missing. '
                 'Run backend/sql/create_class_materials.sql in Supabase SQL Editor.'
@@ -214,17 +220,17 @@ def _material_storage_path(class_id, material_id, filename):
 
 def _upload_material_file(class_id, material_id, file_storage):
     if not file_storage or not file_storage.filename:
-        return None, None, None, 'File is required'
+        return None, None, None, None, 'File is required'
     data = file_storage.read()
     if not data:
-        return None, None, None, 'Uploaded file is empty'
+        return None, None, None, None, 'Uploaded file is empty'
     if len(data) > MAX_MATERIAL_BYTES:
-        return None, None, None, 'File must be 20MB or smaller'
+        return None, None, None, None, 'File must be 20MB or smaller'
     mime = (file_storage.mimetype or '').split(';')[0].strip().lower()
     if not mime:
         mime = mimetypes.guess_type(file_storage.filename)[0] or ''
     if mime not in ALLOWED_MATERIAL_MIMES:
-        return None, None, None, 'Allowed file types: PDF, JPEG, PNG'
+        return None, None, None, None, 'Allowed file types: PDF, JPEG, PNG'
     path = _material_storage_path(class_id, material_id, file_storage.filename)
     try:
         supabase.storage.from_(MATERIALS_BUCKET).upload(
@@ -235,12 +241,12 @@ def _upload_material_file(class_id, material_id, file_storage):
     except Exception as exc:
         message = str(exc).lower()
         if 'bucket' in message and 'not found' in message:
-            return None, None, None, (
+            return None, None, None, None, (
                 'Storage bucket "materials" is missing. '
                 'Create it in Supabase Storage or run backend/sql/setup_materials_bucket.sql.'
             )
-        return None, None, None, str(exc) or 'Failed to upload file'
-    return path, _safe_storage_name(file_storage.filename), mime, None
+        return None, None, None, None, str(exc) or 'Failed to upload file'
+    return path, _safe_storage_name(file_storage.filename), mime, len(data), None
 
 
 def _signed_material_url(storage_path):
@@ -277,6 +283,7 @@ def _serialize_material(row, uploader_names):
         'title': row.get('title') or '',
         'file_name': row.get('file_name') or '',
         'mime_type': row.get('mime_type') or '',
+        'file_size': int(row.get('file_size') or 0),
         'download_url': _signed_material_url(row.get('file_path')),
         'uploaded_by': uploader_id,
         'uploaded_by_name': uploader_names.get(uploader_id, ''),
@@ -615,22 +622,31 @@ def upload_class_material(class_id):
 
     file_storage = request.files.get('file')
     material_id = str(uuid.uuid4())
-    file_path, file_name, mime_type, upload_err = _upload_material_file(
+    file_path, file_name, mime_type, file_size, upload_err = _upload_material_file(
         class_id, material_id, file_storage
     )
     if upload_err:
         return jsonify({'error': upload_err}), 400
 
+    payload = {
+        'id': material_id,
+        'class_id': class_id,
+        'title': title,
+        'file_path': file_path,
+        'file_name': file_name,
+        'mime_type': mime_type,
+        'file_size': file_size,
+        'uploaded_by': g.current_user.id,
+    }
+
     try:
-        result = supabase.table('class_materials').insert({
-            'id': material_id,
-            'class_id': class_id,
-            'title': title,
-            'file_path': file_path,
-            'file_name': file_name,
-            'mime_type': mime_type,
-            'uploaded_by': g.current_user.id,
-        }).execute()
+        try:
+            result = supabase.table('class_materials').insert(payload).execute()
+        except Exception as insert_exc:
+            if 'file_size' not in str(insert_exc).lower():
+                raise insert_exc
+            payload.pop('file_size', None)
+            result = supabase.table('class_materials').insert(payload).execute()
     except Exception as exc:
         try:
             supabase.storage.from_(MATERIALS_BUCKET).remove([file_path])
@@ -679,6 +695,33 @@ def delete_class_material(class_id, material_id):
             pass
 
     return jsonify({'message': 'Material deleted'}), 200
+
+
+@classes_bp.route('/api/materials/usage', methods=['GET'])
+@require_role('teacher')
+def material_storage_usage():
+    teacher_id = g.current_user.id
+    try:
+        result = supabase.table('class_materials').select(
+            'file_size'
+        ).eq('uploaded_by', teacher_id).execute()
+    except Exception as exc:
+        return jsonify({'error': _friendly_db_error(exc)}), 500
+
+    used_bytes = sum(
+        int(row.get('file_size') or 0)
+        for row in (result.data or [])
+    )
+    quota_bytes = MATERIAL_STORAGE_QUOTA_BYTES
+    remaining_bytes = max(quota_bytes - used_bytes, 0)
+    return jsonify({
+        'used_bytes': used_bytes,
+        'quota_bytes': quota_bytes,
+        'remaining_bytes': remaining_bytes,
+        'used_percent': round((used_bytes / quota_bytes) * 100, 1)
+        if quota_bytes else 0,
+        'single_file_limit_bytes': MAX_MATERIAL_BYTES,
+    }), 200
 
 
 @classes_bp.route('/api/materials/recent', methods=['GET'])

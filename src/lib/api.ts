@@ -656,10 +656,19 @@ export type ClassMaterial = {
   title: string;
   file_name: string;
   mime_type: string;
+  file_size?: number;
   download_url: string | null;
   uploaded_by?: string;
   uploaded_by_name: string;
   created_at?: string;
+};
+
+export type MaterialUsage = {
+  used_bytes: number;
+  quota_bytes: number;
+  remaining_bytes: number;
+  used_percent: number;
+  single_file_limit_bytes: number;
 };
 
 export async function listClassMaterials(classId: string): Promise<ClassMaterial[]> {
@@ -707,6 +716,16 @@ export async function deleteClassMaterial(
   }
 }
 
+export async function getMaterialUsage(): Promise<MaterialUsage> {
+  const response = await apiFetch("/materials/usage", { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load storage usage"));
+  }
+
+  return (await response.json()) as MaterialUsage;
+}
+
 export async function listRecentMaterials(limit = 5): Promise<ClassMaterial[]> {
   const response = await apiFetch(`/materials/recent?limit=${limit}`, { method: "GET" });
 
@@ -731,6 +750,68 @@ export type TeacherStudent = {
   email: string;
   grade?: string | null;
   classes: StudentClassEnrollment[];
+};
+
+export type StudentReportPeriod = "week" | "half_month" | "month";
+
+export type StudentReport = {
+  student: {
+    id: string;
+    display_name: string;
+    email: string;
+    grade?: string | null;
+  };
+  period: {
+    type: StudentReportPeriod;
+    start_date: string;
+    end_date: string;
+  };
+  classes: Array<{
+    id: string;
+    name: string;
+    billing_mode?: string;
+    unit_price?: number;
+  }>;
+  attendance: {
+    summary: {
+      present: number;
+      late: number;
+      absent: number;
+      unrecorded: number;
+      total: number;
+    };
+    sessions: Array<{
+      id: string;
+      class_name: string;
+      title: string;
+      date: string;
+      start_time: string;
+      end_time: string;
+      notes: string;
+      attendance_status: string;
+    }>;
+  };
+  assignments: Array<{
+    id: string;
+    class_name: string;
+    title: string;
+    description: string;
+    due_date?: string | null;
+    submitted_at?: string | null;
+    grade?: string | null;
+    feedback: string;
+    status: "submitted" | "missing";
+  }>;
+  balances: Array<{
+    class_id: string;
+    class_name: string;
+    balance: number;
+    unit: string;
+  }>;
+  teacher_note: {
+    content: string;
+    updated_at?: string | null;
+  };
 };
 
 export type TeacherStudentsResponse = {
@@ -797,6 +878,21 @@ export async function saveStudentNote(
   }
 
   return (await response.json()) as StudentNote;
+}
+
+export async function getStudentReport(
+  studentId: string,
+  period: StudentReportPeriod,
+): Promise<StudentReport> {
+  const response = await apiFetch(`/students/${studentId}/report?period=${period}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to generate report"));
+  }
+
+  return (await response.json()) as StudentReport;
 }
 
 /** Teacher deletes a class / 教师删除班级 */

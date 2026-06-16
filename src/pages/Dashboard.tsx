@@ -30,6 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageEmptyState } from "@/components/PageEmptyState";
+import { OnboardingHint } from "@/components/OnboardingHint";
 import { useAuth } from "@/context/AuthContext";
 import {
   approveRescheduleRequest,
@@ -218,6 +219,16 @@ export default function Dashboard() {
         <h1 className="page-header">{t("dashboard.title")}</h1>
         <p className="page-subtitle">{t("dashboard.welcome", { name: displayName })}</p>
       </div>
+
+      <OnboardingHint
+        id={isTeacher ? "dashboard-teacher" : "dashboard-student"}
+        title={isTeacher ? "Tip: start with one class and one test student" : "Tip: your teacher controls classes and assignments"}
+        description={
+          isTeacher
+            ? "Create a class, share the class code, schedule a session, then try one assignment. Dashboard collects pending grades, reschedule requests, notifications, and upcoming sessions."
+            : "After you join a class, this page shows upcoming sessions, open assignments, recent materials, and notifications."
+        }
+      />
 
       <div
         className={`grid gap-4 ${
