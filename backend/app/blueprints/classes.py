@@ -13,6 +13,7 @@ from app.services.pending_enrollments import (
     cancel_pending_for_class_email,
     cancel_pending_invite,
     create_class_invite,
+    remove_student_from_class,
     roster_pending_students,
 )
 
@@ -553,6 +554,27 @@ def invite_class_student(class_id):
 
     code = 201 if result.get('status') == 'pending' else 200
     return jsonify(result), code
+
+
+@classes_bp.route('/api/classes/<class_id>/students/<student_id>', methods=['DELETE'])
+@require_role('teacher')
+def remove_class_student(class_id, student_id):
+    teacher_id = g.current_user.id
+    if not _teacher_owns_class(class_id, teacher_id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    if not student_id or student_id.startswith('pending:'):
+        return jsonify({'error': 'Invalid student id'}), 400
+
+    try:
+        ok, err = remove_student_from_class(class_id, student_id)
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
+
+    if not ok:
+        return jsonify({'error': err or 'Student not found'}), 404
+
+    return jsonify({'message': 'Student removed from class'}), 200
 
 
 @classes_bp.route('/api/classes/<class_id>/invites/<invite_id>', methods=['DELETE'])

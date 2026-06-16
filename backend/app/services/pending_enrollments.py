@@ -158,6 +158,18 @@ def cancel_pending_for_class_email(class_id, email):
         pass
 
 
+def remove_student_from_class(class_id, student_id):
+    result = supabase.table('class_enrollments').select('id').eq(
+        'class_id', class_id
+    ).eq('student_id', student_id).limit(1).execute()
+    if not result.data:
+        return False, 'Student is not enrolled in this class'
+    supabase.table('class_enrollments').delete().eq(
+        'class_id', class_id
+    ).eq('student_id', student_id).execute()
+    return True, None
+
+
 def cancel_pending_invite(invite_id, teacher_id):
     result = supabase.table('pending_enrollments').select(
         'id, teacher_id, status'
