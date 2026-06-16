@@ -25,7 +25,7 @@ export default function AiPage() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("ai.pageSubtitle")}</p>
       </div>
-      <AiAssistant className="max-h-[min(80vh,40rem)]" />
+      <AiAssistant variant="page" className="max-h-[min(80vh,40rem)]" />
     </div>
   );
 }

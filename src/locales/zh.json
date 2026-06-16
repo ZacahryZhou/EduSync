@@ -176,6 +176,7 @@
     "betaBadge": "测试版",
     "betaTitle": "AI 助手（测试版）",
     "betaBody": "本功能处于早期测试阶段。回答会基于 EduSync 实时数据，但表述与能力可能调整。重要事项请在应用中再次核对，勿单独依赖 AI。",
+    "betaBodyShort": "测试版，仅支持查询；重要信息请在应用中核对。",
     "betaLimitReadOnly": "当前仅支持查询：排课、出勤、学费等修改仍请在对应页面操作。",
     "betaLimitVerify": "执行操作前请核对班级名称、日期和学生姓名。",
     "betaLimitFeedback": "代操作（确认后执行）将在测试版下一阶段开放。",

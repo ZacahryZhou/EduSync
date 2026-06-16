@@ -997,11 +997,11 @@ export default function CalendarPage() {
         </Card>
 
         {isTeacher ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            <AiAssistant />
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+            <AiAssistant variant="embedded" />
 
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-2">
+            <Card className="flex h-[26rem] max-h-[26rem] flex-col overflow-hidden border-border/60 shadow-sm">
+              <CardHeader className="shrink-0 pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="flex items-center gap-2 text-base font-semibold">
                     <MessageSquare className="h-4 w-4 text-primary" />
@@ -1017,7 +1017,7 @@ export default function CalendarPage() {
                   ) : null}
                 </div>
               </CardHeader>
-              <ScrollableList className="space-y-2 px-6 pb-6 pt-0">
+              <ScrollableList className="min-h-0 flex-1 space-y-2 px-6 pb-6 pt-0 max-h-none">
                 {teacherPendingRescheduleQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading updates…</p>
                 ) : teacherPendingRescheduleQuery.isError ? (

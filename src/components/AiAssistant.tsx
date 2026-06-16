@@ -30,8 +30,15 @@ const TOOL_LABELS: Record<string, string> = {
   list_pending_reschedules: "Loading reschedule requests…",
 };
 
-export function AiAssistant({ className }: { className?: string }) {
+type AiAssistantProps = {
+  className?: string;
+  /** Full page vs calendar sidebar panel */
+  variant?: "page" | "embedded";
+};
+
+export function AiAssistant({ className, variant = "page" }: AiAssistantProps) {
   const { t } = useTranslation();
+  const embedded = variant === "embedded";
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -147,34 +154,37 @@ export function AiAssistant({ className }: { className?: string }) {
   return (
     <Card
       className={cn(
-        "flex max-h-[min(70vh,32rem)] flex-col border-border/60 shadow-sm",
+        "flex min-h-0 flex-col overflow-hidden border-border/60 shadow-sm",
+        embedded ? "h-[26rem] max-h-[26rem]" : "max-h-[min(80vh,40rem)]",
         className,
       )}
     >
-      <CardHeader className="shrink-0 pb-2">
+      <CardHeader className="shrink-0 space-y-1 px-4 pb-2 pt-4 sm:px-6">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Bot className="h-4 w-4 text-primary" />
           AI Assistant
         </CardTitle>
         <p className="text-xs text-muted-foreground">{statusHint}</p>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-0">
-        <AiBetaNotice />
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
+        <AiBetaNotice compact={embedded} className="shrink-0" />
         <div
           ref={scrollRef}
-          className="min-h-[10rem] flex-1 space-y-3 overflow-y-auto rounded-lg border border-border/50 bg-muted/20 p-3"
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-lg border border-border/50 bg-muted/20 p-3"
         >
           {messages.length === 0 ? (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
                 Ask about your schedule, classes, students, homework, balances, or
-                pending reschedule requests. I look up live EduSync data before answering.
+                pending reschedule requests.
               </p>
-              <p className="text-xs text-muted-foreground">
-                Invited students who have not registered yet can still appear in tuition
-                and attendance, but not in assignments, private notes, or AI class rosters
-                until they sign up with the same email.
-              </p>
+              {!embedded ? (
+                <p className="text-xs text-muted-foreground">
+                  Invited students who have not registered yet can still appear in tuition
+                  and attendance, but not in assignments, private notes, or AI class rosters
+                  until they sign up with the same email.
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {STARTER_PROMPTS.map((prompt) => (
                   <button
@@ -204,7 +214,7 @@ export function AiAssistant({ className }: { className?: string }) {
             ))
           )}
           {streaming ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {toolStatus ?? "Thinking…"}
             </div>
@@ -220,7 +230,7 @@ export function AiAssistant({ className }: { className?: string }) {
                 ? "Ask EduSync AI…"
                 : "Configure DeepSeek API key first"
             }
-            rows={2}
+            rows={embedded ? 1 : 2}
             className="min-h-0 resize-none"
             disabled={!configured || streaming}
             onKeyDown={(e) => {
@@ -233,7 +243,7 @@ export function AiAssistant({ className }: { className?: string }) {
           <Button
             type="submit"
             size="icon"
-            className="h-auto shrink-0 self-end"
+            className="h-9 w-9 shrink-0 self-end"
             disabled={!configured || streaming || !input.trim()}
             aria-label="Send message"
           >

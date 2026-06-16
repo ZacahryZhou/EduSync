@@ -176,6 +176,7 @@
     "betaBadge": "Beta",
     "betaTitle": "AI Assistant (testing)",
     "betaBody": "This feature is in early testing. Answers are based on live EduSync data, but wording and coverage may change. Do not rely on it for critical decisions without checking the app.",
+    "betaBodyShort": "Testing only — read-only queries. Verify important details in the app.",
     "betaLimitReadOnly": "Read-only for now: scheduling, attendance, tuition, and other changes still happen in the main pages.",
     "betaLimitVerify": "Always verify class names, dates, and student names before acting on a reply.",
     "betaLimitFeedback": "Write actions (confirm-then-execute) are coming next in this beta program.",

@@ -17,8 +17,32 @@ export function AiBetaBadge({ className }: { className?: string }) {
   );
 }
 
-export function AiBetaNotice({ className }: { className?: string }) {
+export function AiBetaNotice({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
+
+  if (compact) {
+    return (
+      <Alert
+        className={cn(
+          "border-amber-500/30 bg-amber-500/5 py-2 text-foreground [&>svg]:left-3 [&>svg]:top-3 [&>svg]:text-amber-600 [&>svg~*]:pl-6",
+          className,
+        )}
+      >
+        <FlaskConical className="h-3.5 w-3.5" />
+        <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">{t("ai.betaTitle")}</span>{" "}
+          <AiBetaBadge className="align-middle" />
+          <span className="mt-1 block">{t("ai.betaBodyShort")}</span>
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
     <Alert

@@ -160,21 +160,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <div class="cover">
-  <h1>EduSync 阶段学习总结</h1>
-  <div class="subtitle">Google 一键登录 + 全栈部署实战知识手册</div>
+  <h1>{cover_title}</h1>
+  <div class="subtitle">{cover_subtitle}</div>
   <div class="meta">
-    <strong>项目：</strong>EduSync（React/Vite + Flask + Supabase）<br>
-    <strong>日期：</strong>2026年6月10日<br>
-    <strong>前端：</strong>https://edu-sync-gamma.vercel.app<br>
-    <strong>后端：</strong>https://edusync-production-6d33.up.railway.app/api<br>
-    <strong>用途：</strong>复盘今日 OAuth / 部署踩坑，作为下次上线的检查清单
+    {cover_meta}
   </div>
 </div>
 {toc_block}
 <div class="content">
 {body}
 </div>
-<div class="footer-note">EduSync Learning Guide · Generated 2026-06-10 · 保存此 PDF 供 Apple/GitHub 登录与换域名时复用</div>
+<div class="footer-note">{footer_note}</div>
 </body>
 </html>
 """
@@ -209,6 +205,39 @@ def add_section_anchors(html: str) -> str:
     return re.sub(r"<h2>(\d+)\.\s+([^<]+)</h2>", repl, html)
 
 
+def parse_cover_from_md(md: str):
+    lines = md.splitlines()
+    title = "EduSync 文档"
+    subtitle = ""
+    version = ""
+    website = ""
+    audience = ""
+    if lines and lines[0].startswith("# "):
+        title = lines[0][2:].strip()
+    for line in lines[1:12]:
+        s = line.strip()
+        if s.startswith("**版本：**"):
+            version = s.replace("**版本：**", "").strip()
+        elif s.startswith("**网站：**"):
+            website = s.replace("**网站：**", "").strip()
+        elif s.startswith("**适用对象：**"):
+            audience = s.replace("**适用对象：**", "").strip()
+    subtitle = audience or subtitle
+    meta_parts = []
+    if version:
+        meta_parts.append(f"<strong>版本：</strong>{version}")
+    if website:
+        meta_parts.append(f"<strong>网站：</strong>{website}")
+    if audience:
+        meta_parts.append(f"<strong>适用对象：</strong>{audience}")
+    if not meta_parts:
+        meta_parts = [
+            "<strong>项目：</strong>EduSync",
+            "<strong>网站：</strong>https://edu-sync-gamma.vercel.app",
+        ]
+    return title, subtitle, "<br>".join(meta_parts)
+
+
 def main() -> int:
     if len(sys.argv) < 3:
         print("Usage: md_to_pdf.py <input.md> <output.pdf>")
@@ -233,8 +262,18 @@ def main() -> int:
     body_html = add_section_anchors(body_html)
 
     toc_block = build_toc_html(md_text)
-    title = "EduSync 阶段学习总结"
-    html = HTML_TEMPLATE.format(title=title, toc_block=toc_block, body=body_html)
+    cover_title, cover_subtitle, cover_meta = parse_cover_from_md(md_text)
+    title = cover_title
+    footer_note = f"{cover_title} · EduSync"
+    html = HTML_TEMPLATE.format(
+        title=title,
+        toc_block=toc_block,
+        body=body_html,
+        cover_title=cover_title,
+        cover_subtitle=cover_subtitle,
+        cover_meta=cover_meta,
+        footer_note=footer_note,
+    )
     html_path.write_text(html, encoding="utf-8")
 
     chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
