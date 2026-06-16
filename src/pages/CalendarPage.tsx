@@ -607,53 +607,56 @@ export default function CalendarPage() {
                 <Plus className="h-4 w-4" /> {t("calendar.addSession")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <form onSubmit={handleCreateSubmit}>
-                <DialogHeader>
+            <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+              <form onSubmit={handleCreateSubmit} className="flex min-h-0 flex-1 flex-col">
+                <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 pr-12">
                   <DialogTitle>New session</DialogTitle>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Only class, date, and time are required.
+                  </p>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-1.5">
-                    <Label>Class</Label>
-                    <Select
-                      value={classId}
-                      onValueChange={setClassId}
-                      disabled={createMutation.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teacherClasses.map((classItem) => (
-                          <SelectItem key={classItem.id} value={classItem.id}>
-                            {classItem.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="session-title">{t("calendar.sessionTitleOptional")}</Label>
-                    <Input
-                      id="session-title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Algebra review"
-                      disabled={createMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="session-date">Date</Label>
-                    <Input
-                      id="session-date"
-                      type="date"
-                      value={sessionDate}
-                      onChange={(e) => setSessionDate(e.target.value)}
-                      required
-                      disabled={createMutation.isPending}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Class</Label>
+                      <Select
+                        value={classId}
+                        onValueChange={setClassId}
+                        disabled={createMutation.isPending}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teacherClasses.map((classItem) => (
+                            <SelectItem key={classItem.id} value={classItem.id}>
+                              {classItem.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-title">{t("calendar.sessionTitleOptional")}</Label>
+                      <Input
+                        id="session-title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Algebra review"
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-date">Date</Label>
+                      <Input
+                        id="session-date"
+                        type="date"
+                        value={sessionDate}
+                        onChange={(e) => setSessionDate(e.target.value)}
+                        required
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="start-time">Start time</Label>
                       <Input
@@ -678,84 +681,85 @@ export default function CalendarPage() {
                         disabled={createMutation.isPending}
                       />
                     </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Repeat</Label>
-                    <Select
-                      value={repeatWeekly ? "weekly" : "none"}
-                      onValueChange={(value) => {
-                        const weekly = value === "weekly";
-                        setRepeatWeekly(weekly);
-                        if (weekly && !recurrenceEndDate) {
-                          setRecurrenceEndDate(addWeeksToDateKey(sessionDate, 7));
-                        }
-                      }}
-                      disabled={createMutation.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Does not repeat</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {repeatWeekly ? (
                     <div className="space-y-1.5">
-                      <Label htmlFor="recurrence-end">Repeat until</Label>
+                      <Label>Repeat</Label>
+                      <Select
+                        value={repeatWeekly ? "weekly" : "none"}
+                        onValueChange={(value) => {
+                          const weekly = value === "weekly";
+                          setRepeatWeekly(weekly);
+                          if (weekly && !recurrenceEndDate) {
+                            setRecurrenceEndDate(addWeeksToDateKey(sessionDate, 7));
+                          }
+                        }}
+                        disabled={createMutation.isPending}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Does not repeat</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {repeatWeekly ? (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recurrence-end">Repeat until</Label>
+                        <Input
+                          id="recurrence-end"
+                          type="date"
+                          value={recurrenceEndDate}
+                          min={sessionDate}
+                          onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                          required
+                          disabled={createMutation.isPending}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          One session each week through this date (max 52).
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="hidden sm:block" aria-hidden />
+                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-location">Location</Label>
                       <Input
-                        id="recurrence-end"
-                        type="date"
-                        value={recurrenceEndDate}
-                        min={sessionDate}
-                        onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                        required
+                        id="session-location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="Room 201"
                         disabled={createMutation.isPending}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Creates one session each week through this date (max 52).
-                      </p>
                     </div>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    Set date and times to the minute. Joined students see this on
-                    their Calendar and Dashboard.
-                  </p>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="session-location">Location</Label>
-                    <Input
-                      id="session-location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Room 201"
-                      disabled={createMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
-                    <Input
-                      id="session-meeting-url"
-                      type="text"
-                      value={meetingUrl}
-                      onChange={(e) => setMeetingUrl(e.target.value)}
-                      placeholder={t("calendar.meetingUrlPlaceholder")}
-                      disabled={createMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="session-notes">Session notes (optional)</Label>
-                    <Textarea
-                      id="session-notes"
-                      value={createNotes}
-                      onChange={(e) => setCreateNotes(e.target.value)}
-                      placeholder="Homework, feedback, or reminders for students"
-                      rows={3}
-                      disabled={createMutation.isPending}
-                    />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
+                      <Input
+                        id="session-meeting-url"
+                        type="text"
+                        value={meetingUrl}
+                        onChange={(e) => setMeetingUrl(e.target.value)}
+                        placeholder={t("calendar.meetingUrlPlaceholder")}
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="session-notes">Session notes (optional)</Label>
+                      <Textarea
+                        id="session-notes"
+                        value={createNotes}
+                        onChange={(e) => setCreateNotes(e.target.value)}
+                        placeholder="Homework, feedback, or reminders for students"
+                        rows={3}
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground sm:col-span-2">
+                      Joined students see this session on their Calendar and Dashboard.
+                    </p>
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
                   <Button type="submit" disabled={createMutation.isPending}>
                     {createMutation.isPending ? "Saving…" : "Save session"}
                   </Button>
@@ -1092,42 +1096,39 @@ export default function CalendarPage() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-md">
-            <form onSubmit={handleEditSubmit}>
-              <DialogHeader>
+          <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <form onSubmit={handleEditSubmit} className="flex min-h-0 flex-1 flex-col">
+              <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 pr-12">
                 <DialogTitle>Edit session</DialogTitle>
-                <p className="text-sm text-muted-foreground">
-                  Scroll down to <span className="font-medium text-foreground">Session notes</span> to
-                  add homework or feedback for students.
-                </p>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
                 {editingSession ? (
-                  <p className="text-sm text-muted-foreground">
-                    Class: <span className="font-medium">{editingSession.class_name}</span>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Class: <span className="font-medium text-foreground">{editingSession.class_name}</span>
                   </p>
                 ) : null}
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-title">{t("calendar.sessionTitleOptional")}</Label>
-                  <Input
-                    id="edit-session-title"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-date">Date</Label>
-                  <Input
-                    id="edit-session-date"
-                    type="date"
-                    value={editSessionDate}
-                    onChange={(e) => setEditSessionDate(e.target.value)}
-                    required
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="edit-session-title">{t("calendar.sessionTitleOptional")}</Label>
+                    <Input
+                      id="edit-session-title"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-date">Date</Label>
+                    <Input
+                      id="edit-session-date"
+                      type="date"
+                      value={editSessionDate}
+                      onChange={(e) => setEditSessionDate(e.target.value)}
+                      required
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="hidden sm:block" aria-hidden />
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-start-time">Start time</Label>
                     <Input
@@ -1152,44 +1153,44 @@ export default function CalendarPage() {
                       disabled={updateMutation.isPending}
                     />
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-location">Location</Label>
-                  <Input
-                    id="edit-session-location"
-                    value={editLocation}
-                    onChange={(e) => setEditLocation(e.target.value)}
-                    placeholder="Room 201"
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
-                  <Input
-                    id="edit-session-meeting-url"
-                    type="text"
-                    value={editMeetingUrl}
-                    onChange={(e) => setEditMeetingUrl(e.target.value)}
-                    placeholder={t("calendar.meetingUrlPlaceholder")}
-                    disabled={updateMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-session-notes">Session notes</Label>
-                  <Textarea
-                    id="edit-session-notes"
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    placeholder="Homework, feedback, or reminders for this class"
-                    rows={4}
-                    disabled={updateMutation.isPending}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Visible to students on their calendar (read-only).
-                  </p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-location">Location</Label>
+                    <Input
+                      id="edit-session-location"
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                      placeholder="Room 201"
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
+                    <Input
+                      id="edit-session-meeting-url"
+                      type="text"
+                      value={editMeetingUrl}
+                      onChange={(e) => setEditMeetingUrl(e.target.value)}
+                      placeholder={t("calendar.meetingUrlPlaceholder")}
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="edit-session-notes">Session notes</Label>
+                    <Textarea
+                      id="edit-session-notes"
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Homework, feedback, or reminders for this class"
+                      rows={4}
+                      disabled={updateMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Visible to students on their calendar (read-only).
+                    </p>
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
                 <Button
                   type="button"
                   variant="outline"
