@@ -314,40 +314,42 @@ export default function TuitionPage() {
                 session.
               </p>
             ) : (
-              <div className="rounded-xl border border-border/60 bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      {isTeacher ? <TableHead>Student</TableHead> : null}
-                      <TableHead>Class</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Balance after</TableHead>
-                      <TableHead>Notes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDateTime(tx.created_at)}
-                        </TableCell>
-                        {isTeacher ? <TableCell>{tx.student_name}</TableCell> : null}
-                        <TableCell>{tx.class_name}</TableCell>
-                        <TableCell>{formatTransactionType(tx.type)}</TableCell>
-                        <TableCell>
-                          {tx.type === "deduction" ? "−" : "+"}
-                          {formatBalance(tx.amount, tx.unit)}
-                        </TableCell>
-                        <TableCell>{formatBalance(tx.balance_after, tx.unit)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                          {tx.comment || tx.recorded_by_name}
-                        </TableCell>
+              <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+                <div className="max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        {isTeacher ? <TableHead>Student</TableHead> : null}
+                        <TableHead>Class</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Balance after</TableHead>
+                        <TableHead>Notes</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((tx) => (
+                        <TableRow key={tx.id}>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDateTime(tx.created_at)}
+                          </TableCell>
+                          {isTeacher ? <TableCell>{tx.student_name}</TableCell> : null}
+                          <TableCell>{tx.class_name}</TableCell>
+                          <TableCell>{formatTransactionType(tx.type)}</TableCell>
+                          <TableCell>
+                            {tx.type === "deduction" ? "−" : "+"}
+                            {formatBalance(tx.amount, tx.unit)}
+                          </TableCell>
+                          <TableCell>{formatBalance(tx.balance_after, tx.unit)}</TableCell>
+                          <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                            {tx.comment || tx.recorded_by_name}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </div>
