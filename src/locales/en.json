@@ -18,6 +18,38 @@
     "teacher": "Teacher",
     "student": "Student"
   },
+  "upcomingFeatures": {
+    "menuLabel": "Coming soon",
+    "dialogTitle": "Upcoming features",
+    "dialogDescription": "We are planning these updates. Vote to tell us what matters most to you.",
+    "badge": "Coming soon",
+    "prompt": "Would this help you?",
+    "support": "Support",
+    "oppose": "Not for me",
+    "thanks": "Thanks — your vote was recorded",
+    "saveFailed": "Could not sync to server; saved locally",
+    "youSupported": "You voted: Support",
+    "youOpposed": "You voted: Not for me",
+    "tally": "{{support}} support · {{oppose}} oppose",
+    "calendar": {
+      "title": "Drag-to-schedule: click the calendar, pick students, drop on a slot",
+      "description": "A more visual way to build your timetable.",
+      "points": [
+        "Click a date or time slot on the calendar to set the session time",
+        "Select students on the left and drag them onto the calendar",
+        "See your schedule take shape without filling long forms"
+      ]
+    },
+    "studentAi": {
+      "title": "Student Q&A AI powered by your materials",
+      "description": "Upload teaching materials; students ask questions and the AI answers from your library.",
+      "points": [
+        "Teachers upload notes, handouts, vocab lists, and other class materials",
+        "Students ask study questions without messaging you for every detail",
+        "Answers are grounded in materials you provide, not open-ended guesses"
+      ]
+    }
+  },
   "login": {
     "shellTitle": "Welcome back to your classroom",
     "shellSubtitle": "Sign in to manage classes, view your calendar, and stay in sync with your students.",
@@ -127,26 +159,7 @@
     "meetingUrlPlaceholder": "https://zoom.us/j/... or Google Meet link",
     "meetingUrlOptional": "Video meeting link (optional)",
     "sessionTitleOptional": "Title (optional)",
-    "joinMeeting": "Join meeting",
-    "featurePreview": {
-      "badge": "Coming soon",
-      "title": "Drag-to-schedule: click the calendar, pick students, drop on a slot",
-      "description": "We are designing a more visual way to build your timetable.",
-      "pointClick": "Click a date or time slot on the calendar to set the session time",
-      "pointDrag": "Select students on the left and drag them onto the calendar",
-      "pointVisual": "See your schedule take shape without filling long forms",
-      "mockStudents": "Students",
-      "mockCalendar": "Calendar",
-      "prompt": "Would this help you?",
-      "support": "Support",
-      "oppose": "Not for me",
-      "thanks": "Thanks — your vote was recorded",
-      "saveFailed": "Could not sync to server; saved locally",
-      "youSupported": "You voted: Support",
-      "youOpposed": "You voted: Not for me",
-      "tally": "{{support}} support · {{oppose}} oppose",
-      "dismiss": "Dismiss preview"
-    }
+    "joinMeeting": "Join meeting"
   },
   "classes": {
     "title": "Classes",

@@ -18,6 +18,38 @@
     "teacher": "老师",
     "student": "学生"
   },
+  "upcomingFeatures": {
+    "menuLabel": "新功能预告",
+    "dialogTitle": "即将推出的功能",
+    "dialogDescription": "我们正在规划以下功能，欢迎投票告诉我们你的需求。",
+    "badge": "即将推出",
+    "prompt": "这个功能对你有帮助吗？",
+    "support": "支持",
+    "oppose": "不支持",
+    "thanks": "感谢反馈，已记录",
+    "saveFailed": "未能同步到服务器，已在本地记录",
+    "youSupported": "你已选择：支持",
+    "youOpposed": "你已选择：不支持",
+    "tally": "{{support}} 支持 · {{oppose}} 不支持",
+    "calendar": {
+      "title": "拖拽排课：点日历、选学生、拖到课表",
+      "description": "更直观的日历排课方式，让排课像拖文件一样简单。",
+      "points": [
+        "直接点击日历上的日期/时段，弹出时间选择",
+        "左侧选择学生，拖到右侧日历格子里完成排课",
+        "所见即所得，减少表单填写"
+      ]
+    },
+    "studentAi": {
+      "title": "学生咨询 AI：基于你上传的资料回答",
+      "description": "老师上传教学资料后，学生可在学生端向 AI 提问，AI 从你的资料库中检索并回答。",
+      "points": [
+        "老师在班级/课程中上传讲义、笔记、词汇表等资料",
+        "学生针对学习内容提问，无需反复私信老师",
+        "AI 仅依据你提供的资料回答，减少幻觉与跑题"
+      ]
+    }
+  },
   "login": {
     "shellTitle": "欢迎回到你的课堂",
     "shellSubtitle": "登录后可管理班级、查看课表，并与学生保持同步。",
@@ -127,26 +159,7 @@
     "meetingUrlPlaceholder": "https://zoom.us/j/... 或 Google Meet 链接",
     "meetingUrlOptional": "视频会议链接（选填）",
     "sessionTitleOptional": "标题（选填）",
-    "joinMeeting": "加入会议",
-    "featurePreview": {
-      "badge": "即将推出",
-      "title": "拖拽排课：点日历、选学生、拖到课表",
-      "description": "我们正在设计更直观的日历排课方式，让排课像拖文件一样简单。",
-      "pointClick": "直接点击日历上的日期/时段，弹出时间选择",
-      "pointDrag": "左侧选择学生，拖到右侧日历格子里完成排课",
-      "pointVisual": "所见即所得，减少表单填写",
-      "mockStudents": "学生",
-      "mockCalendar": "日历",
-      "prompt": "这个功能对你有帮助吗？",
-      "support": "支持",
-      "oppose": "不支持",
-      "thanks": "感谢反馈，已记录",
-      "saveFailed": "未能同步到服务器，已在本地记录",
-      "youSupported": "你已选择：支持",
-      "youOpposed": "你已选择：不支持",
-      "tally": "{{support}} 支持 · {{oppose}} 不支持",
-      "dismiss": "关闭预告"
-    }
+    "joinMeeting": "加入会议"
   },
   "classes": {
     "title": "班级",

@@ -10,6 +10,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { UpcomingFeaturesMenu } from "@/components/UpcomingFeaturesMenu";
 import { Bell, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isTeacherRole(role) ? <UpcomingFeaturesMenu /> : null}
               <Button
                 variant="ghost"
                 size="icon"

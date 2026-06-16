@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AiAssistant } from "@/components/AiAssistant";
-import { FeaturePreviewVote } from "@/components/FeaturePreviewVote";
 import { ScrollableList } from "@/components/ScrollableList";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -777,8 +776,6 @@ export default function CalendarPage() {
           {t("calendar.noClassesHint")}
         </p>
       ) : null}
-
-      {isTeacher ? <FeaturePreviewVote /> : null}
 
       <div className="space-y-5">
         <Card className="overflow-hidden border-border/60 p-0 shadow-sm">
