@@ -707,6 +707,20 @@ export async function cancelClassInvite(
   }
 }
 
+/** Remove an enrolled student from a class. */
+export async function removeClassStudent(
+  classId: string,
+  studentId: string,
+): Promise<void> {
+  const response = await apiFetch(`/classes/${classId}/students/${studentId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to remove student"));
+  }
+}
+
 export type ClassMaterial = {
   id: string;
   class_id: string;

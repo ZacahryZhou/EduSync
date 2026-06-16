@@ -49,6 +49,7 @@ import {
   listClassMaterials,
   listClassStudents,
   listClasses,
+  removeClassStudent,
   updateClass,
   uploadClassMaterial,
   type ClassItem,
@@ -145,6 +146,7 @@ export default function ClassesPage() {
   const [rosterClass, setRosterClass] = useState<ClassItem | null>(null);
   const [rosterInviteName, setRosterInviteName] = useState("");
   const [rosterInviteEmail, setRosterInviteEmail] = useState("");
+  const [removeStudentTarget, setRemoveStudentTarget] = useState<ClassStudent | null>(null);
   const [materialsClass, setMaterialsClass] = useState<ClassItem | null>(null);
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialFile, setMaterialFile] = useState<File | null>(null);
@@ -187,6 +189,20 @@ export default function ClassesPage() {
       queryClient.invalidateQueries({ queryKey: ["class-students"] });
       queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
       toast.success("Invite cancelled");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const removeStudentMutation = useMutation({
+    mutationFn: (studentId: string) => removeClassStudent(rosterClass!.id, studentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class-students"] });
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      setRemoveStudentTarget(null);
+      toast.success("Student removed from class");
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -862,11 +878,22 @@ export default function ClassesPage() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                             disabled={cancelInviteMutation.isPending}
                             onClick={() => cancelInviteMutation.mutate(student.invite_id!)}
                           >
                             Cancel invite
+                          </Button>
+                        ) : student.status !== "pending" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                            disabled={removeStudentMutation.isPending}
+                            onClick={() => setRemoveStudentTarget(student)}
+                          >
+                            Remove
                           </Button>
                         ) : null}
                       </div>
@@ -1151,6 +1178,43 @@ export default function ClassesPage() {
           </DialogContent>
         </Dialog>
       ) : null}
+
+      <AlertDialog
+        open={removeStudentTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveStudentTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove student from class?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeStudentTarget && rosterClass
+                ? `${studentDisplayName(removeStudentTarget)} will be removed from "${rosterClass.name}". They can rejoin with the class code or a new invite.`
+                : "This student will be removed from the class roster."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeStudentMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removeStudentMutation.isPending || !removeStudentTarget}
+              onClick={(e) => {
+                e.preventDefault();
+                if (removeStudentTarget) {
+                  removeStudentMutation.mutate(removeStudentTarget.id);
+                }
+              }}
+            >
+              {removeStudentMutation.isPending ? "Removing…" : "Remove student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={deleteTarget !== null}
