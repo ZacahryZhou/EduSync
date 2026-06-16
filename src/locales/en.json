@@ -48,6 +48,33 @@
         "Students ask study questions without messaging you for every detail",
         "Answers are grounded in materials you provide, not open-ended guesses"
       ]
+    },
+    "chatAi": {
+      "title": "WeChat / WhatsApp AI: manage classwork in chat",
+      "description": "Talk to EduSync AI from WeChat, WhatsApp, or similar apps — schedule, query, and act without opening the website.",
+      "points": [
+        "Use the messaging apps you already check every day",
+        "AI connects to your calendar, classes, and student data for authorized actions",
+        "Reschedule sessions, check attendance, or get answers between classes or on the go"
+      ]
+    },
+    "teacherReports": {
+      "title": "Periodic class reports: attendance, grades, and notes in one place",
+      "description": "Weekly or monthly reports that roll up attendance, assignment results, teaching notes, and messages for easier student management.",
+      "points": [
+        "See attendance trends and who needs a follow-up at a glance",
+        "Combine grades and assignment completion with highlights and risks",
+        "Include your teaching notes, student messages, and AI summaries to support review and parent updates"
+      ]
+    },
+    "googleDrive": {
+      "title": "Google Drive integration: use cloud files as AI context",
+      "description": "Connect Google Drive (more tools later) so AI can read and use the materials you already store there.",
+      "points": [
+        "Sync chosen folders — no need to duplicate uploads inside EduSync",
+        "Student Q&A and teacher AI can cite the latest files from Drive",
+        "Foundation for more third-party connectors later"
+      ]
     }
   },
   "login": {

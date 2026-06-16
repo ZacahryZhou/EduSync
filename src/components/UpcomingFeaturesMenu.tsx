@@ -3,7 +3,10 @@ import {
   BookOpen,
   Bot,
   CalendarDays,
+  FileBarChart2,
+  FolderOpen,
   GripVertical,
+  MessageCircle,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
@@ -28,12 +31,28 @@ import { cn } from "@/lib/utils";
 
 export const FEATURE_CALENDAR_DRAG = "calendar_drag_schedule";
 export const FEATURE_STUDENT_MATERIALS_AI = "student_materials_ai";
+export const FEATURE_CHAT_AI = "messaging_ai_integration";
+export const FEATURE_TEACHER_REPORTS = "periodic_teacher_reports";
+export const FEATURE_GOOGLE_DRIVE = "google_drive_integration";
 
-const FEATURE_IDS = [FEATURE_CALENDAR_DRAG, FEATURE_STUDENT_MATERIALS_AI] as const;
+const FEATURE_IDS = [
+  FEATURE_CALENDAR_DRAG,
+  FEATURE_STUDENT_MATERIALS_AI,
+  FEATURE_CHAT_AI,
+  FEATURE_TEACHER_REPORTS,
+  FEATURE_GOOGLE_DRIVE,
+] as const;
+
+type FeatureI18nKey =
+  | "calendar"
+  | "studentAi"
+  | "chatAi"
+  | "teacherReports"
+  | "googleDrive";
 
 type FeatureConfig = {
   id: (typeof FEATURE_IDS)[number];
-  i18nKey: "calendar" | "studentAi";
+  i18nKey: FeatureI18nKey;
   illustration?: ReactNode;
 };
 
@@ -104,6 +123,96 @@ const FEATURES: FeatureConfig[] = [
           </div>
           <div className="rounded-md bg-muted/60 px-1.5 py-1 text-[8px] leading-snug text-muted-foreground">
             From Unit 3 notes: focus on…
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: FEATURE_CHAT_AI,
+    i18nKey: "chatAi",
+    illustration: (
+      <div className="flex items-stretch gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+        <div className="flex w-24 flex-col gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/5 p-2">
+          <p className="text-[8px] font-medium text-emerald-800 dark:text-emerald-200">WeChat</p>
+          <div className="rounded-lg bg-emerald-600/90 px-1.5 py-1 text-[8px] text-white">
+            Move Tue class to 5pm?
+          </div>
+          <p className="text-[8px] font-medium text-emerald-800/80 dark:text-emerald-200/80">
+            WhatsApp
+          </p>
+        </div>
+        <div className="flex items-center text-muted-foreground/40">↔</div>
+        <div className="flex flex-1 flex-col gap-1 rounded-md border border-violet-500/25 bg-violet-500/5 p-2">
+          <div className="flex items-center gap-1 text-[9px] font-medium text-violet-800 dark:text-violet-200">
+            <MessageCircle className="h-3 w-3" />
+            EduSync AI
+          </div>
+          <div className="rounded-md border border-border/60 bg-card px-1.5 py-1 text-[8px] leading-snug">
+            Done — Algebra Tue updated to 17:00. Students notified.
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: FEATURE_TEACHER_REPORTS,
+    i18nKey: "teacherReports",
+    illustration: (
+      <div className="flex items-stretch gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+        <div className="flex flex-1 flex-col gap-1 rounded-md border border-dashed border-border/70 bg-background/80 p-2">
+          <p className="text-[8px] font-medium uppercase tracking-wide text-muted-foreground">
+            This week
+          </p>
+          <div className="space-y-0.5 text-[8px] text-muted-foreground">
+            <div className="rounded bg-muted/60 px-1 py-0.5">Attendance · 12 students</div>
+            <div className="rounded bg-muted/60 px-1 py-0.5">Grades · 3 assignments</div>
+            <div className="rounded bg-muted/60 px-1 py-0.5">Notes & messages</div>
+          </div>
+        </div>
+        <div className="flex items-center text-muted-foreground/40">→</div>
+        <div className="flex w-28 flex-col gap-1 rounded-md border border-border/70 bg-background p-2">
+          <div className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
+            <FileBarChart2 className="h-3 w-3" />
+            Weekly report
+          </div>
+          <div className="space-y-0.5 text-[8px]">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Present</span>
+              <span className="font-medium">92%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">At risk</span>
+              <span className="font-medium text-amber-700">2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: FEATURE_GOOGLE_DRIVE,
+    i18nKey: "googleDrive",
+    illustration: (
+      <div className="flex items-stretch gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+        <div className="flex flex-1 flex-col gap-1 rounded-md border border-dashed border-border/70 bg-background/80 p-2">
+          <div className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
+            <FolderOpen className="h-3 w-3" />
+            Google Drive
+          </div>
+          <div className="space-y-0.5 text-[9px] text-muted-foreground">
+            <div className="rounded bg-muted/60 px-1 py-0.5">Class 8A / Unit 3</div>
+            <div className="rounded bg-muted/60 px-1 py-0.5">Slides · Worksheets</div>
+          </div>
+        </div>
+        <div className="flex items-center text-muted-foreground/40">→</div>
+        <div className="flex w-28 flex-col gap-1 rounded-md border border-border/70 bg-background p-2">
+          <div className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
+            <Bot className="h-3 w-3" />
+            AI + materials
+          </div>
+          <div className="rounded-md bg-muted/60 px-1.5 py-1 text-[8px] leading-snug text-muted-foreground">
+            Answers use files from your Drive folder
           </div>
         </div>
       </div>
@@ -273,7 +382,7 @@ export function UpcomingFeaturesMenu() {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[min(90vh,720px)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <DialogContent className="flex max-h-[min(90vh,720px)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 pr-12">
             <DialogTitle>{t("upcomingFeatures.dialogTitle")}</DialogTitle>
             <DialogDescription>{t("upcomingFeatures.dialogDescription")}</DialogDescription>
