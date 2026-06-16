@@ -4,6 +4,7 @@ from flask import Blueprint, g, jsonify, request
 
 from app.extensions import supabase
 from app.middleware.auth import require_role
+from app.services.pending_enrollments import fetch_pending_for_classes, normalize_email
 
 students_bp = Blueprint('students', __name__)
 
@@ -35,10 +36,15 @@ def _friendly_db_error(exc):
                 'Database table "student_notes" is missing. '
                 'Run backend/sql/create_student_notes.sql in Supabase SQL Editor.'
             )
+        if 'pending_enrollments' in lower:
+            return (
+                'Database table "pending_enrollments" is missing. '
+                'Run backend/sql/create_pending_enrollments.sql in Supabase SQL Editor.'
+            )
     return message or 'Database error'
 
 
-def _serialize_student(student_id, user, class_rows):
+def _serialize_student(student_id, user, class_rows, *, enrollment_status='active'):
     class_rows.sort(key=lambda row: (row.get('name') or '').lower())
     grade = (user or {}).get('grade')
     return {
@@ -47,6 +53,7 @@ def _serialize_student(student_id, user, class_rows):
         'email': (user or {}).get('email') or '',
         'grade': (grade or '').strip() or None,
         'classes': class_rows,
+        'status': enrollment_status,
     }
 
 
@@ -257,6 +264,7 @@ def list_teacher_students():
             'name': class_info.get('name') or '',
             'color': class_info.get('color') or '#6366f1',
             'joined_at': row.get('joined_at'),
+            'enrollment_status': 'active',
         }
 
         if student_id not in by_student:
@@ -267,6 +275,68 @@ def list_teacher_students():
         _serialize_student(student_id, users_by_id.get(student_id), class_rows)
         for student_id, class_rows in by_student.items()
     ]
+
+    pending_rows = fetch_pending_for_classes(class_ids)
+    pending_by_email = {}
+    for row in pending_rows:
+        email = normalize_email(row.get('email'))
+        if not email:
+            continue
+        class_info = class_by_id.get(row.get('class_id'), {})
+        class_entry = {
+            'id': row.get('class_id'),
+            'name': class_info.get('name') or '',
+            'color': class_info.get('color') or '#6366f1',
+            'joined_at': row.get('invited_at'),
+            'enrollment_status': 'pending',
+            'invite_id': row.get('id'),
+        }
+        pending_by_email.setdefault(email, {
+            'display_name': row.get('display_name') or '',
+            'grade': (row.get('grade') or '').strip() or None,
+            'classes': [],
+            'invite_ids': [],
+        })
+        bucket = pending_by_email[email]
+        if not bucket['display_name']:
+            bucket['display_name'] = row.get('display_name') or ''
+        if not bucket['grade'] and row.get('grade'):
+            bucket['grade'] = (row.get('grade') or '').strip() or None
+        bucket['classes'].append(class_entry)
+        bucket['invite_ids'].append(row.get('id'))
+
+    enrolled_emails = {
+        normalize_email(users_by_id.get(student_id, {}).get('email'))
+        for student_id in by_student
+    }
+
+    for email, bucket in pending_by_email.items():
+        if email in enrolled_emails:
+            for student in students:
+                if normalize_email(student.get('email')) == email:
+                    for class_entry in bucket['classes']:
+                        if not any(
+                            existing.get('id') == class_entry.get('id')
+                            for existing in student.get('classes', [])
+                        ):
+                            student['classes'].append(class_entry)
+                    if student.get('status') != 'active':
+                        student['status'] = 'mixed'
+                    break
+            continue
+
+        invite_id = bucket['invite_ids'][0] if bucket['invite_ids'] else email
+        students.append(_serialize_student(
+            f"pending:{invite_id}",
+            {
+                'display_name': bucket['display_name'],
+                'email': email,
+                'grade': bucket['grade'],
+            },
+            bucket['classes'],
+            enrollment_status='pending',
+        ))
+
     students.sort(
         key=lambda row: (
             (row.get('display_name') or row.get('email') or '').lower()

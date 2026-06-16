@@ -1,7 +1,14 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Always load backend/.env (Flask secrets), then repo root .env as fallback.
+# Vite only reads root .env; never put DEEPSEEK_API_KEY in VITE_* vars.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _BACKEND_DIR.parent
+load_dotenv(_REPO_ROOT / ".env")
+load_dotenv(_BACKEND_DIR / ".env", override=True)
 
 class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")

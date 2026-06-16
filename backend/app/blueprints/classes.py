@@ -9,6 +9,12 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import supabase
 from app.middleware.auth import require_auth, require_role, _load_user_record
+from app.services.pending_enrollments import (
+    cancel_pending_for_class_email,
+    cancel_pending_invite,
+    create_class_invite,
+    roster_pending_students,
+)
 
 classes_bp = Blueprint('classes', __name__)
 
@@ -49,6 +55,11 @@ def _friendly_db_error(exc):
             return (
                 'Database table "class_materials" is missing. '
                 'Run backend/sql/create_class_materials.sql in Supabase SQL Editor.'
+            )
+        if 'pending_enrollments' in lower:
+            return (
+                'Database table "pending_enrollments" is missing. '
+                'Run backend/sql/create_pending_enrollments.sql in Supabase SQL Editor.'
             )
     return message or 'Database error'
 
@@ -340,6 +351,9 @@ def join_class():
     except Exception as e:
         return jsonify({'error': _friendly_db_error(e)}), 500
 
+    user_record = _load_user_record() or {}
+    cancel_pending_for_class_email(class_row['id'], user_record.get('email') or '')
+
     return jsonify({
         'message': 'Joined class successfully',
         'class': _serialize_class(class_row, student_count=1),
@@ -468,33 +482,37 @@ def _fetch_class_students(class_id):
                 'display_name': user.get('display_name') or '',
                 'email': user.get('email') or '',
                 'joined_at': row.get('joined_at'),
+                'status': 'active',
             })
+        for pending in roster_pending_students(class_id):
+            students.append(pending)
         return students
     except Exception:
         result = supabase.table('class_enrollments').select(
             'student_id, joined_at'
         ).eq('class_id', class_id).order('joined_at', desc=False).execute()
         enrollments = result.data or []
-        if not enrollments:
-            return []
-
-        student_ids = [row['student_id'] for row in enrollments]
-        users_result = supabase.table('users').select(
-            'id, email, display_name'
-        ).in_('id', student_ids).execute()
-        users_by_id = {
-            row['id']: row for row in (users_result.data or [])
-        }
-
         students = []
-        for row in enrollments:
-            user = users_by_id.get(row['student_id'], {})
-            students.append({
-                'id': row['student_id'],
-                'display_name': user.get('display_name') or '',
-                'email': user.get('email') or '',
-                'joined_at': row.get('joined_at'),
-            })
+        if enrollments:
+            student_ids = [row['student_id'] for row in enrollments]
+            users_result = supabase.table('users').select(
+                'id, email, display_name'
+            ).in_('id', student_ids).execute()
+            users_by_id = {
+                row['id']: row for row in (users_result.data or [])
+            }
+
+            for row in enrollments:
+                user = users_by_id.get(row['student_id'], {})
+                students.append({
+                    'id': row['student_id'],
+                    'display_name': user.get('display_name') or '',
+                    'email': user.get('email') or '',
+                    'joined_at': row.get('joined_at'),
+                    'status': 'active',
+                })
+        for pending in roster_pending_students(class_id):
+            students.append(pending)
         return students
 
 
@@ -511,6 +529,53 @@ def list_class_students(class_id):
         return jsonify({'error': _friendly_db_error(e)}), 500
 
     return jsonify({'students': students}), 200
+
+
+@classes_bp.route('/api/classes/<class_id>/invites', methods=['POST'])
+@require_role('teacher')
+def invite_class_student(class_id):
+    teacher_id = g.current_user.id
+    if not _teacher_owns_class(class_id, teacher_id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    result, err = create_class_invite(
+        teacher_id,
+        class_id,
+        email=data.get('email'),
+        display_name=data.get('display_name'),
+        grade=data.get('grade'),
+        teacher_note=data.get('teacher_note'),
+    )
+    if err:
+        status = 409 if 'already' in err.lower() else 400
+        return jsonify({'error': err}), status
+
+    code = 201 if result.get('status') == 'pending' else 200
+    return jsonify(result), code
+
+
+@classes_bp.route('/api/classes/<class_id>/invites/<invite_id>', methods=['DELETE'])
+@require_role('teacher')
+def cancel_class_invite(class_id, invite_id):
+    teacher_id = g.current_user.id
+    if not _teacher_owns_class(class_id, teacher_id):
+        return jsonify({'error': 'Class not found'}), 404
+
+    try:
+        check = supabase.table('pending_enrollments').select('class_id').eq(
+            'id', invite_id
+        ).limit(1).execute()
+        if not check.data or check.data[0].get('class_id') != class_id:
+            return jsonify({'error': 'Invite not found'}), 404
+        ok, err = cancel_pending_invite(invite_id, teacher_id)
+    except Exception as e:
+        return jsonify({'error': _friendly_db_error(e)}), 500
+
+    if not ok:
+        return jsonify({'error': err or 'Invite not found'}), 404
+
+    return jsonify({'message': 'Invite cancelled'}), 200
 
 
 @classes_bp.route('/api/classes/<class_id>', methods=['PATCH'])

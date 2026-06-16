@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import supabase, supabase_auth
+from app.services.pending_enrollments import claim_pending_enrollments
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -48,6 +49,9 @@ def _register_user(role):
         except Exception as ab_error:
             supabase_auth.auth.admin.delete_user(user_id)
             return jsonify({'error': 'Failed to save your information, try again'}), 500
+
+        if role == 'student':
+            claim_pending_enrollments(user_id, email)
         
         return jsonify({
             'message': f'{role.capitalize()} registered successfully'
@@ -248,6 +252,11 @@ def oauth_register():
         if avatar_url:
             payload['avatar_url'] = avatar_url
 
+        if role == 'student':
+            grade = (data.get('grade') or '').strip()
+            if grade:
+                payload['grade'] = grade
+
         try:
             supabase.table('users').insert(payload).execute()
         except Exception as insert_err:
@@ -261,6 +270,9 @@ def oauth_register():
                 }).execute()
             else:
                 raise insert_err
+
+        if role == 'student':
+            claim_pending_enrollments(user_id, email)
 
         from app.blueprints.users import _resolve_avatar_url
 

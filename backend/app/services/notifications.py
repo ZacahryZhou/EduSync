@@ -11,6 +11,7 @@ NOTIFICATION_TYPES = frozenset({
     'assignment_published',
     'assignment_submitted',
     'assignment_graded',
+    'class_enrolled',
 })
 
 
