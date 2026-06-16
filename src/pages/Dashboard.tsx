@@ -29,6 +29,7 @@ import { PageEmptyState } from "@/components/PageEmptyState";
 import { useAuth } from "@/context/AuthContext";
 import {
   approveRescheduleRequest,
+  listAssignments,
   listClasses,
   listRescheduleRequests,
   listSessions,
@@ -37,7 +38,7 @@ import {
   type RescheduleRequest,
   type SessionItem,
 } from "@/lib/api";
-import { isTeacherRole, normalizeRole } from "@/lib/roles";
+import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
 function toMonthKey(date: Date): string {
   return format(date, "yyyy-MM");
@@ -64,6 +65,7 @@ export default function Dashboard() {
   const displayName = user?.name ?? "there";
   const role = normalizeRole(user?.role);
   const isTeacher = isTeacherRole(role);
+  const isStudent = isStudentRole(role);
 
   const [rejectTarget, setRejectTarget] = useState<RescheduleRequest | null>(null);
   const [rejectFeedback, setRejectFeedback] = useState("");
@@ -100,6 +102,13 @@ export default function Dashboard() {
     queryKey: ["teacher-students", user?.id] as const,
     queryFn: listTeacherStudents,
     enabled: Boolean(user?.id && isTeacher),
+    staleTime: 60_000,
+  });
+
+  const assignmentsQuery = useQuery({
+    queryKey: ["assignments", user?.id, role] as const,
+    queryFn: () => listAssignments(),
+    enabled: Boolean(user?.id && isStudent),
     staleTime: 60_000,
   });
 
@@ -141,6 +150,15 @@ export default function Dashboard() {
 
   const studentCount = teacherStudentsQuery.data?.length ?? 0;
 
+  const openAssignments = useMemo(() => {
+    if (!isStudent) {
+      return 0;
+    }
+    return (assignmentsQuery.data ?? []).filter(
+      (item) => !item.my_submission?.submitted_at,
+    ).length;
+  }, [assignmentsQuery.data, isStudent]);
+
   const todaysSessions = useMemo(
     () => sessions.filter((s) => s.date === todayKey).sort(compareSessions),
     [sessions, todayKey],
@@ -162,6 +180,7 @@ export default function Dashboard() {
 
   const studentStats = [
     { label: "Classes joined", value: classes.length, icon: BookOpen },
+    { label: "Open assignments", value: openAssignments, icon: FileText },
     { label: "Today's sessions", value: todaysSessions.length, icon: CalendarIcon },
     {
       label: "Upcoming sessions",
@@ -189,7 +208,7 @@ export default function Dashboard() {
 
       <div
         className={`grid gap-4 ${
-          isTeacher ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"
+          isTeacher ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-4"
         }`}
       >
         {stats.map((stat) => (
@@ -197,13 +216,55 @@ export default function Dashboard() {
             <CardContent className="p-4">
               <stat.icon className="mb-3 h-5 w-5 text-muted-foreground" />
               <p className="text-2xl font-bold tracking-tight">
-                {isLoading ? "—" : stat.value}
+                {isLoading || (isStudent && stat.label === "Open assignments" && assignmentsQuery.isLoading)
+                  ? "—"
+                  : stat.value}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {isStudent ? (
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+            <CardTitle className="text-base font-semibold">Homework</CardTitle>
+            <Link
+              to="/assignments"
+              className="text-xs font-medium text-primary hover:underline shrink-0"
+            >
+              View assignments
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {assignmentsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading assignments…</p>
+            ) : assignmentsQuery.isError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {(assignmentsQuery.error as Error).message}
+              </p>
+            ) : (assignmentsQuery.data?.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No assignments yet. After you join a class, homework from your teacher
+                will appear here and under Assignments in the sidebar.
+              </p>
+            ) : openAssignments > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                You have{" "}
+                <span className="font-medium text-foreground">
+                  {openAssignments} assignment{openAssignments === 1 ? "" : "s"}
+                </span>{" "}
+                waiting to submit. Open Assignments to upload your work.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                You are caught up on homework. Check Assignments for grades and feedback.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {isTeacher ? (
         <Card className="border-border/60 shadow-sm">

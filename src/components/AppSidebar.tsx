@@ -27,7 +27,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
-const mainNav = [
+const teacherMainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Classes", url: "/classes", icon: BookOpen },
@@ -35,7 +35,17 @@ const mainNav = [
   { title: "Assignments", url: "/assignments", icon: FileText },
   { title: "Tuition", url: "/tuition", icon: DollarSign },
   { title: "Notifications", url: "/notifications", icon: Bell },
-];
+] as const;
+
+/** Students must see Assignments + Tuition in main nav (not teacher-only Manage). */
+const studentMainNav = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "Classes", url: "/classes", icon: BookOpen },
+  { title: "Assignments", url: "/assignments", icon: FileText },
+  { title: "Tuition", url: "/tuition", icon: DollarSign },
+  { title: "Notifications", url: "/notifications", icon: Bell },
+] as const;
 
 const manageNav: { title: string; url: string; icon: typeof DollarSign }[] = [];
 
@@ -49,9 +59,7 @@ export function AppSidebar() {
   const isStudent = isStudentRole(role);
   const roleLabel = isTeacher ? "Teacher" : isStudent ? "Student" : user?.role ?? "";
 
-  const visibleMainNav = isStudent
-    ? mainNav.filter((item) => item.url !== "/students")
-    : mainNav;
+  const visibleMainNav = isStudent ? studentMainNav : teacherMainNav;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">

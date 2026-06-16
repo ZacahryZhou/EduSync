@@ -19,7 +19,7 @@
 |------------|------------|--------------|-------------|
 | **Phase 0** | 当前 MVP 收尾（班级/日历小缺口） | 4 | ✅ 已完成 |
 | **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
-| **Phase 2 — P1** | 专业感 + PRD 补齐 | 14 | 🔄 P1-01~07 ✅ · **下一步 P1-08** |
+| **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | 🔄 P1-01~07 ✅ · **下一步 P1-08 / P1-09** |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
 | **Future — AI** | AI + Agent 模块 | 6 | 🔮 已规划 |
 
@@ -547,7 +547,24 @@ erDiagram
 
 ---
 
-### P1-09 · 中英文 i18n
+### P1-09 · 班级资料库（课件上传）
+
+| | |
+|--|--|
+| **Depends on** | P0-PRE-01, Supabase Storage |
+| **DB** | `class_materials(class_id, title, file_path, uploaded_by)` |
+| **Backend** | `GET/POST /api/classes/:id/materials`；Storage bucket `materials` |
+| **Frontend** | Classes 或独立 Materials 页：老师上传 PDF/图片，学生只读下载 |
+| **Estimate** | 2 天 |
+| **Note** | 由 backlog P2-02 提前；免费 Supabase Storage 可支撑小规模 |
+
+- [ ] 老师按班级上传资料（PDF / 图片）
+- [ ] 学生加入班级后可浏览、下载
+- [ ] 可选：在 Dashboard / Classes 页展示最新资料
+
+---
+
+### P1-10 · 中英文 i18n
 
 | | |
 |--|--|
@@ -561,7 +578,7 @@ erDiagram
 
 ---
 
-### P1-10 · 头像上传
+### P1-11 · 头像上传
 
 | | |
 |--|--|
@@ -576,7 +593,7 @@ erDiagram
 
 ---
 
-### P1-11 · 班级内作业与通知聚合
+### P1-12 · 班级内作业与通知聚合
 
 | | |
 |--|--|
@@ -589,7 +606,7 @@ erDiagram
 
 ---
 
-### P1-12 · 视频会议链接字段
+### P1-13 · 视频会议链接字段
 
 | | |
 |--|--|
@@ -600,7 +617,7 @@ erDiagram
 
 ---
 
-### P1-13 · 班级 / 课程搜索（PRD F7）
+### P1-14 · 班级 / 课程搜索（PRD F7）
 
 | | |
 |--|--|
@@ -611,7 +628,7 @@ erDiagram
 
 ---
 
-### P1-14 · P1 完成冒烟测试
+### P1-15 · P1 完成冒烟测试
 
 - [ ] 老师：布置作业 → 学生提交 → 批改 → 通知
 - [ ] 老师：记录出勤 → 查看学费余额
@@ -627,7 +644,7 @@ erDiagram
 | ID | 中文 | English |
 |----|------|---------|
 | P2-01 | 学生进度月报 PDF | Monthly progress PDF for parents |
-| P2-02 | 在线资料库 / 课件 | Class materials library |
+| P2-02 | ~~在线资料库 / 课件~~ → **已提前为 P1-09** | Class materials library |
 | P2-03 | 家长只读门户 | Parent read-only portal |
 | P2-04 | 多老师 / 机构版 | Multi-teacher studio mode |
 | P2-05 | 微信 / 短信通知 | WeChat / SMS notifications |
