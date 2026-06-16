@@ -8,6 +8,12 @@ from app.services.balances import (
     merge_pending_balance_into_student,
     reassign_pending_billing_records,
 )
+from app.services.student_accounts import (
+    DEFAULT_STUDENT_PASSWORD,
+    friendly_provision_error,
+    initial_password_message,
+    provision_student_account,
+)
 from app.services.notifications import create_notification
 
 PENDING_STATUSES = frozenset({'pending', 'claimed', 'cancelled'})
@@ -234,32 +240,60 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
             'message': 'Student already had an account and was added to the class.',
         }, None
 
-    existing = supabase.table('pending_enrollments').select('id').eq(
-        'class_id', class_id
-    ).eq('status', 'pending').eq('email', norm).limit(1).execute()
-    if existing.data:
-        return None, 'An invite for this email is already pending for this class'
+    try:
+        student_id, provision_status = provision_student_account(
+            norm,
+            name,
+            grade=grade_value,
+        )
+    except RuntimeError as exc:
+        return None, str(exc)
+    except Exception as exc:
+        return None, friendly_provision_error(exc)
 
-    payload = {
-        'class_id': class_id,
-        'teacher_id': teacher_id,
+    if _is_enrolled(student_id, class_id):
+        return None, 'This student is already in the class'
+
+    _enroll_student_in_class(student_id, class_id)
+    cancel_pending_for_class_email(class_id, norm)
+
+    pending_rows = supabase.table('pending_enrollments').select('id').eq(
+        'email', norm
+    ).eq('status', 'pending').execute()
+    for pending_row in pending_rows.data or []:
+        invite_id = pending_row['id']
+        merge_pending_balance_into_student(invite_id, student_id, class_id)
+        reassign_pending_billing_records(invite_id, student_id)
+        supabase.table('pending_enrollments').update({
+            'status': 'claimed',
+            'claimed_user_id': student_id,
+            'claimed_at': _now_iso(),
+        }).eq('id', invite_id).execute()
+
+    class_row = supabase.table('class_groups').select('name').eq(
+        'id', class_id
+    ).limit(1).execute()
+    class_name = (class_row.data or [{}])[0].get('name') or 'your class'
+    _migrate_teacher_note(teacher_id, student_id, note_value)
+    _notify_class_joined(student_id, class_name, class_id)
+    assignments = _open_assignments_for_class(class_id)
+    _notify_open_assignments(student_id, class_name, assignments)
+
+    if provision_status == 'existing':
+        message = (
+            'Student already had an account and was added to the class. '
+            'They should log in with their existing password.'
+        )
+    else:
+        message = initial_password_message()
+
+    return {
+        'status': 'active',
+        'student_id': student_id,
         'email': norm,
         'display_name': name,
-        'grade': grade_value,
-        'teacher_note': note_value,
-        'status': 'pending',
-    }
-    result = supabase.table('pending_enrollments').insert(payload).execute()
-    if not result.data:
-        return None, 'Failed to create invite'
-    row = result.data[0]
-    return {
-        'status': 'pending',
-        'invite': _serialize_pending_row(row),
-        'message': (
-            'Invite saved. The student will join this class automatically '
-            'when they register with the same email.'
-        ),
+        'message': message,
+        'initial_password': None if provision_status == 'existing' else DEFAULT_STUDENT_PASSWORD,
     }, None
 
 

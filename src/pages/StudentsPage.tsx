@@ -332,7 +332,7 @@ export default function StudentsPage() {
       <OnboardingHint
         id="students-page"
         title="Tip: add students by email or class code"
-        description="Invite students who have not registered yet — they join automatically when they sign up with the same email. Students with accounts are added instantly."
+        description="Add a student by email — we create their login (initial password 123456) and enroll them in the class. Students who already have accounts are added immediately."
       />
 
       <InvitedStudentLimitsNotice variant="panel" />
@@ -711,9 +711,10 @@ export default function StudentsPage() {
             }}
           >
             <p className="text-sm text-muted-foreground">
-              If the student already has an account, they are added immediately.
-              Otherwise they are invited and will join automatically when they register
-              with the same email.
+              We create a student login for this email (initial password{" "}
+              <span className="font-mono">123456</span>) and add them to the class. Share
+              those credentials with the student so they can log in directly — no separate
+              registration needed.
             </p>
             <InvitedStudentLimitsNotice variant="compact" />
             <div className="space-y-1.5">

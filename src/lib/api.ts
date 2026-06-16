@@ -659,6 +659,7 @@ export type ClassInviteResult = {
   student_id?: string;
   email?: string;
   display_name?: string;
+  initial_password?: string | null;
   invite?: {
     id: string;
     class_id: string;
@@ -670,7 +671,7 @@ export type ClassInviteResult = {
   };
 };
 
-/** Teacher invites a student by email (pending until they register, or instant if account exists). */
+/** Teacher adds a student by email (creates login with initial password, or enrolls existing account). */
 export async function inviteClassStudent(
   classId: string,
   payload: {

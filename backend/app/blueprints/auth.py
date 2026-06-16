@@ -1,6 +1,14 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import supabase, supabase_auth
-from app.services.pending_enrollments import claim_pending_enrollments
+from app.services.pending_enrollments import (
+    claim_pending_enrollments,
+    normalize_email,
+)
+from app.services.student_accounts import (
+    DEFAULT_STUDENT_PASSWORD,
+    find_auth_user_id_by_email,
+    provision_student_account,
+)
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -27,7 +35,47 @@ def _register_user(role):
             return jsonify({'error': 'Failed to create account, please try again or later'}), 400
         
         if not auth_response.session:
-            return jsonify({'error': 'Email already registered, please use another email'}), 409
+            norm = (email or '').strip().lower()
+            existing_profile = supabase.table('users').select(
+                'id, role, email'
+            ).ilike('email', norm).limit(3).execute()
+            for row in existing_profile.data or []:
+                if (row.get('email') or '').strip().lower() == norm:
+                    return jsonify({
+                        'error': (
+                            'This email already has an account. Please log in instead. '
+                            f'If your teacher added you, try the initial password '
+                            f'{DEFAULT_STUDENT_PASSWORD}.'
+                        ),
+                    }), 409
+
+            auth_user_id = find_auth_user_id_by_email(norm)
+            if auth_user_id:
+                try:
+                    provision_student_account(
+                        norm,
+                        display_name,
+                        grade=(data.get('grade') or '').strip() or None,
+                        reset_password=False,
+                    )
+                    claim_pending_enrollments(auth_user_id, norm)
+                    return jsonify({
+                        'error': (
+                            'This email already has a login account. Please log in instead. '
+                            f'If your teacher added you, try the initial password '
+                            f'{DEFAULT_STUDENT_PASSWORD}.'
+                        ),
+                    }), 409
+                except Exception:
+                    pass
+
+            return jsonify({
+                'error': (
+                    'Could not complete registration for this email. '
+                    'If your teacher added you to a class, log in with your email and '
+                    f'initial password {DEFAULT_STUDENT_PASSWORD}.'
+                ),
+            }), 409
         
         if role not in ['teacher', 'student']:
             return jsonify({'error': 'Invalid role'}), 400
@@ -58,6 +106,15 @@ def _register_user(role):
         }), 201
 
     except Exception as auth_error:
+        err = str(auth_error).lower()
+        if 'already' in err or 'registered' in err or 'exists' in err:
+            return jsonify({
+                'error': (
+                    'This email already has an account. Please log in instead. '
+                    f'If your teacher added you, try the initial password '
+                    f'{DEFAULT_STUDENT_PASSWORD}.'
+                ),
+            }), 409
         return jsonify({'error': str(auth_error)}), 400
 
 
