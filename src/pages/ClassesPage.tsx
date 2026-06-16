@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Copy, Download, FolderOpen, List, Pencil, Plus, Trash2, Upload, Users } from "lucide-react";
+import { BookOpen, Copy, Download, FolderOpen, List, Pencil, Plus, Search, Trash2, Upload, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -128,6 +128,7 @@ export default function ClassesPage() {
   const [materialsClass, setMaterialsClass] = useState<ClassItem | null>(null);
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialFile, setMaterialFile] = useState<File | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const classesQueryKey = ["classes", user?.id, role] as const;
 
@@ -385,6 +386,19 @@ export default function ClassesPage() {
   }
 
   const classes = classesQuery.data ?? [];
+  const filteredClasses = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    if (!needle) {
+      return classes;
+    }
+    return classes.filter((item) => {
+      const haystack = [item.name, item.description, item.code]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [classes, searchQuery]);
   const waitingForClasses =
     classesQuery.isPending ||
     classesQuery.isLoading ||
@@ -514,6 +528,32 @@ export default function ClassesPage() {
         </Card>
       ) : null}
 
+      {!waitingForClasses && !classesQuery.isError && classes.length > 0 ? (
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("classes.searchPlaceholder")}
+            className="pl-9 pr-9"
+            aria-label={t("classes.searchPlaceholder")}
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              aria-label={t("classes.searchClear")}
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       {waitingForClasses ? (
         <p className="text-sm text-muted-foreground">{t("classes.loading")}</p>
       ) : classesQuery.isError ? (
@@ -528,9 +568,15 @@ export default function ClassesPage() {
             isTeacher ? t("classes.emptyTeacher") : t("classes.emptyStudent")
           }
         />
+      ) : filteredClasses.length === 0 ? (
+        <PageEmptyState
+          icon={Search}
+          title={t("classes.searchNoResultsTitle")}
+          description={t("classes.searchNoResults", { query: searchQuery.trim() })}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((classItem) => (
+          {filteredClasses.map((classItem) => (
             <Card
               key={classItem.id}
               className="border-border/60 shadow-sm overflow-hidden"

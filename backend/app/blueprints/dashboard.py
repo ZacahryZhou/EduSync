@@ -131,7 +131,7 @@ def _teacher_pending_grades(class_ids, limit=8):
     users_by_id = {}
     if student_ids:
         users_result = supabase.table('users').select(
-            'id, name, email'
+            'id, display_name, email'
         ).in_('id', student_ids).execute()
         users_by_id = {row['id']: row for row in users_result.data or []}
 
@@ -145,7 +145,7 @@ def _teacher_pending_grades(class_ids, limit=8):
             'assignment_id': row['assignment_id'],
             'assignment_title': assignment.get('title') or '',
             'class_name': class_info.get('name', ''),
-            'student_name': student.get('name') or student.get('email') or 'Student',
+            'student_name': student.get('display_name') or student.get('email') or 'Student',
             'submitted_at': row.get('submitted_at'),
         })
 

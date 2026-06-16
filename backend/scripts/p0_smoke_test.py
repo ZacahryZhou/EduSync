@@ -513,7 +513,103 @@ def main() -> int:
     if 'BEGIN:VCALENDAR' not in (ics_student.text or ''):
         raise SmokeFailure('Student iCal export missing VCALENDAR')
 
-    print('\n✅ P0 smoke test passed (local API)')
+    # P1-12: dashboard summary
+    dash_teacher = _check(
+        'Dashboard summary (teacher)',
+        requests.get(_url('/dashboard/summary'), headers=th, timeout=30),
+    )
+    dash_t = _json(dash_teacher)
+    for key in ('pending_grades', 'pending_reschedules', 'unread_notifications', 'recent_notifications'):
+        if key not in dash_t:
+            raise SmokeFailure(f'Dashboard summary missing {key}')
+
+    dash_student = _check(
+        'Dashboard summary (student)',
+        requests.get(_url('/dashboard/summary'), headers=sh, timeout=30),
+    )
+    dash_s = _json(dash_student)
+    if 'open_assignments' not in dash_s:
+        raise SmokeFailure('Student dashboard missing open_assignments')
+
+    # P1-02/03: assignments flow
+    assign_resp = _check(
+        'Create assignment',
+        requests.post(
+            _url('/assignments'),
+            headers=th,
+            json={
+                'class_id': class_id,
+                'title': 'Smoke homework',
+                'description': 'P1 smoke assignment',
+                'due_date': (start + timedelta(days=3)).isoformat(),
+            },
+            timeout=30,
+        ),
+        201,
+    )
+    assignment_id = (_json(assign_resp).get('assignment') or {}).get('id')
+    if not assignment_id:
+        raise SmokeFailure('Create assignment missing id')
+
+    time.sleep(0.5)
+
+    st_assign = _check(
+        'List assignments (student)',
+        requests.get(_url('/assignments'), headers=sh, timeout=30),
+    )
+    st_items = _json(st_assign).get('assignments') or []
+    if not any(a.get('id') == assignment_id for a in st_items):
+        raise SmokeFailure('Student does not see new assignment')
+
+    submit_resp = _check(
+        'Submit assignment',
+        requests.post(
+            _url(f'/assignments/{assignment_id}/submit'),
+            headers=sh,
+            data={'content': 'Smoke test submission'},
+            timeout=30,
+        ),
+    )
+    submission_id = (_json(submit_resp).get('submission') or {}).get('id')
+    if not submission_id:
+        raise SmokeFailure('Submit assignment missing submission id')
+
+    time.sleep(0.5)
+
+    dash_after_submit = _check(
+        'Dashboard pending grades after submit',
+        requests.get(_url('/dashboard/summary'), headers=th, timeout=30),
+    )
+    if (_json(dash_after_submit).get('pending_grades') or 0) < 1:
+        raise SmokeFailure('Teacher dashboard should show pending grade after submit')
+
+    subs_resp = _check(
+        'List assignment submissions',
+        requests.get(_url(f'/assignments/{assignment_id}/submissions'), headers=th, timeout=30),
+    )
+    subs = _json(subs_resp).get('submissions') or []
+    if not any(s.get('id') == submission_id for s in subs):
+        raise SmokeFailure('Teacher cannot see submission')
+
+    _check(
+        'Grade submission',
+        requests.patch(
+            _url(f'/submissions/{submission_id}'),
+            headers=th,
+            json={'grade': 'A', 'feedback': 'Nice work'},
+            timeout=30,
+        ),
+    )
+
+    time.sleep(0.5)
+
+    if not any(
+        r.get('type') == 'assignment_graded'
+        for r in (_json(requests.get(_url('/notifications'), headers=sh, timeout=30)).get('notifications') or [])
+    ):
+        raise SmokeFailure('Student missing assignment_graded notification')
+
+    print('\n✅ P0 + P1 smoke test passed (local API)')
     print('   Manual: repeat in production incognito when deployed.')
     return 0
 

@@ -99,6 +99,13 @@ def _normalize_meeting_url(raw):
     return text, None
 
 
+def _with_meeting_url(payload, meeting_url):
+    """Only send meeting_url when set — DB may not have migrated column yet."""
+    if meeting_url:
+        payload['meeting_url'] = meeting_url
+    return payload
+
+
 def _teacher_owns_class(class_id, teacher_id):
     result = supabase.table('class_groups').select('id').eq(
         'id', class_id
@@ -371,19 +378,18 @@ def create_session():
 
         group_id = str(uuid.uuid4())
         payloads = [
-            {
+            _with_meeting_url({
                 'class_id': class_id,
                 'title': title,
                 'date': session_date,
                 'start_time': normalized_start,
                 'end_time': normalized_end,
                 'location': location or None,
-                'meeting_url': meeting_url,
                 'notes': notes or None,
                 'type': 'recurring',
                 'recurrence_rule': 'weekly',
                 'recurrence_group_id': group_id,
-            }
+            }, meeting_url)
             for session_date in dates
         ]
 
@@ -417,17 +423,16 @@ def create_session():
     if session_type not in ('one-time', 'recurring'):
         return jsonify({'error': 'type must be one-time or recurring'}), 400
 
-    payload = {
+    payload = _with_meeting_url({
         'class_id': class_id,
         'title': title,
         'date': date,
         'start_time': normalized_start,
         'end_time': normalized_end,
         'location': location or None,
-        'meeting_url': meeting_url,
         'notes': notes or None,
         'type': 'one-time',
-    }
+    }, meeting_url)
 
     try:
         result = supabase.table('sessions').insert(payload).execute()
@@ -496,7 +501,8 @@ def update_session(session_id):
         meeting_url, meeting_err = _normalize_meeting_url(data.get('meeting_url'))
         if meeting_err:
             return jsonify({'error': meeting_err}), 400
-        updates['meeting_url'] = meeting_url
+        if meeting_url:
+            updates['meeting_url'] = meeting_url
 
     if 'notes' in data:
         updates['notes'] = (data.get('notes') or '').strip() or None
