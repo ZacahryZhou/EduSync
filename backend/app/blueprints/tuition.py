@@ -36,6 +36,47 @@ def _student_class_ids(student_id):
     return [row['class_id'] for row in (result.data or [])]
 
 
+def _matches_name_query(row, query):
+    if not query:
+        return True
+    needle = query.strip().lower()
+    if not needle:
+        return True
+    haystack = f"{row.get('student_name') or ''} {row.get('student_email') or ''}".lower()
+    return needle in haystack
+
+
+def _teacher_matching_student_ids(teacher_id, query):
+    if not query or not query.strip():
+        return None
+    class_ids = _teacher_class_ids(teacher_id)
+    if not class_ids:
+        return []
+    enrollments = supabase.table('class_enrollments').select(
+        'student_id'
+    ).in_('class_id', class_ids).execute().data or []
+    student_ids = list({row['student_id'] for row in enrollments})
+    users_by_id = _load_users(student_ids)
+    needle = query.strip().lower()
+    matching = []
+    for student_id in student_ids:
+        user = users_by_id.get(student_id, {})
+        haystack = (
+            f"{user.get('display_name') or ''} {user.get('email') or ''}"
+        ).lower()
+        if needle in haystack:
+            matching.append(student_id)
+    return matching
+
+
+def _parse_date_bound(value, *, end_of_day=False):
+    text = (value or '').strip()
+    if not text:
+        return None
+    if len(text) == 10:
+        return f'{text}T23:59:59' if end_of_day else f'{text}T00:00:00'
+    return text
+
 def _load_classes(class_ids):
     if not class_ids:
         return {}
@@ -66,7 +107,7 @@ def _load_balances(student_ids, class_ids):
     return keyed
 
 
-def _teacher_balance_rows(teacher_id, class_filter=None):
+def _teacher_balance_rows(teacher_id, class_filter=None, name_query=None):
     class_ids = _teacher_class_ids(teacher_id)
     if class_filter:
         if class_filter not in class_ids:
@@ -109,6 +150,8 @@ def _teacher_balance_rows(teacher_id, class_filter=None):
         row['class_name'].lower(),
         row['student_name'].lower(),
     ))
+    if name_query:
+        rows = [row for row in rows if _matches_name_query(row, name_query)]
     return rows
 
 
@@ -182,11 +225,14 @@ def list_balances():
 
     role = (user.get('role') or '').strip().lower()
     class_filter = (request.args.get('class_id') or '').strip() or None
+    name_query = (request.args.get('q') or '').strip() or None
 
     try:
         if role == 'teacher':
-            balances = _teacher_balance_rows(user['id'], class_filter)
+            balances = _teacher_balance_rows(user['id'], class_filter, name_query)
         elif role == 'student':
+            if name_query:
+                name_query = None
             if class_filter and class_filter not in _student_class_ids(user['id']):
                 return jsonify({'error': 'Class not found'}), 404
             balances = _student_balance_rows(user['id'])
@@ -210,7 +256,14 @@ def list_transactions():
     role = (user.get('role') or '').strip().lower()
     student_filter = (request.args.get('student_id') or '').strip() or None
     class_filter = (request.args.get('class_id') or '').strip() or None
+    name_query = (request.args.get('q') or '').strip() or None
+    from_date = _parse_date_bound(request.args.get('from') or request.args.get('from_date'))
+    to_date = _parse_date_bound(
+        request.args.get('to') or request.args.get('to_date'),
+        end_of_day=True,
+    )
     limit = min(max(int(request.args.get('limit', 50)), 1), 200)
+    matching_student_ids = None
 
     if role == 'teacher':
         allowed_class_ids = _teacher_class_ids(user['id'])
@@ -218,8 +271,17 @@ def list_transactions():
             return jsonify({'error': 'Class not found'}), 404
         if student_filter and not _teacher_has_student(user['id'], student_filter):
             return jsonify({'error': 'Student not found'}), 404
+        matching_student_ids = _teacher_matching_student_ids(user['id'], name_query)
+        if matching_student_ids is not None and not matching_student_ids:
+            return jsonify({'transactions': []}), 200
+        if matching_student_ids is not None and student_filter:
+            if student_filter not in matching_student_ids:
+                return jsonify({'transactions': []}), 200
     elif role == 'student':
+        if student_filter and student_filter != user['id']:
+            return jsonify({'error': 'Forbidden'}), 403
         student_filter = user['id']
+        name_query = None
         allowed_class_ids = _student_class_ids(user['id'])
         if class_filter and class_filter not in allowed_class_ids:
             return jsonify({'error': 'Class not found'}), 404
@@ -232,10 +294,16 @@ def list_transactions():
         ).limit(limit)
         if student_filter:
             query = query.eq('student_id', student_filter)
+        elif role == 'teacher' and matching_student_ids is not None:
+            query = query.in_('student_id', matching_student_ids)
         if class_filter:
             query = query.eq('class_id', class_filter)
         elif role == 'teacher' and allowed_class_ids:
             query = query.in_('class_id', allowed_class_ids)
+        if from_date:
+            query = query.gte('created_at', from_date)
+        if to_date:
+            query = query.lte('created_at', to_date)
         result = query.execute()
     except Exception as exc:
         return jsonify({'error': friendly_balance_error(exc)}), 500

@@ -1185,9 +1185,21 @@ export type BalanceTransaction = {
   created_at?: string;
 };
 
-export async function listTuitionBalances(classId?: string): Promise<StudentBalance[]> {
-  const params = classId ? `?class_id=${encodeURIComponent(classId)}` : "";
-  const response = await apiFetch(`/tuition/balances${params}`, { method: "GET" });
+export async function listTuitionBalances(filters?: {
+  classId?: string;
+  q?: string;
+}): Promise<StudentBalance[]> {
+  const params = new URLSearchParams();
+  if (filters?.classId) {
+    params.set("class_id", filters.classId);
+  }
+  if (filters?.q?.trim()) {
+    params.set("q", filters.q.trim());
+  }
+  const query = params.toString();
+  const response = await apiFetch(`/tuition/balances${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
 
   if (!response.ok) {
     throw new Error(await readApiError(response, "Failed to load balances"));
@@ -1200,6 +1212,9 @@ export async function listTuitionBalances(classId?: string): Promise<StudentBala
 export async function listTuitionTransactions(options?: {
   studentId?: string;
   classId?: string;
+  q?: string;
+  from?: string;
+  to?: string;
   limit?: number;
 }): Promise<BalanceTransaction[]> {
   const params = new URLSearchParams();
@@ -1208,6 +1223,15 @@ export async function listTuitionTransactions(options?: {
   }
   if (options?.classId) {
     params.set("class_id", options.classId);
+  }
+  if (options?.q?.trim()) {
+    params.set("q", options.q.trim());
+  }
+  if (options?.from) {
+    params.set("from", options.from);
+  }
+  if (options?.to) {
+    params.set("to", options.to);
   }
   if (options?.limit) {
     params.set("limit", String(options.limit));
