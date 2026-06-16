@@ -21,7 +21,7 @@
 | **Phase 1 — P0** | 独立老师日常可用 | 13 | ✅ 已完成（邮件域名 ⏸️暂定） |
 | **Phase 2 — P1** | 专业感 + PRD 补齐 | 15 | ✅ 已完成（P1-15 冒烟测试） |
 | **Backlog — P2** | 差异化长期功能 | 8 | 📌 已记录 |
-| **Phase 3 — AI** | 教师 Agent（DeepSeek） | 3 | 🔄 **当前：AI-1 ✅ → AI-2** |
+| **Phase 3 — AI** | 教师 Agent（DeepSeek） | 3 | 🔄 **当前：AI-1 ✅ · AI-2 进行中（Beta UI）** |
 | **Future — AI+** | 学生助手 / 自动化 | 3 | ⏸️ v1 不做 |
 
 ---
@@ -728,8 +728,9 @@ erDiagram
 - [x] Tool 定义 + 后端执行（`ai_tools.py`，teacher 权限校验）
 - [x] 多轮 tool 循环 + 前端查询状态（`tool_start` / `tool_done`）
 - [x] 拒绝越权（不能查其他老师的班）
+- [x] 教师端 **Beta** 提示（侧栏徽章 + `/ai` 与 Calendar 内说明）
 
-### AI-2 · 教师写入（确认后执行）
+### AI-2 · 教师写入（确认后执行） — 🔄 进行中
 
 **交互流程：**
 
@@ -768,6 +769,7 @@ sequenceDiagram
 - [ ] 确认卡 UI（摘要、取消、确认）
 - [ ] 2a 排课/改课 tool 端到端
 - [ ] 2b~2d 按优先级迭代
+- [x] Beta 测试版标识与教师说明文案（`AiBetaNotice`、i18n、`GET /api/ai/status` `phase: beta`）
 
 ### 风险与缓解 / Risks & mitigations
 

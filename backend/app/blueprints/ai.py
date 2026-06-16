@@ -115,6 +115,8 @@ def ai_status():
         'configured': is_configured(),
         'model': Config.DEEPSEEK_MODEL or 'deepseek-chat',
         'read_tools': True,
+        'write_tools': False,
+        'phase': 'beta',
     })
 
 

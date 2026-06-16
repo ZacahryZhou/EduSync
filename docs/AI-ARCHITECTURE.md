@@ -38,7 +38,7 @@ Run once in Supabase SQL Editor:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/ai/status` | `{ configured, model, read_tools }` |
+| GET | `/api/ai/status` | `{ configured, model, read_tools, write_tools, phase }` |
 | POST | `/api/ai/chat` | SSE stream; body `{ messages: [{ role, content }] }` |
 
 SSE events: `{ "type": "token", "content": "..." }`, `{ "type": "tool_start", "name", "label" }`, `{ "type": "tool_done", "name" }`, `{ "type": "done" }`, `{ "type": "error", "message": "..." }`.
@@ -55,12 +55,13 @@ cd .. && VITE_API_URL=http://127.0.0.1:5001/api npm run dev -- --port 8080
 
 Open Calendar as a teacher → AI Assistant card.
 
-## Current scope (AI-1)
+## Current scope (AI-1 + Beta)
 
 - Streaming chat on Calendar + `/ai` (teacher only)
 - **Read tools:** classes, sessions, students, assignments, pending submissions, balances, pending reschedules
 - SSE events: `token`, `tool_start`, `tool_done`, `done`, `error`
 - `ai_interactions` logging (optional if SQL not run)
+- **Beta UI:** sidebar badge, page banner, bilingual teacher notice (`phase: beta` on `/api/ai/status`)
 
 ## Next (AI-2 / AI-2b)
 

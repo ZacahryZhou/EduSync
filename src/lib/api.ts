@@ -1745,6 +1745,8 @@ export type AiStatus = {
   configured: boolean;
   model: string;
   read_tools?: boolean;
+  phase?: "beta";
+  write_tools?: boolean;
 };
 
 /** Whether DeepSeek is configured on the backend */

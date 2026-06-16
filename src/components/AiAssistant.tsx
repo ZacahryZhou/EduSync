@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Bot, Loader2, Send } from "lucide-react";
+import { AiBetaNotice } from "@/components/AiBetaNotice";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 export function AiAssistant({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -132,12 +135,13 @@ export function AiAssistant({ className }: { className?: string }) {
   }
 
   const configured = statusQuery.data?.configured === true;
+  const modelName = statusQuery.data?.model ?? "DeepSeek";
   const statusHint = statusQuery.isLoading
     ? "Checking AI status…"
     : statusQuery.isError
       ? "Cannot reach the API. Is the backend running? Check VITE_API_URL."
       : configured
-        ? `Powered by ${statusQuery.data?.model ?? "DeepSeek"} · read-only queries`
+        ? t("ai.statusBetaModel", { model: modelName })
         : "Add DEEPSEEK_API_KEY to backend/.env (local) or Railway Variables (production), then restart the server.";
 
   return (
@@ -155,6 +159,7 @@ export function AiAssistant({ className }: { className?: string }) {
         <p className="text-xs text-muted-foreground">{statusHint}</p>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-0">
+        <AiBetaNotice />
         <div
           ref={scrollRef}
           className="min-h-[10rem] flex-1 space-y-3 overflow-y-auto rounded-lg border border-border/50 bg-muted/20 p-3"
