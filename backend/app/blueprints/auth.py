@@ -130,7 +130,7 @@ def login():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
-    email = data.get('email')
+    email = normalize_email(data.get('email'))
     password = data.get('password')
     #从数据里面取出邮箱和密码#
 
@@ -167,6 +167,15 @@ def login():
             }
         }), 200
     except Exception as e:
+        err = str(e).lower()
+        if 'email not confirmed' in err or 'not confirmed' in err:
+            return jsonify({
+                'error': (
+                    'This email is not verified yet. Ask your teacher to add you '
+                    f'to the class again, then log in with initial password '
+                    f'{DEFAULT_STUDENT_PASSWORD}.'
+                ),
+            }), 401
         return jsonify({'error': 'Invalid email or password'}), 401
      #登录成功的话返回token和用户信息给前端，登录失败的话统一返回401错误#
 

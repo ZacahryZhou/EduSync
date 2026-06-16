@@ -57,6 +57,14 @@ def friendly_provision_error(exc):
     return message
 
 
+def _ensure_auth_login_ready(user_id, *, reset_password=True):
+    """Confirm email and optionally set the teacher default password."""
+    payload = {'email_confirm': True}
+    if reset_password:
+        payload['password'] = DEFAULT_STUDENT_PASSWORD
+    supabase_auth.auth.admin.update_user_by_id(user_id, payload)
+
+
 def provision_student_account(email, display_name, *, grade=None, reset_password=True):
     """
     Ensure a student can log in with email + default password.
@@ -66,33 +74,37 @@ def provision_student_account(email, display_name, *, grade=None, reset_password
     name = (display_name or '').strip() or norm.split('@')[0] or 'Student'
     grade_value = (grade or '').strip() or None
 
-    existing = _find_public_student_by_email(norm)
-    if existing:
-        return existing['id'], 'existing'
+    existing_profile = _find_public_student_by_email(norm)
+    auth_user_id = find_auth_user_id_by_email(norm)
+    if existing_profile and auth_user_id and existing_profile['id'] != auth_user_id:
+        raise RuntimeError(
+            'This email has conflicting account records. Contact support or use another email.'
+        )
 
-    user_id = None
+    user_id = auth_user_id or (existing_profile['id'] if existing_profile else None)
     created_new = False
 
-    try:
-        created = supabase_auth.auth.admin.create_user({
-            'email': norm,
-            'password': DEFAULT_STUDENT_PASSWORD,
-            'email_confirm': True,
-            'user_metadata': {'display_name': name},
-        })
-        user_id = created.user.id if created and created.user else None
-        created_new = bool(user_id)
-    except Exception as exc:
-        err = str(exc).lower()
-        if 'already' in err or 'registered' in err or 'exists' in err:
-            user_id = find_auth_user_id_by_email(norm)
-            if not user_id:
-                raise RuntimeError(
-                    'This email already has a login account that could not be linked. '
-                    'Ask the student to reset their password or use another email.'
-                ) from exc
-        else:
-            raise
+    if not user_id:
+        try:
+            created = supabase_auth.auth.admin.create_user({
+                'email': norm,
+                'password': DEFAULT_STUDENT_PASSWORD,
+                'email_confirm': True,
+                'user_metadata': {'display_name': name},
+            })
+            user_id = created.user.id if created and created.user else None
+            created_new = bool(user_id)
+        except Exception as exc:
+            err = str(exc).lower()
+            if 'already' in err or 'registered' in err or 'exists' in err:
+                user_id = find_auth_user_id_by_email(norm)
+                if not user_id:
+                    raise RuntimeError(
+                        'This email already has a login account that could not be linked. '
+                        'Ask the student to reset their password or use another email.'
+                    ) from exc
+            else:
+                raise
 
     if not user_id:
         raise RuntimeError('Failed to create student login account')
@@ -121,19 +133,15 @@ def provision_student_account(email, display_name, *, grade=None, reset_password
         if grade_value:
             update_payload['grade'] = grade_value
         supabase.table('users').update(update_payload).eq('id', user_id).execute()
-        status = 'synced'
+        status = 'existing' if existing_profile and not created_new else 'synced'
     else:
         supabase.table('users').insert(payload).execute()
         status = 'created' if created_new else 'synced'
 
-    if reset_password and (created_new or status == 'synced'):
-        try:
-            supabase_auth.auth.admin.update_user_by_id(
-                user_id,
-                {'password': DEFAULT_STUDENT_PASSWORD},
-            )
-        except Exception:
-            pass
+    try:
+        _ensure_auth_login_ready(user_id, reset_password=reset_password)
+    except Exception as exc:
+        raise RuntimeError(friendly_provision_error(exc)) from exc
 
     return user_id, status
 

@@ -215,33 +215,15 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
         return None, 'Note is too long (max 10000 characters)'
 
     existing_student = _find_student_by_email(norm)
-    if existing_student:
-        student_id = existing_student['id']
-        if _is_enrolled(student_id, class_id):
-            return None, 'This student is already in the class'
-        _enroll_student_in_class(student_id, class_id)
-        cancel_pending_for_class_email(class_id, norm)
-        class_row = supabase.table('class_groups').select('name').eq(
-            'id', class_id
-        ).limit(1).execute()
-        class_name = (class_row.data or [{}])[0].get('name') or 'your class'
-        _migrate_teacher_note(teacher_id, student_id, note_value)
-        _notify_class_joined(student_id, class_name, class_id)
-        assignments = _open_assignments_for_class(class_id)
-        _notify_open_assignments(student_id, class_name, assignments)
-        return {
-            'status': 'active',
-            'student_id': student_id,
-            'email': norm,
-            'display_name': name,
-            'message': 'Student already had an account and was added to the class.',
-        }, None
+    if existing_student and _is_enrolled(existing_student['id'], class_id):
+        return None, 'This student is already in the class'
 
     try:
-        student_id, provision_status = provision_student_account(
+        student_id, _provision_status = provision_student_account(
             norm,
             name,
             grade=grade_value,
+            reset_password=True,
         )
     except RuntimeError as exc:
         return None, str(exc)
@@ -276,13 +258,7 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
     assignments = _open_assignments_for_class(class_id)
     _notify_open_assignments(student_id, class_name, assignments)
 
-    if provision_status == 'existing':
-        message = (
-            'Student already had an account and was added to the class. '
-            'They should log in with their existing password.'
-        )
-    else:
-        message = initial_password_message()
+    message = initial_password_message()
 
     return {
         'status': 'active',
@@ -290,7 +266,7 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
         'email': norm,
         'display_name': name,
         'message': message,
-        'initial_password': None if provision_status == 'existing' else DEFAULT_STUDENT_PASSWORD,
+        'initial_password': DEFAULT_STUDENT_PASSWORD,
     }, None
 
 
