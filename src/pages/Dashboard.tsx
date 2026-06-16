@@ -165,7 +165,10 @@ export default function Dashboard() {
   const sessions = sessionsQuery.data ?? [];
   const summary = dashboardSummaryQuery.data;
 
-  const studentCount = teacherStudentsQuery.data?.length ?? 0;
+  const studentCount =
+    teacherStudentsQuery.data?.total ??
+    teacherStudentsQuery.data?.students?.length ??
+    0;
 
   const openAssignments = summary?.open_assignments ?? 0;
 
