@@ -188,6 +188,7 @@ function SubmitAssignmentDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       onOpenChange(false);
       setContent("");
       setFile(null);
@@ -366,6 +367,7 @@ function SubmissionsDialog({
                     queryKey: ["assignment-submissions", item?.id],
                   });
                   queryClient.invalidateQueries({ queryKey: ["notifications"] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
                 }}
               />
             ))}
@@ -408,6 +410,7 @@ export default function AssignmentsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       setDialogOpen(false);
       setTitle("");
       setDescription("");
@@ -430,6 +433,7 @@ export default function AssignmentsPage() {
     mutationFn: deleteAssignment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       setDeleteId(null);
       toast.success("Assignment deleted");
     },

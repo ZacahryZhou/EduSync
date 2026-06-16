@@ -1416,6 +1416,47 @@ export type NotificationsResponse = {
   unread_count: number;
 };
 
+export type DashboardPendingGradeItem = {
+  submission_id: string;
+  assignment_id: string;
+  assignment_title: string;
+  class_name: string;
+  student_name: string;
+  submitted_at: string | null;
+};
+
+export type DashboardOpenAssignmentItem = {
+  assignment_id: string;
+  title: string;
+  class_name: string;
+  due_date: string | null;
+  past_due: boolean;
+};
+
+export type DashboardSummary = {
+  role: string;
+  unread_notifications: number;
+  recent_notifications: NotificationItem[];
+  pending_grades: number;
+  pending_reschedules: number;
+  open_assignments: number;
+  pending_grade_items: DashboardPendingGradeItem[];
+  open_assignment_items: DashboardOpenAssignmentItem[];
+};
+
+/** Aggregated counts and recent items for the dashboard */
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const response = await apiFetch("/dashboard/summary", {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load dashboard summary"));
+  }
+
+  return (await response.json()) as DashboardSummary;
+}
+
 /** List in-app notifications for the current user */
 export async function listNotifications(options?: {
   unreadOnly?: boolean;

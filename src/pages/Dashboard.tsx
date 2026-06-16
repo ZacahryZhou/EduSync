@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import {
   BookOpen,
+  Bell,
   Calendar as CalendarIcon,
   CalendarDays,
   Check,
@@ -31,7 +32,7 @@ import { PageEmptyState } from "@/components/PageEmptyState";
 import { useAuth } from "@/context/AuthContext";
 import {
   approveRescheduleRequest,
-  listAssignments,
+  getDashboardSummary,
   listClasses,
   listRecentMaterials,
   listRescheduleRequests,
@@ -109,11 +110,11 @@ export default function Dashboard() {
     staleTime: 60_000,
   });
 
-  const assignmentsQuery = useQuery({
-    queryKey: ["assignments", user?.id, role] as const,
-    queryFn: () => listAssignments(),
-    enabled: Boolean(user?.id && isStudent),
-    staleTime: 60_000,
+  const dashboardSummaryQuery = useQuery({
+    queryKey: ["dashboard-summary", user?.id, role] as const,
+    queryFn: getDashboardSummary,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
   });
 
   const recentMaterialsQuery = useQuery({
@@ -129,6 +130,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       toast.success("Reschedule approved — calendar updated");
     },
     onError: (error: Error) => {
@@ -147,6 +149,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       setRejectTarget(null);
       setRejectFeedback("");
       toast.success("Reschedule request rejected");
@@ -158,17 +161,19 @@ export default function Dashboard() {
 
   const classes = classesQuery.data ?? [];
   const sessions = sessionsQuery.data ?? [];
+  const summary = dashboardSummaryQuery.data;
 
   const studentCount = teacherStudentsQuery.data?.length ?? 0;
 
-  const openAssignments = useMemo(() => {
-    if (!isStudent) {
-      return 0;
-    }
-    return (assignmentsQuery.data ?? []).filter(
-      (item) => !item.my_submission?.submitted_at,
-    ).length;
-  }, [assignmentsQuery.data, isStudent]);
+  const openAssignments = summary?.open_assignments ?? 0;
+
+  const pendingGrades = summary?.pending_grades ?? 0;
+  const pendingRescheduleCount =
+    summary?.pending_reschedules ?? pendingRescheduleQuery.data?.length ?? 0;
+  const unreadNotifications = summary?.unread_notifications ?? 0;
+  const recentNotifications = summary?.recent_notifications ?? [];
+  const pendingGradeItems = summary?.pending_grade_items ?? [];
+  const openAssignmentItems = summary?.open_assignment_items ?? [];
 
   const todaysSessions = useMemo(
     () => sessions.filter((s) => s.date === todayKey).sort(compareSessions),
@@ -186,7 +191,7 @@ export default function Dashboard() {
     { key: "students", value: studentCount, icon: Users },
     { key: "classes", value: classes.length, icon: BookOpen },
     { key: "todaySessions", value: todaysSessions.length, icon: CalendarIcon },
-    { key: "pendingAssignments", value: 0, icon: FileText },
+    { key: "pendingGrades", value: pendingGrades, icon: FileText },
   ] as const;
 
   const studentStats = [
@@ -224,7 +229,9 @@ export default function Dashboard() {
               <stat.icon className="mb-3 h-5 w-5 text-muted-foreground" />
               <p className="text-2xl font-bold tracking-tight">
                 {isLoading ||
-                (isStudent && stat.key === "openAssignments" && assignmentsQuery.isLoading)
+                (dashboardSummaryQuery.isLoading &&
+                  (stat.key === "openAssignments" ||
+                    stat.key === "pendingGrades"))
                   ? "—"
                   : stat.value}
               </p>
@@ -248,24 +255,102 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           <CardContent>
-            {assignmentsQuery.isLoading ? (
+            {dashboardSummaryQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">{t("dashboard.homeworkLoading")}</p>
-            ) : assignmentsQuery.isError ? (
+            ) : dashboardSummaryQuery.isError ? (
               <p className="text-sm text-destructive" role="alert">
-                {(assignmentsQuery.error as Error).message}
+                {(dashboardSummaryQuery.error as Error).message}
               </p>
-            ) : (assignmentsQuery.data?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("dashboard.homeworkEmpty")}</p>
-            ) : openAssignments > 0 ? (
+            ) : openAssignments === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {t("dashboard.homeworkPending", { count: openAssignments })}
+                {classes.length === 0
+                  ? t("dashboard.homeworkEmpty")
+                  : t("dashboard.homeworkDone")}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">{t("dashboard.homeworkDone")}</p>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {t("dashboard.homeworkPending", { count: openAssignments })}
+                </p>
+                <ul className="space-y-2">
+                  {openAssignmentItems.map((item) => (
+                    <li
+                      key={item.assignment_id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{item.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.class_name}
+                          {item.past_due ? ` · ${t("dashboard.pastDue")}` : null}
+                        </p>
+                      </div>
+                      {item.due_date ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {t("dashboard.dueLabel", {
+                            date: formatDueLabel(item.due_date),
+                          })}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>
       ) : null}
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            {t("dashboard.recentNotifications")}
+            {unreadNotifications > 0 ? (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({unreadNotifications})
+              </span>
+            ) : null}
+          </CardTitle>
+          <Link
+            to="/notifications"
+            className="text-xs font-medium text-primary hover:underline shrink-0"
+          >
+            {t("dashboard.viewNotifications")}
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {dashboardSummaryQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : dashboardSummaryQuery.isError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {(dashboardSummaryQuery.error as Error).message}
+            </p>
+          ) : recentNotifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("dashboard.notificationsEmpty")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {recentNotifications.map((item) => (
+                <li
+                  key={item.id}
+                  className={`rounded-lg border px-3 py-2 text-sm ${
+                    item.read
+                      ? "border-border/50"
+                      : "border-primary/30 bg-primary/5"
+                  }`}
+                >
+                  <p className="font-medium">{item.title}</p>
+                  {item.body ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                      {item.body}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
@@ -320,12 +405,67 @@ export default function Dashboard() {
 
       {isTeacher ? (
         <Card className="border-border/60 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+            <CardTitle className="text-base font-semibold">
+              {t("dashboard.pendingGrades")}
+              {pendingGrades > 0 ? (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({pendingGrades})
+                </span>
+              ) : null}
+            </CardTitle>
+            <Link
+              to="/assignments"
+              className="text-xs font-medium text-primary hover:underline shrink-0"
+            >
+              {t("dashboard.gradeInAssignments")}
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {dashboardSummaryQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+            ) : dashboardSummaryQuery.isError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {(dashboardSummaryQuery.error as Error).message}
+              </p>
+            ) : pendingGradeItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("dashboard.pendingGradesEmpty")}</p>
+            ) : (
+              <ul className="space-y-2">
+                {pendingGradeItems.map((item) => (
+                  <li
+                    key={item.submission_id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{item.assignment_title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.student_name} · {item.class_name}
+                      </p>
+                    </div>
+                    {item.submitted_at ? (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {t("dashboard.submittedAt", {
+                          date: formatJoinedAt(item.submitted_at),
+                        })}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isTeacher ? (
+        <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">
               {t("dashboard.pendingReschedule")}
-              {pendingRequests.length > 0 ? (
+              {pendingRescheduleCount > 0 ? (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({pendingRequests.length})
+                  ({pendingRescheduleCount})
                 </span>
               ) : null}
             </CardTitle>
@@ -551,4 +691,12 @@ function formatJoinedAt(iso?: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function formatDueLabel(value: string): string {
+  try {
+    return format(parseISO(value), "MMM d");
+  } catch {
+    return value.slice(0, 10);
+  }
 }
