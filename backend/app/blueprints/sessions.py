@@ -53,14 +53,24 @@ def _class_map(class_ids):
     return {row['id']: row for row in result.data or []}
 
 
+def _display_session_title(row, class_name=''):
+    title = (row.get('title') or '').strip()
+    if title:
+        return title
+    return (class_name or '').strip() or 'Session'
+
+
 def _serialize_session(row, classes_by_id):
     class_info = classes_by_id.get(row['class_id'], {})
+    class_name = class_info.get('name', '')
+    raw_title = (row.get('title') or '').strip()
     return {
         'id': row['id'],
         'class_id': row['class_id'],
-        'class_name': class_info.get('name', ''),
+        'class_name': class_name,
         'color': class_info.get('color', '#6366f1'),
-        'title': row['title'],
+        'title': raw_title,
+        'display_title': _display_session_title(row, class_name),
         'date': row['date'],
         'start_time': row['start_time'],
         'end_time': row['end_time'],
@@ -118,6 +128,11 @@ def _friendly_db_error(exc):
                     'Database column "sessions.meeting_url" is missing. '
                     'Run backend/sql/add_meeting_url.sql in Supabase SQL Editor.'
                 )
+            if 'title' in lower and 'not-null' in lower:
+                return (
+                    'Database column "sessions.title" must allow NULL. '
+                    'Run backend/sql/sessions_optional_title.sql in Supabase SQL Editor.'
+                )
             return (
                 'Sessions table is missing required columns (date, start_time, etc.). '
                 'Run backend/sql/fix_sessions_schema.sql in Supabase SQL Editor.'
@@ -141,6 +156,29 @@ def _strip_optional_session_columns(rows, exc):
     return stripped
 
 
+def _ensure_insert_titles(rows):
+    """Legacy DBs may still have NOT NULL title — use class name before insert."""
+    changed = False
+    for row in rows:
+        if (row.get('title') or '').strip():
+            continue
+        class_row = _get_class_row(row.get('class_id'))
+        row['title'] = (class_row or {}).get('name') or 'Session'
+        changed = True
+    return changed
+
+
+def _get_class_row(class_id):
+    if not class_id:
+        return None
+    result = supabase.table('class_groups').select(
+        'id, name, billing_mode, unit_price, teacher_id'
+    ).eq('id', class_id).limit(1).execute()
+    if not result.data:
+        return None
+    return result.data[0]
+
+
 def _insert_sessions(payloads):
     """Insert session row(s); retry without optional columns if DB schema lags."""
     rows = [payloads] if isinstance(payloads, dict) else list(payloads)
@@ -148,6 +186,14 @@ def _insert_sessions(payloads):
         result = supabase.table('sessions').insert(rows).execute()
         return result, None
     except Exception as exc:
+        msg = str(exc).lower()
+        if 'title' in msg and ('not-null' in msg or '23502' in msg):
+            if _ensure_insert_titles(rows):
+                try:
+                    result = supabase.table('sessions').insert(rows).execute()
+                    return result, None
+                except Exception as retry_exc:
+                    return None, _friendly_db_error(retry_exc)
         if not _strip_optional_session_columns(rows, exc):
             return None, _friendly_db_error(exc)
         try:

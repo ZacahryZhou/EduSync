@@ -41,6 +41,7 @@ import {
   listSessions,
   listTeacherStudents,
   rejectRescheduleRequest,
+  sessionDisplayTitle,
   type RescheduleRequest,
   type SessionItem,
 } from "@/lib/api";
@@ -603,7 +604,7 @@ export default function Dashboard() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold">{session.title}</p>
+                      <p className="font-semibold">{sessionDisplayTitle(session)}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {session.class_name}
                       </p>

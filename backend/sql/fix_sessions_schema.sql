@@ -20,3 +20,6 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now
 
 CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions(class_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
+
+-- Title is optional in the app (class + date + start/end time are required).
+ALTER TABLE sessions ALTER COLUMN title DROP NOT NULL;

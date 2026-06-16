@@ -21,6 +21,13 @@ def _format_time(value):
     return text[:5] if len(text) >= 5 else text
 
 
+def _session_title_label(session_row, class_name=''):
+    title = (session_row.get('title') or '').strip()
+    if title:
+        return title
+    return (class_name or '').strip() or 'Session'
+
+
 def _class_teacher_id(class_id):
     result = supabase.table('class_groups').select('teacher_id').eq(
         'id', class_id
@@ -123,7 +130,7 @@ def notify_session_schedule_changed(session_row, classes_by_id=None):
     class_id = session_row.get('class_id')
     class_info = (classes_by_id or {}).get(class_id, {})
     class_name = class_info.get('name') or 'your class'
-    title_text = session_row.get('title') or 'Session'
+    title_text = _session_title_label(session_row, class_name)
     body = (
         f'{title_text} ({class_name}) is now scheduled for '
         f'{session_row.get("date")} '
@@ -146,7 +153,7 @@ def notify_session_schedule_changed(session_row, classes_by_id=None):
 
 
 def _session_scheduled_body(session_row, class_name, session_count=1, last_date=None):
-    title_text = session_row.get('title') or 'Session'
+    title_text = _session_title_label(session_row, class_name)
     if session_count > 1:
         end_part = f' through {last_date}' if last_date else ''
         body = (
@@ -203,7 +210,7 @@ def notify_session_cancelled(session_row, classes_by_id=None):
     class_id = session_row.get('class_id')
     class_info = (classes_by_id or {}).get(class_id, {})
     class_name = class_info.get('name') or 'your class'
-    title_text = session_row.get('title') or 'Session'
+    title_text = _session_title_label(session_row, class_name)
     body = (
         f'{title_text} ({class_name}) on {session_row.get("date")} '
         f'{_format_time(session_row.get("start_time"))}–'
@@ -300,7 +307,7 @@ def notify_recurring_series_cancelled(session_row, deleted_count, classes_by_id=
     class_id = session_row.get('class_id')
     class_info = (classes_by_id or {}).get(class_id, {})
     class_name = class_info.get('name') or 'your class'
-    title_text = session_row.get('title') or 'Session'
+    title_text = _session_title_label(session_row, class_name)
     count_label = deleted_count if deleted_count > 1 else 1
     body = (
         f'{title_text} ({class_name}) — {count_label} weekly '

@@ -912,6 +912,8 @@ export type SessionItem = {
   class_name: string;
   color: string;
   title: string;
+  /** Shown in UI when title is empty (falls back to class name). */
+  display_title?: string;
   date: string;
   start_time: string;
   end_time: string;
@@ -923,6 +925,21 @@ export type SessionItem = {
   notes?: string;
   created_at?: string;
 };
+
+/** Label for calendar lists when session title is optional. */
+export function sessionDisplayTitle(
+  session: Pick<SessionItem, "title" | "class_name" | "display_title">,
+): string {
+  const fromApi = session.display_title?.trim();
+  if (fromApi) {
+    return fromApi;
+  }
+  const title = session.title?.trim();
+  if (title) {
+    return title;
+  }
+  return session.class_name?.trim() || "Session";
+}
 
 type SessionsListResponse = {
   sessions: SessionItem[];

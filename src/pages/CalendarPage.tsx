@@ -62,6 +62,7 @@ import {
   listRescheduleRequests,
   listSessions,
   saveSessionAttendance,
+  sessionDisplayTitle,
   updateSession,
   type AttendanceRecord,
   type AttendanceStatus,
@@ -519,7 +520,7 @@ export default function CalendarPage() {
     }
     createMutation.mutate({
       class_id: classId,
-      title: trimmedTitle,
+      title: trimmedTitle || undefined,
       date: sessionDate,
       start_time: startTime,
       end_time: endTime,
@@ -550,7 +551,7 @@ export default function CalendarPage() {
     updateMutation.mutate({
       sessionId: editingSession.id,
       input: {
-        title: trimmedTitle,
+        title: trimmedTitle || undefined,
         date: editSessionDate,
         start_time: editStartTime,
         end_time: editEndTime,
@@ -836,7 +837,7 @@ export default function CalendarPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold leading-snug">
-                              {session.title}
+                              {sessionDisplayTitle(session)}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
                               {session.class_name}
@@ -880,7 +881,7 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                aria-label={`Attendance for ${session.title}`}
+                                aria-label={`Attendance for ${sessionDisplayTitle(session)}`}
                                 title="Attendance"
                                 onClick={() => openAttendanceDialog(session)}
                               >
@@ -891,7 +892,7 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                aria-label={`Session notes for ${session.title}`}
+                                aria-label={`Session notes for ${sessionDisplayTitle(session)}`}
                                 title="Session notes"
                                 onClick={() => openEditDialog(session)}
                               >
@@ -904,7 +905,7 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                aria-label={`Edit ${session.title}`}
+                                aria-label={`Edit ${sessionDisplayTitle(session)}`}
                                 onClick={() => openEditDialog(session)}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -914,7 +915,7 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive hover:text-destructive"
-                                aria-label={`Delete ${session.title}`}
+                                aria-label={`Delete ${sessionDisplayTitle(session)}`}
                                 onClick={() => setDeleteTarget(session)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1224,7 +1225,7 @@ export default function CalendarPage() {
               <div className="space-y-4 py-4">
                 {rescheduleSession ? (
                   <p className="text-sm text-muted-foreground">
-                    Current: {rescheduleSession.title} on{" "}
+                    Current: {sessionDisplayTitle(rescheduleSession)} on{" "}
                     {rescheduleSession.date},{" "}
                     {formatTimeLabel(rescheduleSession.start_time)}–
                     {formatTimeLabel(rescheduleSession.end_time)}
@@ -1315,7 +1316,7 @@ export default function CalendarPage() {
                 <DialogTitle>Attendance</DialogTitle>
                 {attendanceSession ? (
                   <p className="text-sm text-muted-foreground">
-                    {attendanceSession.title} · {attendanceSession.class_name} ·{" "}
+                    {sessionDisplayTitle(attendanceSession)} · {attendanceSession.class_name} ·{" "}
                     {attendanceSession.date}
                   </p>
                 ) : null}
@@ -1402,8 +1403,8 @@ export default function CalendarPage() {
             <AlertDialogDescription>
               {deleteTarget
                 ? deleteTarget.recurrence_group_id
-                  ? `"${deleteTarget.title}" on ${deleteTarget.date} is part of a weekly series. Delete only this occurrence, or the entire series?`
-                  : `"${deleteTarget.title}" on ${deleteTarget.date} will be permanently removed.`
+                  ? `"${sessionDisplayTitle(deleteTarget)}" on ${deleteTarget.date} is part of a weekly series. Delete only this occurrence, or the entire series?`
+                  : `"${sessionDisplayTitle(deleteTarget)}" on ${deleteTarget.date} will be permanently removed.`
                 : "This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
