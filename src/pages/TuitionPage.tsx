@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { DollarSign, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -60,14 +62,22 @@ type TuitionDetailTarget = {
   className?: string;
 };
 
-function statusLabel(status: BalanceStatus): string {
+function localeForDates(lang: string): string {
+  if (lang.startsWith("zh")) return "zh-CN";
+  if (lang.startsWith("fr")) return "fr-FR";
+  if (lang.startsWith("ja")) return "ja-JP";
+  if (lang.startsWith("ko")) return "ko-KR";
+  return "en-US";
+}
+
+function statusLabel(status: BalanceStatus, t: TFunction): string {
   if (status === "zero") {
-    return "Zero";
+    return t("tuition.statusZero");
   }
   if (status === "low") {
-    return "Low";
+    return t("tuition.statusLow");
   }
-  return "OK";
+  return t("tuition.statusOk");
 }
 
 function statusVariant(status: BalanceStatus): "default" | "secondary" | "destructive" {
@@ -80,17 +90,17 @@ function statusVariant(status: BalanceStatus): "default" | "secondary" | "destru
   return "default";
 }
 
-function formatBalance(balance: number, unit: string): string {
+function formatBalance(balance: number, unit: string, t: TFunction): string {
   const rounded = Number.isInteger(balance) ? balance.toString() : balance.toFixed(2);
-  const label = unit === "hours" ? "hr" : "sessions";
+  const label = unit === "hours" ? t("tuition.unitHours") : t("tuition.unitSessions");
   return `${rounded} ${label}`;
 }
 
-function formatTransactionType(type: string): string {
-  return type === "topup" ? "Top-up" : "Deduction";
+function formatTransactionType(type: string, t: TFunction): string {
+  return type === "topup" ? t("tuition.typeTopup") : t("tuition.typeDeduction");
 }
 
-function formatDateTime(iso?: string): string {
+function formatDateTime(iso: string | undefined, locale: string): string {
   if (!iso) {
     return "—";
   }
@@ -98,7 +108,7 @@ function formatDateTime(iso?: string): string {
   if (Number.isNaN(date.getTime())) {
     return "—";
   }
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -110,11 +120,15 @@ function TransactionsTable({
   transactions,
   isTeacher,
   emptyMessage,
+  dateLocale,
 }: {
   transactions: BalanceTransaction[];
   isTeacher: boolean;
   emptyMessage: string;
+  dateLocale: string;
 }) {
+  const { t } = useTranslation();
+
   if (transactions.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
@@ -125,29 +139,29 @@ function TransactionsTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow>
-              <TableHead>Date</TableHead>
-              {isTeacher ? <TableHead>Student</TableHead> : null}
-              <TableHead>Class</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Balance after</TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead>{t("tuition.colDate")}</TableHead>
+              {isTeacher ? <TableHead>{t("tuition.colStudent")}</TableHead> : null}
+              <TableHead>{t("tuition.colClass")}</TableHead>
+              <TableHead>{t("tuition.colType")}</TableHead>
+              <TableHead>{t("tuition.colAmount")}</TableHead>
+              <TableHead>{t("tuition.colBalanceAfter")}</TableHead>
+              <TableHead>{t("tuition.colNotes")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {transactions.map((tx) => (
               <TableRow key={tx.id}>
                 <TableCell className="text-sm text-muted-foreground">
-                  {formatDateTime(tx.created_at)}
+                  {formatDateTime(tx.created_at, dateLocale)}
                 </TableCell>
                 {isTeacher ? <TableCell>{tx.student_name}</TableCell> : null}
                 <TableCell>{tx.class_name}</TableCell>
-                <TableCell>{formatTransactionType(tx.type)}</TableCell>
+                <TableCell>{formatTransactionType(tx.type, t)}</TableCell>
                 <TableCell>
                   {tx.type === "deduction" ? "−" : "+"}
-                  {formatBalance(tx.amount, tx.unit)}
+                  {formatBalance(tx.amount, tx.unit, t)}
                 </TableCell>
-                <TableCell>{formatBalance(tx.balance_after, tx.unit)}</TableCell>
+                <TableCell>{formatBalance(tx.balance_after, tx.unit, t)}</TableCell>
                 <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                   {tx.comment || tx.recorded_by_name}
                 </TableCell>
@@ -161,9 +175,11 @@ function TransactionsTable({
 }
 
 export default function TuitionPage() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
   const isTeacher = isTeacherRole(role);
+  const dateLocale = localeForDates(i18n.language);
 
   const [classFilter, setClassFilter] = useState(ALL_CLASSES);
   const [searchInput, setSearchInput] = useState("");
@@ -252,7 +268,7 @@ export default function TuitionPage() {
       setTopupTarget(null);
       setTopupAmount("");
       setTopupComment("");
-      toast.success("Top-up recorded");
+      toast.success(t("tuition.topupRecorded"));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -325,11 +341,11 @@ export default function TuitionPage() {
     }
     const amount = Number(topupAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Enter a valid amount greater than 0");
+      toast.error(t("tuition.invalidAmount"));
       return;
     }
     if (topupTarget.unit !== "hours" && !Number.isInteger(amount)) {
-      toast.error("Session top-ups must be whole numbers (e.g. 12, not 12.01)");
+      toast.error(t("tuition.sessionsWholeNumber"));
       return;
     }
     topupMutation.mutate({
@@ -357,23 +373,23 @@ export default function TuitionPage() {
     if (typeof err === "string" && err) {
       return err;
     }
-    return "Failed to load tuition data.";
+    return t("tuition.loadError");
   }
 
-  let detailTitle: ReactNode = "Tuition details";
+  let detailTitle: ReactNode = t("tuition.detailDefault");
   if (detailTarget) {
-    detailTitle = isTeacher ? detailTarget.studentName : detailTarget.className || "My tuition";
+    detailTitle = isTeacher
+      ? detailTarget.studentName
+      : detailTarget.className || t("tuition.detailMyTuition");
   }
 
   return (
     <div className="max-w-6xl space-y-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="page-header">Tuition</h1>
+          <h1 className="page-header">{t("tuition.title")}</h1>
           <p className="page-subtitle">
-            {isTeacher
-              ? "Track balances, record top-ups, and review deductions"
-              : "View your class balances and payment history"}
+            {isTeacher ? t("tuition.subtitleTeacher") : t("tuition.subtitleStudent")}
           </p>
         </div>
         {isTeacher && balances.length > 0 ? (
@@ -382,7 +398,7 @@ export default function TuitionPage() {
             className="gap-1.5"
             onClick={() => openTopupDialog(balances[0])}
           >
-            <Plus className="h-4 w-4" /> Record Top-up
+            <Plus className="h-4 w-4" /> {t("tuition.recordTopup")}
           </Button>
         ) : null}
       </div>
@@ -391,14 +407,14 @@ export default function TuitionPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="tuition-class-filter" className="text-sm text-muted-foreground">
-              Class
+              {t("tuition.class")}
             </Label>
             <Select value={classFilter} onValueChange={setClassFilter}>
               <SelectTrigger id="tuition-class-filter" className="w-[220px]">
-                <SelectValue placeholder="All classes" />
+                <SelectValue placeholder={t("tuition.allClasses")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_CLASSES}>All classes</SelectItem>
+                <SelectItem value={ALL_CLASSES}>{t("tuition.allClasses")}</SelectItem>
                 {classOptions.map((classItem) => (
                   <SelectItem key={classItem.id} value={classItem.id}>
                     {classItem.name}
@@ -411,7 +427,7 @@ export default function TuitionPage() {
           {isTeacher ? (
             <div className="space-y-1.5">
               <Label htmlFor="tuition-name-search" className="text-sm text-muted-foreground">
-                Student name
+                {t("tuition.studentName")}
               </Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -419,7 +435,7 @@ export default function TuitionPage() {
                   id="tuition-name-search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search by name or email…"
+                  placeholder={t("tuition.searchPlaceholder")}
                   className="h-9 w-[240px] pl-8"
                 />
               </div>
@@ -428,7 +444,7 @@ export default function TuitionPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="tuition-date-from" className="text-sm text-muted-foreground">
-              From date
+              {t("tuition.fromDate")}
             </Label>
             <Input
               id="tuition-date-from"
@@ -441,7 +457,7 @@ export default function TuitionPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="tuition-date-to" className="text-sm text-muted-foreground">
-              To date
+              {t("tuition.toDate")}
             </Label>
             <Input
               id="tuition-date-to"
@@ -454,25 +470,20 @@ export default function TuitionPage() {
 
           {hasFilters ? (
             <Button type="button" variant="outline" size="sm" className="h-9" onClick={clearFilters}>
-              Clear filters
+              {t("tuition.clearFilters")}
             </Button>
           ) : null}
         </div>
 
         {isTeacher ? (
-          <p className="text-xs text-muted-foreground">
-            Click a student row to open their full tuition history. Students only see their own
-            records.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("tuition.hintTeacher")}</p>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            Click a class row to view your transaction history for that class.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("tuition.hintStudent")}</p>
         )}
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading tuition data…</p>
+        <p className="text-sm text-muted-foreground">{t("tuition.loading")}</p>
       ) : error ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage(error)}
@@ -480,13 +491,13 @@ export default function TuitionPage() {
       ) : balances.length === 0 ? (
         <PageEmptyState
           icon={DollarSign}
-          title={hasFilters ? "No matching tuition records" : "No tuition records yet"}
+          title={hasFilters ? t("tuition.emptyFilteredTitle") : t("tuition.emptyTitle")}
           description={
             hasFilters
-              ? "Try a different name or date range, or clear filters above."
+              ? t("tuition.emptyFilteredDesc")
               : isTeacher
-                ? "When students join your classes, their balances will appear here. Record a top-up after they pay."
-                : "Your class balances will show up here after your teacher records payments."
+                ? t("tuition.emptyTeacherDesc")
+                : t("tuition.emptyStudentDesc")
           }
         />
       ) : (
@@ -496,12 +507,14 @@ export default function TuitionPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {isTeacher ? <TableHead>Student</TableHead> : null}
-                  <TableHead>Class</TableHead>
-                  <TableHead>Billing</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Status</TableHead>
-                  {isTeacher ? <TableHead className="text-right">Actions</TableHead> : null}
+                  {isTeacher ? <TableHead>{t("tuition.colStudent")}</TableHead> : null}
+                  <TableHead>{t("tuition.colClass")}</TableHead>
+                  <TableHead>{t("tuition.colBilling")}</TableHead>
+                  <TableHead>{t("tuition.colBalance")}</TableHead>
+                  <TableHead>{t("tuition.colStatus")}</TableHead>
+                  {isTeacher ? (
+                    <TableHead className="text-right">{t("tuition.colActions")}</TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -518,7 +531,7 @@ export default function TuitionPage() {
                             {row.student_name}
                             {row.is_pending ? (
                               <Badge variant="outline" className="ml-2 text-[10px]">
-                                Invited
+                                {t("tuition.invited")}
                               </Badge>
                             ) : null}
                           </p>
@@ -530,14 +543,18 @@ export default function TuitionPage() {
                     ) : null}
                     <TableCell>{row.class_name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {row.billing_mode === "per_hour" ? "Per hour" : "Per session"}
+                      {row.billing_mode === "per_hour"
+                        ? t("tuition.billingPerHour")
+                        : t("tuition.billingPerSession")}
                       {row.unit_price > 0 ? ` · $${row.unit_price}` : ""}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatBalance(row.balance, row.unit)}
+                      {formatBalance(row.balance, row.unit, t)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+                      <Badge variant={statusVariant(row.status)}>
+                        {statusLabel(row.status, t)}
+                      </Badge>
                     </TableCell>
                     {isTeacher ? (
                       <TableCell className="text-right">
@@ -550,7 +567,7 @@ export default function TuitionPage() {
                             openTopupDialog(row);
                           }}
                         >
-                          Top-up
+                          {t("tuition.topup")}
                         </Button>
                       </TableCell>
                     ) : null}
@@ -562,14 +579,13 @@ export default function TuitionPage() {
           </div>
 
           <div className="space-y-3">
-            <h2 className="text-base font-semibold">Recent transactions</h2>
+            <h2 className="text-base font-semibold">{t("tuition.recentTransactions")}</h2>
             <TransactionsTable
               transactions={transactions}
               isTeacher={isTeacher}
+              dateLocale={dateLocale}
               emptyMessage={
-                hasFilters
-                  ? "No transactions match your filters."
-                  : "No transactions yet. Deductions are recorded when attendance is saved for a session."
+                hasFilters ? t("tuition.noTransactionsFiltered") : t("tuition.noTransactionsYet")
               }
             />
           </div>
@@ -584,25 +600,27 @@ export default function TuitionPage() {
                 <SheetTitle>{detailTitle}</SheetTitle>
                 <SheetDescription>
                   {isTeacher
-                    ? detailTarget.studentEmail || "Student tuition breakdown"
-                    : "Your balance and payment history for this class"}
+                    ? detailTarget.studentEmail || t("tuition.detailStudentBreakdown")
+                    : t("tuition.detailStudentHistory")}
                 </SheetDescription>
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">
-                    {isTeacher ? "Class balances" : "Current balance"}
+                    {isTeacher ? t("tuition.classBalances") : t("tuition.currentBalance")}
                   </h3>
                   <div className="rounded-lg border border-border/60">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          {isTeacher ? <TableHead>Class</TableHead> : null}
-                          <TableHead>Billing</TableHead>
-                          <TableHead>Balance</TableHead>
-                          <TableHead>Status</TableHead>
-                          {isTeacher ? <TableHead className="text-right">Actions</TableHead> : null}
+                          {isTeacher ? <TableHead>{t("tuition.colClass")}</TableHead> : null}
+                          <TableHead>{t("tuition.colBilling")}</TableHead>
+                          <TableHead>{t("tuition.colBalance")}</TableHead>
+                          <TableHead>{t("tuition.colStatus")}</TableHead>
+                          {isTeacher ? (
+                            <TableHead className="text-right">{t("tuition.colActions")}</TableHead>
+                          ) : null}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -610,15 +628,17 @@ export default function TuitionPage() {
                           <TableRow key={`${row.student_id}-${row.class_id}`}>
                             {isTeacher ? <TableCell>{row.class_name}</TableCell> : null}
                             <TableCell className="text-sm text-muted-foreground">
-                              {row.billing_mode === "per_hour" ? "Per hour" : "Per session"}
+                              {row.billing_mode === "per_hour"
+                                ? t("tuition.billingPerHour")
+                                : t("tuition.billingPerSession")}
                               {row.unit_price > 0 ? ` · $${row.unit_price}` : ""}
                             </TableCell>
                             <TableCell className="font-medium">
-                              {formatBalance(row.balance, row.unit)}
+                              {formatBalance(row.balance, row.unit, t)}
                             </TableCell>
                             <TableCell>
                               <Badge variant={statusVariant(row.status)}>
-                                {statusLabel(row.status)}
+                                {statusLabel(row.status, t)}
                               </Badge>
                             </TableCell>
                             {isTeacher ? (
@@ -629,7 +649,7 @@ export default function TuitionPage() {
                                   size="sm"
                                   onClick={() => openTopupDialog(row)}
                                 >
-                                  Top-up
+                                  {t("tuition.topup")}
                                 </Button>
                               </TableCell>
                             ) : null}
@@ -641,14 +661,15 @@ export default function TuitionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Transactions</h3>
+                  <h3 className="text-sm font-semibold">{t("tuition.transactions")}</h3>
                   {detailTransactionsQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading transactions…</p>
+                    <p className="text-sm text-muted-foreground">{t("tuition.loadingTransactions")}</p>
                   ) : (
                     <TransactionsTable
                       transactions={detailTransactions}
                       isTeacher={isTeacher}
-                      emptyMessage="No transactions in this date range."
+                      dateLocale={dateLocale}
+                      emptyMessage={t("tuition.noTransactionsInRange")}
                     />
                   )}
                 </div>
@@ -671,7 +692,7 @@ export default function TuitionPage() {
           <DialogContent className="sm:max-w-md">
             <form onSubmit={handleTopupSubmit}>
               <DialogHeader>
-                <DialogTitle>Record top-up</DialogTitle>
+                <DialogTitle>{t("tuition.dialogTitle")}</DialogTitle>
                 {topupTarget ? (
                   <p className="text-sm text-muted-foreground">
                     {topupTarget.student_name} · {topupTarget.class_name}
@@ -681,7 +702,12 @@ export default function TuitionPage() {
               <div className="space-y-4 py-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="topup-amount">
-                    Amount ({topupTarget?.unit === "hours" ? "hours" : "sessions"})
+                    {t("tuition.amountLabel", {
+                      unit:
+                        topupTarget?.unit === "hours"
+                          ? t("tuition.unitHoursFull")
+                          : t("tuition.unitSessionsFull"),
+                    })}
                   </Label>
                   <Input
                     id="topup-amount"
@@ -695,12 +721,12 @@ export default function TuitionPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="topup-comment">Comment (optional)</Label>
+                  <Label htmlFor="topup-comment">{t("tuition.commentOptional")}</Label>
                   <Textarea
                     id="topup-comment"
                     value={topupComment}
                     onChange={(e) => setTopupComment(e.target.value)}
-                    placeholder="Cash, WeChat, bank transfer…"
+                    placeholder={t("tuition.commentPlaceholder")}
                     rows={3}
                     disabled={topupMutation.isPending}
                   />
@@ -713,10 +739,10 @@ export default function TuitionPage() {
                   onClick={() => setTopupOpen(false)}
                   disabled={topupMutation.isPending}
                 >
-                  Cancel
+                  {t("tuition.cancel")}
                 </Button>
                 <Button type="submit" disabled={topupMutation.isPending || !topupTarget}>
-                  {topupMutation.isPending ? "Saving…" : "Save top-up"}
+                  {topupMutation.isPending ? t("tuition.saving") : t("tuition.saveTopup")}
                 </Button>
               </DialogFooter>
             </form>
