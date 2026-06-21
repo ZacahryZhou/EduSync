@@ -1,21 +1,38 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Sparkles } from "lucide-react";
+import { History, MessageSquare, Sparkles } from "lucide-react";
 import { AiAssistant } from "@/components/AiAssistant";
+import { AiInteractionLog } from "@/components/AiInteractionLog";
 import { AiBetaBadge } from "@/components/AiBetaNotice";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-/** Floating AI entry — bottom-right on every teacher screen. */
+type AiPanelTab = "chat" | "log";
+
+/** Floating AI entry — bottom-right; opens centered modal. */
 export function AiAssistantFab() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<AiPanelTab>("chat");
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setTab("chat");
+    }
+  }
+
+  function refreshLogs() {
+    void queryClient.invalidateQueries({ queryKey: ["ai-logs"] });
+  }
 
   return (
     <>
@@ -34,7 +51,6 @@ export function AiAssistantFab() {
             "ring-4 ring-violet-500/20 transition-all duration-200",
             "hover:scale-105 hover:shadow-xl hover:shadow-violet-500/40",
             "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-500/50",
-            open && "scale-95 opacity-90",
           )}
           aria-label={t("nav.ai")}
           aria-expanded={open}
@@ -53,31 +69,77 @@ export function AiAssistantFab() {
         </span>
       </div>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="right"
-          className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className={cn(
+            "flex max-h-[min(90vh,52rem)] w-[calc(100%-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0",
+            "sm:rounded-2xl",
+          )}
         >
-          <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              {t("nav.ai")}
-              <AiBetaBadge />
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              {t("ai.fabHint")}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 pt-3 sm:px-6">
-            <AiAssistant
-              variant="page"
-              className="h-[calc(100dvh-7.5rem)] max-h-none border-0 shadow-none"
-            />
+          <DialogHeader className="shrink-0 space-y-3 border-b border-border/60 px-6 py-4 pr-14 text-left">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
+                    <Sparkles className="h-4 w-4" />
+                  </span>
+                  {t("nav.ai")}
+                  <AiBetaBadge />
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  {t("ai.fabHint")}
+                </DialogDescription>
+              </div>
+              <div className="flex rounded-lg border border-border/60 bg-muted/30 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTab("chat")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    tab === "chat"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  {t("ai.tabChat")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("log");
+                    refreshLogs();
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    tab === "log"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  {t("ai.tabLog")}
+                </button>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
+            {tab === "chat" ? (
+              <AiAssistant
+                variant="modal"
+                className="h-[min(68vh,40rem)]"
+                onInteractionComplete={refreshLogs}
+              />
+            ) : (
+              <AiInteractionLog
+                className="h-[min(68vh,40rem)]"
+                enabled={open && tab === "log"}
+              />
+            )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

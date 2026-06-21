@@ -241,6 +241,13 @@
     "betaLimitFeedback": "Write actions (confirm-then-execute) are coming next in this beta program.",
     "statusBeta": "Beta · read-only queries",
     "statusBetaModel": "Beta · {{model}} · read-only",
-    "fabHint": "Ask about your schedule, classes, homework, and balances — from any page."
+    "fabHint": "Ask about your schedule, classes, homework, and balances — from any page.",
+    "tabChat": "Chat",
+    "tabLog": "Log",
+    "logQuestion": "Question",
+    "logAnswer": "Answer",
+    "logEmpty": "No conversations logged yet. Ask the AI something first.",
+    "logDisabledTitle": "Logging not enabled",
+    "logDisabledHint": "Run backend/sql/create_ai_interactions.sql in Supabase to store conversation history."
   }
 }

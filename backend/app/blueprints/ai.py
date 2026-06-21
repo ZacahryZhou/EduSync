@@ -120,6 +120,32 @@ def ai_status():
     })
 
 
+@ai_bp.route('/api/ai/logs', methods=['GET'])
+@require_role('teacher')
+def ai_logs():
+    """Recent AI chat logs for the logged-in teacher (ai_interactions table)."""
+    user_id = g.current_user.id
+    try:
+        raw_limit = int(request.args.get('limit', 30))
+    except (TypeError, ValueError):
+        raw_limit = 30
+    limit = max(1, min(raw_limit, 100))
+
+    try:
+        result = (
+            supabase.table('ai_interactions')
+            .select('id, model, messages, reply, error_message, created_at')
+            .eq('user_id', user_id)
+            .order('created_at', desc=True)
+            .limit(limit)
+            .execute()
+        )
+        rows = result.data or []
+        return jsonify({'logs': rows, 'logging_enabled': True})
+    except Exception:
+        return jsonify({'logs': [], 'logging_enabled': False})
+
+
 @ai_bp.route('/api/ai/chat', methods=['POST'])
 @require_role('teacher')
 def ai_chat():

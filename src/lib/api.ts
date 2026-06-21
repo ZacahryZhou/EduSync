@@ -1749,6 +1749,20 @@ export type AiStatus = {
   write_tools?: boolean;
 };
 
+export type AiInteractionLog = {
+  id: string;
+  model: string | null;
+  messages: AiChatMessage[] | null;
+  reply: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type AiLogsResponse = {
+  logs: AiInteractionLog[];
+  logging_enabled: boolean;
+};
+
 /** Whether DeepSeek is configured on the backend */
 export async function getAiStatus(): Promise<AiStatus> {
   const response = await apiFetch("/ai/status", { method: "GET" });
@@ -1756,6 +1770,15 @@ export async function getAiStatus(): Promise<AiStatus> {
     throw new Error(await readApiError(response, "Failed to load AI status"));
   }
   return (await response.json()) as AiStatus;
+}
+
+/** Recent AI conversation logs for the current teacher */
+export async function listAiLogs(limit = 30): Promise<AiLogsResponse> {
+  const response = await apiFetch(`/ai/logs?limit=${limit}`, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load AI logs"));
+  }
+  return (await response.json()) as AiLogsResponse;
 }
 
 /**

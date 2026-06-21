@@ -32,13 +32,20 @@ const TOOL_LABELS: Record<string, string> = {
 
 type AiAssistantProps = {
   className?: string;
-  /** Full page vs calendar sidebar panel */
-  variant?: "page" | "embedded";
+  /** Full page, embedded panel, or centered modal (no duplicate header) */
+  variant?: "page" | "embedded" | "modal";
+  /** Called after a chat completes (for refreshing server logs) */
+  onInteractionComplete?: () => void;
 };
 
-export function AiAssistant({ className, variant = "page" }: AiAssistantProps) {
+export function AiAssistant({
+  className,
+  variant = "page",
+  onInteractionComplete,
+}: AiAssistantProps) {
   const { t } = useTranslation();
   const embedded = variant === "embedded";
+  const modal = variant === "modal";
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -121,6 +128,8 @@ export function AiAssistant({ className, variant = "page" }: AiAssistantProps) {
               }
               return copy;
             });
+          } else if (event.type === "done") {
+            onInteractionComplete?.();
           }
         },
         controller.signal,
@@ -155,19 +164,29 @@ export function AiAssistant({ className, variant = "page" }: AiAssistantProps) {
     <Card
       className={cn(
         "flex min-h-0 flex-col overflow-hidden border-border/60 shadow-sm",
-        embedded ? "h-[26rem] max-h-[26rem]" : "max-h-[min(80vh,40rem)]",
+        embedded ? "h-[26rem] max-h-[26rem]" : modal ? "h-full max-h-none border-0 shadow-none" : "max-h-[min(80vh,40rem)]",
         className,
       )}
     >
-      <CardHeader className="shrink-0 space-y-1 px-4 pb-2 pt-4 sm:px-6">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <Bot className="h-4 w-4 text-primary" />
-          AI Assistant
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">{statusHint}</p>
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
-        <AiBetaNotice compact={embedded} className="shrink-0" />
+      {!modal ? (
+        <CardHeader className="shrink-0 space-y-1 px-4 pb-2 pt-4 sm:px-6">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <Bot className="h-4 w-4 text-primary" />
+            AI Assistant
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">{statusHint}</p>
+        </CardHeader>
+      ) : null}
+      <CardContent
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:pb-6",
+          modal ? "px-0 pb-0 pt-0 sm:px-0" : "px-4 pb-4 pt-0 sm:px-6",
+        )}
+      >
+        {modal ? (
+          <p className="shrink-0 px-1 text-xs text-muted-foreground">{statusHint}</p>
+        ) : null}
+        <AiBetaNotice compact={embedded || modal} className="shrink-0" />
         <div
           ref={scrollRef}
           className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-lg border border-border/50 bg-muted/20 p-3"

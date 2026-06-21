@@ -1,4 +1,5 @@
--- AI chat / tool logs (AI-0) — run once in Supabase → SQL Editor
+-- AI chat / tool logs (AI-0)
+-- Run once in Supabase: SQL Editor -> New query -> paste all -> Run
 
 CREATE TABLE IF NOT EXISTS ai_interactions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

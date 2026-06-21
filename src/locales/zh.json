@@ -241,6 +241,13 @@
     "betaLimitFeedback": "代操作（确认后执行）将在测试版下一阶段开放。",
     "statusBeta": "测试版 · 仅查询",
     "statusBetaModel": "测试版 · {{model}} · 仅查询",
-    "fabHint": "在任何页面提问课表、班级、作业与余额。"
+    "fabHint": "在任何页面提问课表、班级、作业与余额。",
+    "tabChat": "对话",
+    "tabLog": "日志",
+    "logQuestion": "提问",
+    "logAnswer": "回答",
+    "logEmpty": "暂无记录。先向 AI 提问一次。",
+    "logDisabledTitle": "日志未启用",
+    "logDisabledHint": "请在 Supabase 中运行 backend/sql/create_ai_interactions.sql 以保存对话历史。"
   }
 }
