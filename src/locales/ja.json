@@ -66,6 +66,7 @@
     "searchPlaceholder": "名前またはメールで検索…",
     "fromDate": "開始日",
     "toDate": "終了日",
+    "datePlaceholder": "日付を選択",
     "clearFilters": "フィルターをクリア",
     "hintTeacher": "生徒の行をクリックすると全履歴が開きます。生徒は自分の記録のみ閲覧できます。",
     "hintStudent": "クラスの行をクリックすると、そのクラスの取引履歴が表示されます。",

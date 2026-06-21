@@ -50,6 +50,8 @@ import {
   type BalanceTransaction,
   type StudentBalance,
 } from "@/lib/api";
+import { LocaleDateInput } from "@/components/LocaleDateInput";
+import { getHtmlLang } from "@/lib/locale";
 import { isTeacherRole, normalizeRole } from "@/lib/roles";
 
 const ALL_CLASSES = "all";
@@ -61,14 +63,6 @@ type TuitionDetailTarget = {
   classId?: string;
   className?: string;
 };
-
-function localeForDates(lang: string): string {
-  if (lang.startsWith("zh")) return "zh-CN";
-  if (lang.startsWith("fr")) return "fr-FR";
-  if (lang.startsWith("ja")) return "ja-JP";
-  if (lang.startsWith("ko")) return "ko-KR";
-  return "en-US";
-}
 
 function statusLabel(status: BalanceStatus, t: TFunction): string {
   if (status === "zero") {
@@ -179,7 +173,7 @@ export default function TuitionPage() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role);
   const isTeacher = isTeacherRole(role);
-  const dateLocale = localeForDates(i18n.language);
+  const dateLocale = getHtmlLang(i18n.language);
 
   const [classFilter, setClassFilter] = useState(ALL_CLASSES);
   const [searchInput, setSearchInput] = useState("");
@@ -446,12 +440,10 @@ export default function TuitionPage() {
             <Label htmlFor="tuition-date-from" className="text-sm text-muted-foreground">
               {t("tuition.fromDate")}
             </Label>
-            <Input
+            <LocaleDateInput
               id="tuition-date-from"
-              type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 w-[160px]"
+              onChange={setDateFrom}
             />
           </div>
 
@@ -459,12 +451,10 @@ export default function TuitionPage() {
             <Label htmlFor="tuition-date-to" className="text-sm text-muted-foreground">
               {t("tuition.toDate")}
             </Label>
-            <Input
+            <LocaleDateInput
               id="tuition-date-to"
-              type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 w-[160px]"
+              onChange={setDateTo}
             />
           </div>
 

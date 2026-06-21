@@ -66,6 +66,7 @@
     "searchPlaceholder": "Rechercher par nom ou e-mail…",
     "fromDate": "Date de début",
     "toDate": "Date de fin",
+    "datePlaceholder": "Choisir une date",
     "clearFilters": "Effacer les filtres",
     "hintTeacher": "Cliquez sur une ligne élève pour voir l'historique complet. Les élèves ne voient que leurs propres enregistrements.",
     "hintStudent": "Cliquez sur une ligne classe pour voir l'historique des transactions.",

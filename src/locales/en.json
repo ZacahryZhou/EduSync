@@ -241,6 +241,7 @@
     "searchPlaceholder": "Search by name or email…",
     "fromDate": "From date",
     "toDate": "To date",
+    "datePlaceholder": "Select date",
     "clearFilters": "Clear filters",
     "hintTeacher": "Click a student row to open their full tuition history. Students only see their own records.",
     "hintStudent": "Click a class row to view your transaction history for that class.",

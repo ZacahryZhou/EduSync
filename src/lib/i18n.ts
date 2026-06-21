@@ -5,6 +5,7 @@ import zh from "@/locales/zh.json";
 import fr from "@/locales/fr.json";
 import ja from "@/locales/ja.json";
 import ko from "@/locales/ko.json";
+import { syncDocumentLanguage } from "@/lib/locale";
 
 export const LANGUAGE_STORAGE_KEY = "edusync_lang";
 
@@ -26,6 +27,7 @@ export function getStoredLanguage(): AppLanguage {
 
 export async function changeAppLanguage(lang: AppLanguage): Promise<void> {
   await i18n.changeLanguage(lang);
+  syncDocumentLanguage(lang);
   try {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
   } catch {
@@ -51,6 +53,12 @@ void i18n.use(initReactI18next).init({
   interpolation: {
     escapeValue: false,
   },
+});
+
+syncDocumentLanguage(getStoredLanguage());
+
+i18n.on("languageChanged", (lang) => {
+  syncDocumentLanguage(lang);
 });
 
 export default i18n;

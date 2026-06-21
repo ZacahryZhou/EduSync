@@ -66,6 +66,7 @@
     "searchPlaceholder": "이름 또는 이메일로 검색…",
     "fromDate": "시작일",
     "toDate": "종료일",
+    "datePlaceholder": "날짜 선택",
     "clearFilters": "필터 지우기",
     "hintTeacher": "학생 행을 클릭하면 전체 수업료 내역이 열립니다. 학생은 본인 기록만 볼 수 있습니다.",
     "hintStudent": "수업 행을 클릭하면 해당 수업의 거래 내역을 볼 수 있습니다.",

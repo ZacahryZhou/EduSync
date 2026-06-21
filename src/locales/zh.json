@@ -241,6 +241,7 @@
     "searchPlaceholder": "按姓名或邮箱搜索…",
     "fromDate": "开始日期",
     "toDate": "结束日期",
+    "datePlaceholder": "选择日期",
     "clearFilters": "清除筛选",
     "hintTeacher": "点击学生行查看完整学费记录。学生只能看到自己的记录。",
     "hintStudent": "点击班级行查看该班级的交易记录。",
