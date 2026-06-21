@@ -240,6 +240,7 @@
     "betaLimitVerify": "执行操作前请核对班级名称、日期和学生姓名。",
     "betaLimitFeedback": "代操作（确认后执行）将在测试版下一阶段开放。",
     "statusBeta": "测试版 · 仅查询",
-    "statusBetaModel": "测试版 · {{model}} · 仅查询"
+    "statusBetaModel": "测试版 · {{model}} · 仅查询",
+    "fabHint": "在任何页面提问课表、班级、作业与余额。"
   }
 }

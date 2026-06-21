@@ -6,7 +6,6 @@ import {
   FileText,
   DollarSign,
   Bell,
-  Bot,
   Settings,
   GraduationCap,
 } from "lucide-react";
@@ -28,12 +27,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
-import { AiBetaBadge } from "@/components/AiBetaNotice";
 
 const teacherMainNav = [
   { titleKey: "nav.dashboard", url: "/dashboard", icon: LayoutDashboard },
   { titleKey: "nav.calendar", url: "/calendar", icon: Calendar },
-  { titleKey: "nav.ai", url: "/ai", icon: Bot, beta: true },
   { titleKey: "nav.classes", url: "/classes", icon: BookOpen },
   { titleKey: "nav.students", url: "/students", icon: Users },
   { titleKey: "nav.assignments", url: "/assignments", icon: FileText },
@@ -104,12 +101,7 @@ export function AppSidebar() {
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                     >
                       <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                      {!collapsed && (
-                        <span className="flex items-center gap-2">
-                          {t(item.titleKey)}
-                          {"beta" in item && item.beta ? <AiBetaBadge /> : null}
-                        </span>
-                      )}
+                      {!collapsed && <span>{t(item.titleKey)}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

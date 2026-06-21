@@ -48,7 +48,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AiAssistant } from "@/components/AiAssistant";
 import { ScrollableList } from "@/components/ScrollableList";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -997,10 +996,7 @@ export default function CalendarPage() {
         </Card>
 
         {isTeacher ? (
-          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-            <AiAssistant variant="embedded" />
-
-            <Card className="flex h-[26rem] max-h-[26rem] flex-col overflow-hidden border-border/60 shadow-sm">
+          <Card className="flex h-[26rem] max-h-[26rem] flex-col overflow-hidden border-border/60 shadow-sm">
               <CardHeader className="shrink-0 pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -1053,7 +1049,6 @@ export default function CalendarPage() {
                 )}
               </ScrollableList>
             </Card>
-          </div>
         ) : null}
       </div>
 

@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { UpcomingFeaturesMenu } from "@/components/UpcomingFeaturesMenu";
+import { AiAssistantFab } from "@/components/AiAssistantFab";
 import { Bell, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +114,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           </main>
+          {isTeacherRole(role) ? <AiAssistantFab /> : null}
         </div>
       </div>
     </SidebarProvider>

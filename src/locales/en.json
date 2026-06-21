@@ -240,6 +240,7 @@
     "betaLimitVerify": "Always verify class names, dates, and student names before acting on a reply.",
     "betaLimitFeedback": "Write actions (confirm-then-execute) are coming next in this beta program.",
     "statusBeta": "Beta · read-only queries",
-    "statusBetaModel": "Beta · {{model}} · read-only"
+    "statusBetaModel": "Beta · {{model}} · read-only",
+    "fabHint": "Ask about your schedule, classes, homework, and balances — from any page."
   }
 }
