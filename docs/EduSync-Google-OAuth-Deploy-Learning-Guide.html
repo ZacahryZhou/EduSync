@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EduSync 阶段学习总结</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #1a1a1a;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .cover {
+    page-break-after: always;
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 0;
+    border-bottom: 4px solid #2563eb;
+  }
+  .cover h1 {
+    font-size: 28pt;
+    color: #1e3a8a;
+    margin: 0 0 0.5rem;
+    line-height: 1.25;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #475569;
+    margin-bottom: 2rem;
+  }
+  .cover .meta {
+    font-size: 10pt;
+    color: #64748b;
+    line-height: 1.8;
+  }
+  .cover .meta strong { color: #334155; }
+  h1 {
+    font-size: 18pt;
+    color: #1e40af;
+    border-bottom: 2px solid #dbeafe;
+    padding-bottom: 0.35rem;
+    margin-top: 1.8rem;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 13pt;
+    color: #1d4ed8;
+    margin-top: 1.4rem;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #2563eb;
+    margin-top: 1rem;
+    page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  ul, ol { margin: 0.4rem 0 0.8rem 1.2rem; padding-left: 0.5rem; }
+  li { margin: 0.25rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0 1.2rem;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #bfdbfe;
+  }
+  td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: #0f172a;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 8pt;
+    line-height: 1.5;
+    page-break-inside: avoid;
+    margin: 0.8rem 0;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  blockquote {
+    border-left: 4px solid #3b82f6;
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+    background: #f0f9ff;
+    color: #1e3a8a;
+    page-break-inside: avoid;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 1.5rem 0;
+  }
+  a { color: #2563eb; text-decoration: none; }
+  .toc {
+    page-break-after: always;
+    padding-bottom: 1rem;
+  }
+  .toc h2 { margin-top: 0; }
+  .toc ul { list-style: none; margin-left: 0; padding-left: 0; }
+  .toc li { margin: 0.35rem 0; }
+  .toc a { color: #334155; }
+  .footer-note {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>EduSync 阶段学习总结</h1>
+  <div class="subtitle">Google 一键登录 + 全栈部署实战知识手册</div>
+  <div class="meta">
+    <strong>项目：</strong>EduSync（React/Vite + Flask + Supabase）<br>
+    <strong>日期：</strong>2026年6月10日<br>
+    <strong>前端：</strong>https://edu-sync-gamma.vercel.app<br>
+    <strong>后端：</strong>https://edusync-production-6d33.up.railway.app/api<br>
+    <strong>用途：</strong>复盘今日 OAuth / 部署踩坑，作为下次上线的检查清单
+  </div>
+</div>
+<div class="toc"><h2>目录</h2><ul><li><a href="#section-1">1. 今天完成了什么</a></li><li><a href="#section-2">2. 全栈架构一张图</a></li><li><a href="#section-3">3. OAuth 2.0 与 Google 登录（核心）</a></li><li><a href="#section-4">4. Supabase Auth 配置知识点</a></li><li><a href="#section-5">5. 前端实现知识点（Vite + React）</a></li><li><a href="#section-6">6. 后端实现知识点（Flask + Railway）</a></li><li><a href="#section-7">7. 环境变量：最容易踩坑的地方</a></li><li><a href="#section-8">8. 今天遇到的所有错误 → 原因 → 解法</a></li><li><a href="#section-9">9. 部署与 DevOps 知识点</a></li><li><a href="#section-10">10. 安全与密钥管理</a></li><li><a href="#section-11">11. 调试方法论（你今天实际用到的）</a></li><li><a href="#section-12">12. 值得深入学习的技能路线图</a></li><li><a href="#section-13">13. 术语表（中英对照）</a></li><li><a href="#section-14">14. 检查清单（下次上线直接照着做）</a></li></ul></div>
+<div class="content">
+<h2 id="google">Google 一键登录 + 全栈部署实战知识手册</h2>
+<p><strong>项目：</strong> EduSync（React/Vite 前端 + Flask 后端 + Supabase）<br />
+<strong>日期：</strong> 2026年6月10日<br />
+<strong>作者学习场景：</strong> 独立完成 Google OAuth、Vercel/Railway 上线、跨平台排错<br />
+<strong>线上地址：</strong><br />
+- 前端：<code>https://edu-sync-gamma.vercel.app</code><br />
+- 后端：<code>https://edusync-production-6d33.up.railway.app/api</code><br />
+- Supabase：<code>https://ptxrmujnqrvwakfpdyhh.supabase.co</code></p>
+<hr />
+<h2 id="_1">目录</h2>
+<ol>
+<li><a href="#1-今天完成了什么">今天完成了什么</a></li>
+<li><a href="#2-全栈架构一张图">全栈架构一张图</a></li>
+<li><a href="#3-oauth-20-与-google-登录核心">OAuth 2.0 与 Google 登录（核心）</a></li>
+<li><a href="#4-supabase-auth-配置知识点">Supabase Auth 配置知识点</a></li>
+<li><a href="#5-前端实现知识点vite--react">前端实现知识点（Vite + React）</a></li>
+<li><a href="#6-后端实现知识点flask--railway">后端实现知识点（Flask + Railway）</a></li>
+<li><a href="#7-环境变量最容易踩坑的地方">环境变量：最容易踩坑的地方</a></li>
+<li><a href="#8-今天遇到的所有错误--原因--解法">今天遇到的所有错误 → 原因 → 解法</a></li>
+<li><a href="#9-部署与-devops-知识点">部署与 DevOps 知识点</a></li>
+<li><a href="#10-安全与密钥管理">安全与密钥管理</a></li>
+<li><a href="#11-调试方法论你今天实际用到的">调试方法论（你今天实际用到的）</a></li>
+<li><a href="#12-值得深入学习的技能路线图">值得深入学习的技能路线图</a></li>
+<li><a href="#13-术语表中英对照">术语表（中英对照）</a></li>
+<li><a href="#14-检查清单下次上线直接照着做">检查清单（下次上线直接照着做）</a></li>
+</ol>
+<hr />
+<h2 id="1">1. 今天完成了什么</h2>
+<h3 id="11">1.1 功能层面</h3>
+<table>
+<thead>
+<tr>
+<th>完成项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google 一键登录按钮</td>
+<td>登录页、注册页均可使用</td>
+</tr>
+<tr>
+<td>OAuth 回调页 <code>/auth/callback</code></td>
+<td>处理 Google 返回的 token</td>
+</tr>
+<tr>
+<td>首次 Google 用户选角色</td>
+<td>Teacher / Student 弹窗（<code>OAuthRoleDialog</code>）</td>
+</tr>
+<tr>
+<td>老用户直接登录</td>
+<td>跳过角色选择，进 Dashboard</td>
+</tr>
+<tr>
+<td>后端 OAuth 接口</td>
+<td><code>POST /api/auth/oauth/complete</code> 与 <code>POST /api/auth/oauth/register</code></td>
+</tr>
+<tr>
+<td>生产环境全链路跑通</td>
+<td>Vercel 前端 + Railway 后端 + Supabase + Google Cloud</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12">1.2 工程层面</h3>
+<table>
+<thead>
+<tr>
+<th>完成项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vercel 环境变量配置</td>
+<td><code>VITE_API_URL</code>、<code>VITE_SUPABASE_URL</code>、<code>VITE_SUPABASE_ANON_KEY</code></td>
+</tr>
+<tr>
+<td>Railway 后端重新部署</td>
+<td>含 OAuth 路由的最新代码</td>
+</tr>
+<tr>
+<td>Python 构建问题修复</td>
+<td><code>runtime.txt</code>、<code>mise.toml</code>、<code>nixpacks.toml</code> 等</td>
+</tr>
+<tr>
+<td>多种 OAuth 错误排查</td>
+<td>redirect、PKCE、Failed to fetch、404、构建失败</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-mvp-plan">1.3 你现在的项目阶段（结合 MVP-PLAN）</h3>
+<ul>
+<li><strong>Week 3 目标（Auth）</strong>：基本完成，且超出计划（多了 Google OAuth）</li>
+<li><strong>Week 4（业务 API 对接）</strong>：可以正式开始（登录体系已稳定）</li>
+<li><strong>尚未完成</strong>：自定义域名、SEO 收录、邮件登录、完整 E2E 测试文档等</li>
+</ul>
+<hr />
+<h2 id="2">2. 全栈架构一张图</h2>
+<pre><code>用户手机/电脑浏览器
+        │
+        ▼
+┌───────────────────────────────┐
+│  Vercel 托管的前端 (Vite/React) │
+│  edu-sync-gamma.vercel.app      │
+│  - 登录页 / Google 按钮          │
+│  - /auth/callback 回调页        │
+│  - 环境变量在「构建时」注入       │
+└───────────────┬───────────────┘
+                │
+     ┌──────────┼──────────┐
+     │          │          │
+     ▼          ▼          ▼
+ Supabase    Google     Railway
+ Auth API   OAuth      Flask API
+ (anon key)  同意屏幕   (service_role)
+     │          │          │
+     └──── OAuth 流程 ────┘
+                │
+                ▼
+         Supabase PostgreSQL
+         (users 等业务表)
+</code></pre>
+<p><strong>关键理解：</strong></p>
+<ul>
+<li><strong>前端</strong>只负责 UI + 发起 OAuth + 拿 Supabase token + 调你自己的后端</li>
+<li><strong>Supabase</strong>负责身份验证（Google 对接、发 token）</li>
+<li><strong>你的 Flask 后端</strong>负责业务逻辑（查 <code>users</code> 表、发你自己的 JWT、注册角色）</li>
+<li><strong>三个平台、两套密钥、两种 redirect URL</strong>——搞混就会报错</li>
+</ul>
+<hr />
+<h2 id="3-oauth-20-google">3. OAuth 2.0 与 Google 登录（核心）</h2>
+<h3 id="31-oauth">3.1 OAuth 是什么？（用人话）</h3>
+<p>你想让用户用 Google 账号登录你的 App，但你<strong>不能</strong>要用户的 Google 密码。<br />
+OAuth 就是：用户去 Google 说「我同意」，Google 给 Supabase 一个<strong>临时通行证（code/token）</strong>，Supabase 再转给你的网站。</p>
+<h3 id="32">3.2 你的项目里实际发生的两次跳转</h3>
+<p><strong>第一次 redirect（Google ↔ Supabase）：</strong></p>
+<pre><code>Google 授权后 → https://ptxrmujnqrvwakfpdyhh.supabase.co/auth/v1/callback
+</code></pre>
+<ul>
+<li>这个地址填在 <strong>Google Cloud Console</strong> → OAuth 客户端 → <strong>已授权的重定向 URI</strong></li>
+<li><strong>不要</strong>填你的 Vercel 地址</li>
+</ul>
+<p><strong>第二次 redirect（Supabase ↔ 你的网站）：</strong></p>
+<pre><code>Supabase 处理后 → https://edu-sync-gamma.vercel.app/auth/callback
+</code></pre>
+<ul>
+<li>这个地址填在 <strong>Supabase</strong> → URL Configuration → <strong>Redirect URLs</strong></li>
+<li>代码里 <code>redirectTo: ${window.location.origin}/auth/callback</code></li>
+</ul>
+<h3 id="33-pkce-vs-implicit">3.3 PKCE vs Implicit（你今天踩坑的重点）</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>PKCE 流程</th>
+<th>Implicit 流程</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>返回形式</td>
+<td>URL 带 <code>?code=xxx</code></td>
+<td>URL 带 <code>#access_token=xxx</code></td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>更高（推荐生产）</td>
+<td>较低，但 SPA 简单</td>
+</tr>
+<tr>
+<td>前端要求</td>
+<td>必须存 <code>code_verifier</code></td>
+<td>不需要 verifier</td>
+</tr>
+<tr>
+<td>你今天的问题</td>
+<td>verifier 丢失 → 报错</td>
+<td>最终采用此方案解决</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>Next.js SSR、有 cookie</td>
+<td>纯 Vite SPA、一次性 token</td>
+</tr>
+</tbody>
+</table>
+<p><strong>你学到的结论：</strong><br />
+纯前端 SPA（无服务端存 cookie）时，PKCE 容易在跨站跳转后丢 verifier；Implicit 更省事，你们只用 token 换自己的 JWT，可接受。</p>
+<h3 id="34-google-cloud-console">3.4 Google Cloud Console 必会配置</h3>
+<ol>
+<li><strong>项目</strong> → APIs &amp; Services → <strong>OAuth 同意屏幕</strong>（测试模式要加测试用户）</li>
+<li><strong>凭据</strong> → 创建 <strong>OAuth 2.0 客户端 ID</strong> → 类型选 <strong>Web 应用</strong></li>
+<li><strong>已授权的重定向 URI</strong>（仅 Supabase）：<br />
+<code>https://ptxrmujnqrvwakfpdyhh.supabase.co/auth/v1/callback</code></li>
+<li>复制 <strong>Client ID</strong>（<code>.apps.googleusercontent.com</code>）和 <strong>Client Secret</strong>（<code>GOCSPX-</code> 开头）</li>
+<li><strong>Secret 必须从网页复制，不要从截图 OCR</strong>——错一个字符就 <code>Unable to exchange external code</code></li>
+</ol>
+<h3 id="35-oauth">3.5 值得学习的 OAuth 延伸知识</h3>
+<ul>
+<li>[ ] OAuth 2.0 四种授权模式（授权码、隐式、客户端、PKCE）</li>
+<li>[ ] <code>state</code> 参数防 CSRF</li>
+<li>[ ] OpenID Connect（OIDC）与 <code>id_token</code> 区别</li>
+<li>[ ] 为什么生产环境更推荐 PKCE + 服务端换 token（Next.js 模式）</li>
+</ul>
+<hr />
+<h2 id="4-supabase-auth">4. Supabase Auth 配置知识点</h2>
+<h3 id="41-url">4.1 两个 URL 配置（最容易混）</h3>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>填什么</th>
+<th>不要填什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Site URL</strong></td>
+<td><code>https://edu-sync-gamma.vercel.app</code></td>
+<td>不要带 <code>/auth/callback</code></td>
+</tr>
+<tr>
+<td><strong>Redirect URLs</strong></td>
+<td><code>https://edu-sync-gamma.vercel.app/auth/callback</code></td>
+<td>必须有 <code>https://</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-api-key">4.2 两种 API Key（必须分清）</h3>
+<table>
+<thead>
+<tr>
+<th>密钥</th>
+<th>放在哪</th>
+<th>用途</th>
+<th>能否暴露给浏览器</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>anon key</strong></td>
+<td>Vercel <code>VITE_SUPABASE_ANON_KEY</code></td>
+<td>前端发起 OAuth</td>
+<td>可以（公开）</td>
+</tr>
+<tr>
+<td><strong>service_role key</strong></td>
+<td>Railway <code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+<td>后端读写数据库</td>
+<td><strong>绝对不行</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-supabase-oauth">4.3 Supabase 在 OAuth 中的角色</h3>
+<ol>
+<li>前端 <code>signInWithOAuth({ provider: 'google' })</code> → 跳 Supabase</li>
+<li>Supabase 跳 Google</li>
+<li>Google 回 Supabase <code>/auth/v1/callback</code></li>
+<li>Supabase 验证后跳你的 <code>/auth/callback</code>，带上 token</li>
+<li>你的前端拿 <code>access_token</code> 调自己后端 <code>/api/auth/oauth/complete</code></li>
+</ol>
+<h3 id="44-supabase">4.4 值得学习的 Supabase 延伸</h3>
+<ul>
+<li>[ ] Row Level Security (RLS) 策略</li>
+<li>[ ] Supabase Auth Hooks</li>
+<li>[ ] 用 Supabase 只做 Auth，业务用户表自己维护（你现在的模式）</li>
+<li>[ ] <code>@supabase/ssr</code> 在 Next.js 里的用法</li>
+</ul>
+<hr />
+<h2 id="5-vite-react">5. 前端实现知识点（Vite + React）</h2>
+<h3 id="51">5.1 关键文件与职责</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/lib/supabase.ts</code></td>
+<td>创建 Supabase 客户端，<code>flowType: 'implicit'</code></td>
+</tr>
+<tr>
+<td><code>src/lib/googleAuth.ts</code></td>
+<td><code>startGoogleSignIn()</code>，设置 <code>redirectTo</code></td>
+</tr>
+<tr>
+<td><code>src/pages/AuthCallbackPage.tsx</code></td>
+<td>解析 hash/query，调后端完成登录</td>
+</tr>
+<tr>
+<td><code>src/components/OAuthRoleDialog.tsx</code></td>
+<td>首次用户选 Teacher/Student</td>
+</tr>
+<tr>
+<td><code>src/lib/api.ts</code></td>
+<td><code>completeOAuthSignIn()</code>、<code>registerOAuthUser()</code></td>
+</tr>
+<tr>
+<td><code>src/App.tsx</code></td>
+<td>路由 <code>/auth/callback</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-spa-vs">5.2 SPA 路由 vs 真实文件</h3>
+<ul>
+<li>没有 <code>callback/</code> 文件夹</li>
+<li><code>/auth/callback</code> 是 React Router 的<strong>客户端路由</strong></li>
+<li>Vercel 需要 <code>vercel.json</code> 把所有路径 fallback 到 <code>index.html</code>（SPA 标配）</li>
+</ul>
+<h3 id="53-vite">5.3 Vite 环境变量规则</h3>
+<ul>
+<li>必须以 <code>VITE_</code> 开头才会打进前端包</li>
+<li>在 <strong>构建时</strong> 注入，不是运行时</li>
+<li>改 Vercel 环境变量后必须 <strong>Redeploy</strong>，否则旧包还在用旧值</li>
+</ul>
+<h3 id="54">5.4 值得学习的前端延伸</h3>
+<ul>
+<li>[ ] React Router 保护路由（<code>ProtectedRoute</code>）</li>
+<li>[ ] <code>AuthContext</code> 与 token 持久化（<code>localStorage</code>）</li>
+<li>[ ] 如何用浏览器 DevTools → Network 看 OAuth 请求链</li>
+<li>[ ] TypeScript 类型定义 API 响应（<code>OAuthCompleteResponse</code>）</li>
+</ul>
+<hr />
+<h2 id="6-flask-railway">6. 后端实现知识点（Flask + Railway）</h2>
+<h3 id="61-oauth">6.1 OAuth 相关接口</h3>
+<p><strong><code>POST /api/auth/oauth/complete</code></strong></p>
+<ul>
+<li>入参：<code>{ "access_token": "..." }</code>（Supabase 发的 token）</li>
+<li>用 <code>supabase.auth.get_user(token)</code> 验证用户</li>
+<li>若 <code>users</code> 表有记录 → 返回 <code>{ status: "ok", token, user }</code></li>
+<li>若没有 → 返回 <code>{ status: "needs_profile", email, suggested_display_name }</code></li>
+</ul>
+<p><strong><code>POST /api/auth/oauth/register</code></strong></p>
+<ul>
+<li>首次 Google 用户提交 role + display_name</li>
+<li>写入 <code>users</code> 表</li>
+</ul>
+<h3 id="62-supabase">6.2 为什么需要自己的后端？（不能只靠 Supabase）</h3>
+<ul>
+<li>你的业务用 <code>users</code> 表的 <code>role</code>（teacher/student）</li>
+<li>你的 JWT / 会话逻辑在 Flask</li>
+<li>Google 只证明「这是哪个 Google 账号」，不证明「在 EduSync 里他是老师还是学生」</li>
+</ul>
+<h3 id="63-cors">6.3 CORS</h3>
+<pre><code class="language-python">CORS(app)  # 允许前端跨域访问 API
+</code></pre>
+<ul>
+<li>前端在 <code>vercel.app</code>，后端在 <code>railway.app</code> → <strong>跨域</strong></li>
+<li>没有 CORS 浏览器会报 <code>Failed to fetch</code>（有时）</li>
+</ul>
+<h3 id="64">6.4 值得学习的后端延伸</h3>
+<ul>
+<li>[ ] Flask Blueprint 组织路由</li>
+<li>[ ] <code>require_auth</code> 装饰器与 JWT 校验</li>
+<li>[ ] Gunicorn + Procfile 生产部署</li>
+<li>[ ] API 错误码设计（400/401/404/500）</li>
+</ul>
+<hr />
+<h2 id="7">7. 环境变量：最容易踩坑的地方</h2>
+<h3 id="71">7.1 三份环境变量对照表</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>本地 <code>.env</code></th>
+<th>Vercel</th>
+<th>Railway</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td>可选</td>
+<td>✅ 必须</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_URL</code></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_ANON_KEY</code></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>SUPABASE_URL</code></td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>FLASK_ENV</code></td>
+<td>development</td>
+<td>❌</td>
+<td>production</td>
+</tr>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td>localhost</td>
+<td>❌</td>
+<td>你的 Vercel 地址</td>
+</tr>
+<tr>
+<td><code>MISE_PYTHON_GITHUB_ATTESTATIONS</code></td>
+<td>❌</td>
+<td>❌</td>
+<td><code>false</code>（构建用）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72">7.2 记忆口诀</h3>
+<ul>
+<li><strong>VITE_</strong> 开头 = 给浏览器用的，在 Vercel 配</li>
+<li><strong>SUPABASE_SERVICE_ROLE</strong> = 给服务器用的，只在 Railway 配</li>
+<li>改完 Vercel 变量 = 必须 Redeploy</li>
+<li>改完 Railway 变量 = 通常自动重新部署</li>
+</ul>
+<hr />
+<h2 id="8">8. 今天遇到的所有错误 → 原因 → 解法</h2>
+<h3 id="81">8.1 错误速查表</h3>
+<table>
+<thead>
+<tr>
+<th>错误信息</th>
+<th>根因</th>
+<th>解法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google 按钮灰色/不可用</td>
+<td>缺 <code>VITE_SUPABASE_*</code></td>
+<td>根目录 <code>.env</code> + Vercel 环境变量 + Redeploy</td>
+</tr>
+<tr>
+<td><code>provider is not enabled</code></td>
+<td>Supabase 未开 Google</td>
+<td>Providers → Google → Enable</td>
+</tr>
+<tr>
+<td><code>requested path is invalid</code></td>
+<td>Redirect URL 不在白名单</td>
+<td>Supabase 加完整 <code>https://.../auth/callback</code></td>
+</tr>
+<tr>
+<td><code>Unable to exchange external code</code></td>
+<td>Google Secret 错 / Google redirect URI 错</td>
+<td>重抄 Secret；Google 只填 Supabase callback</td>
+</tr>
+<tr>
+<td><code>No Google session found</code></td>
+<td>回调页读不到 token</td>
+<td>改 implicit 流程 + <code>detectSessionInUrl</code></td>
+</tr>
+<tr>
+<td><code>PKCE code verifier not found</code></td>
+<td>PKCE verifier 跨跳转丢失</td>
+<td>改用 implicit flow</td>
+</tr>
+<tr>
+<td><code>Failed to fetch</code></td>
+<td>后端未部署 / CORS / API URL 错</td>
+<td>查 Railway；确认 <code>VITE_API_URL</code></td>
+</tr>
+<tr>
+<td><code>curl</code> 返回 404</td>
+<td>Railway 跑旧代码</td>
+<td>重新部署后端</td>
+</tr>
+<tr>
+<td>Railway <code>python@3.13.14</code> 失败</td>
+<td>Python 太新无预编译包</td>
+<td><code>runtime.txt</code> → 3.12.8</td>
+</tr>
+<tr>
+<td>Railway attestations 失败</td>
+<td>mise 安全校验</td>
+<td><code>mise.toml</code> + <code>MISE_PYTHON_GITHUB_ATTESTATIONS=false</code></td>
+</tr>
+<tr>
+<td><code>Authentication failed</code>（curl test）</td>
+<td>假 token 预期行为</td>
+<td>✅ 说明接口已上线</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82">8.2 诊断命令（以后直接用）</h3>
+<pre><code class="language-bash"># 1. 后端健康
+curl https://edusync-production-6d33.up.railway.app/api/health
+
+# 2. OAuth 接口是否存在（应 401，不是 404）
+curl -X POST &quot;https://edusync-production-6d33.up.railway.app/api/auth/oauth/complete&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;access_token&quot;:&quot;test&quot;}'
+
+# 3. 普通登录接口（对照）
+curl -X POST &quot;https://edusync-production-6d33.up.railway.app/api/auth/login&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;email&quot;:&quot;test@test.com&quot;,&quot;password&quot;:&quot;x&quot;}'
+</code></pre>
+<h3 id="83">8.3 看地址栏判断卡在哪一步</h3>
+<table>
+<thead>
+<tr>
+<th>地址栏特征</th>
+<th>卡在哪</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supabase.co</code> + <code>error_description</code></td>
+<td>Google ↔ Supabase 配置问题</td>
+</tr>
+<tr>
+<td><code>/auth/callback?code=</code></td>
+<td>PKCE 阶段（旧流程）</td>
+</tr>
+<tr>
+<td><code>/auth/callback#access_token=</code></td>
+<td>Implicit 成功返回</td>
+</tr>
+<tr>
+<td><code>/auth/callback</code> 无参数</td>
+<td>刷新太早或流程中断</td>
+</tr>
+<tr>
+<td>页面 <code>Failed to fetch</code></td>
+<td>前端连不上 Railway</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-devops">9. 部署与 DevOps 知识点</h2>
+<h3 id="91-vercel">9.1 Vercel（前端）</h3>
+<ul>
+<li>从 GitHub <code>main</code> 自动部署</li>
+<li>Root Directory：仓库根目录</li>
+<li>Build：<code>npm run build</code> → 输出 <code>dist/</code></li>
+<li>环境变量在 build 时打进 JS</li>
+</ul>
+<h3 id="92-railway">9.2 Railway（后端）</h3>
+<ul>
+<li>Root Directory 必须是 <strong><code>backend</code></strong></li>
+<li>Start Command：<code>gunicorn run:app --bind 0.0.0.0:$PORT</code>（见 Procfile）</li>
+<li>环境变量在 <strong>运行时</strong> 读取</li>
+<li>部署失败时，<strong>旧版本继续服务</strong>——所以你会看到 login 200 但 oauth 404</li>
+</ul>
+<h3 id="93-git">9.3 Git 与仓库迁移</h3>
+<p>你 push 时看到：</p>
+<pre><code>remote: This repository moved. Please use:
+remote:   https://github.com/ZacharyZhou/EduSync.git
+</code></pre>
+<ul>
+<li>旧 URL 可能仍可用，但 Railway 应确认连的是正确仓库</li>
+<li>部署触发依赖 GitHub webhook</li>
+</ul>
+<h3 id="94-python">9.4 Python 构建文件（你今天新增的）</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/runtime.txt</code></td>
+<td>指定 <code>python-3.12.8</code></td>
+</tr>
+<tr>
+<td><code>backend/.python-version</code></td>
+<td>mise 读版本</td>
+</tr>
+<tr>
+<td><code>backend/nixpacks.toml</code></td>
+<td>Nixpacks 构建变量</td>
+</tr>
+<tr>
+<td><code>backend/mise.toml</code></td>
+<td>关闭 Python attestations</td>
+</tr>
+</tbody>
+</table>
+<h3 id="95-devops">9.5 值得学习的 DevOps 延伸</h3>
+<ul>
+<li>[ ] GitHub Actions CI/CD（自动测试再部署）</li>
+<li>[ ] 自定义域名 + HTTPS（Vercel Domains）</li>
+<li>[ ] Railway / Vercel 日志与监控</li>
+<li>[ ] Staging 环境（preview 分支自动部署）</li>
+<li>[ ] Docker 容器化（绕过 mise 问题）</li>
+</ul>
+<hr />
+<h2 id="10">10. 安全与密钥管理</h2>
+<h3 id="101">10.1 今天遵守的好习惯</h3>
+<ul>
+<li>✅ <code>service_role</code> 只在 Railway，不进 Git</li>
+<li>✅ <code>.env</code> 在 <code>.gitignore</code></li>
+<li>✅ 前端只用 <code>anon</code> key</li>
+<li>✅ OAuth 完成后 <code>supabase.auth.signOut()</code>，用自己 JWT</li>
+</ul>
+<h3 id="102">10.2 绝对不要做的事</h3>
+<ul>
+<li>❌ 把 Client Secret 截图 OCR 复制</li>
+<li>❌ 把 <code>SUPABASE_SERVICE_ROLE_KEY</code> 写进 Vercel</li>
+<li>❌ 把 <code>.env</code> commit 到 GitHub</li>
+<li>❌ 在 Google Cloud 填 Vercel 地址作 redirect</li>
+</ul>
+<h3 id="103">10.3 值得学习的安全延伸</h3>
+<ul>
+<li>[ ] JWT 过期与刷新策略</li>
+<li>[ ] HTTPS 全链路</li>
+<li>[ ] OWASP Top 10 基础</li>
+<li>[ ] Supabase RLS 防止越权读数据</li>
+</ul>
+<hr />
+<h2 id="11_1">11. 调试方法论（你今天实际用到的）</h2>
+<h3 id="111">11.1 分层排查法</h3>
+<pre><code>第 1 层：UI 能不能点？ → 环境变量 / Supabase 客户端
+第 2 层：Google 能不能授权？ → Google Cloud + Supabase Provider
+第 3 层：能不能回到 callback？ → Redirect URLs
+第 4 层：callback 有没有 token？ → OAuth 流程 PKCE/Implicit
+第 5 层：后端能不能接？ → Railway 部署 / VITE_API_URL
+第 6 层：业务能不能完成？ → users 表 / register 接口
+</code></pre>
+<p><strong>不要跳层。</strong> 你今天多次在 Layer 5 出问题，但 Layer 2–4 已修好。</p>
+<h3 id="112">11.2 工具箱</h3>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>浏览器无痕窗口</td>
+<td>排除缓存干扰</td>
+</tr>
+<tr>
+<td>地址栏 URL</td>
+<td>看 <code>code</code> / <code>access_token</code> / <code>error</code></td>
+</tr>
+<tr>
+<td><code>curl</code></td>
+<td>绕开浏览器测 API</td>
+</tr>
+<tr>
+<td>Chrome DevTools → Network</td>
+<td>看 Failed to fetch 打哪</td>
+</tr>
+<tr>
+<td>Railway Deploy Logs</td>
+<td>构建/启动失败</td>
+</tr>
+<tr>
+<td>Vercel Deployments</td>
+<td>前端是否最新 build</td>
+</tr>
+</tbody>
+</table>
+<h3 id="113">11.3 心态</h3>
+<ul>
+<li><strong>404 vs 401</strong> 差一个数字，意义完全不同（不存在 vs 存在但鉴权失败）</li>
+<li><strong>构建失败 ≠ 网站挂了</strong>，可能是旧版本还在跑</li>
+<li><strong>错误信息变了吗</strong> = 你在往前推进</li>
+</ul>
+<hr />
+<h2 id="12_1">12. 值得深入学习的技能路线图</h2>
+<h3 id="121-p0">12.1 优先级 P0（马上有用，和你项目直接相关）</h3>
+<ol>
+<li><strong>OAuth 2.0 + Supabase Auth 官方文档走一遍</strong></li>
+<li><strong>HTTP 基础</strong>：状态码、CORS、JSON API</li>
+<li><strong>环境变量与构建</strong>：Vite vs Flask 差异</li>
+<li><strong>Git 基础</strong>：commit、push、看 log</li>
+<li><strong>curl 与 Postman</strong>：独立测 API</li>
+</ol>
+<h3 id="122-p112">12.2 优先级 P1（1–2 周内）</h3>
+<ol>
+<li><strong>React Router + Context</strong> <em>auth 模式</em></li>
+<li><strong>Flask Blueprint + 中间件</strong></li>
+<li><strong>PostgreSQL / Supabase SQL</strong></li>
+<li><strong>Railway + Vercel 文档各读一章</strong></li>
+<li><strong>浏览器 DevTools Network 面板</strong></li>
+</ol>
+<h3 id="123-p2">12.3 优先级 P2（进阶）</h3>
+<ol>
+<li>TypeScript 类型系统</li>
+<li>PKCE + Next.js SSR 正确做法</li>
+<li>CI/CD（GitHub Actions）</li>
+<li>自定义域名与 DNS</li>
+<li>基础 SEO（Search Console）</li>
+</ol>
+<h3 id="124">12.4 推荐学习资源</h3>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>资源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OAuth</td>
+<td><a href="https://supabase.com/docs/guides/auth/social-login/auth-google">Supabase Google Auth 文档</a></td>
+</tr>
+<tr>
+<td>部署</td>
+<td>项目内 <code>DEPLOY.md</code></td>
+</tr>
+<tr>
+<td>MVP 进度</td>
+<td>项目内 <code>MVP-PLAN.md</code></td>
+</tr>
+<tr>
+<td>PKCE</td>
+<td><a href="https://datatracker.ietf.org/doc/html/rfc7636">OAuth 2.0 PKCE RFC 7636</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="13">13. 术语表（中英对照）</h2>
+<table>
+<thead>
+<tr>
+<th>中文</th>
+<th>English</th>
+<th>一句话解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>授权码</td>
+<td>Authorization Code</td>
+<td>Google 给 Supabase 的临时码</td>
+</tr>
+<tr>
+<td>访问令牌</td>
+<td>Access Token</td>
+<td>证明用户身份的 JWT</td>
+</tr>
+<tr>
+<td>回调地址</td>
+<td>Redirect URI</td>
+<td>OAuth 完成后跳回的 URL</td>
+</tr>
+<tr>
+<td>跨域</td>
+<td>CORS</td>
+<td>浏览器限制不同域名间的请求</td>
+</tr>
+<tr>
+<td>匿名密钥</td>
+<td>anon key</td>
+<td>前端可用的 Supabase 公钥</td>
+</tr>
+<tr>
+<td>服务角色密钥</td>
+<td>service_role key</td>
+<td>后端超级权限密钥</td>
+</tr>
+<tr>
+<td>隐式流程</td>
+<td>Implicit Flow</td>
+<td>token 直接放 URL hash</td>
+</tr>
+<tr>
+<td>PKCE</td>
+<td>Proof Key for Code Exchange</td>
+<td>用 verifier 增强安全的授权码模式</td>
+</tr>
+<tr>
+<td>构建时注入</td>
+<td>Build-time env</td>
+<td>Vite 打包时写死变量</td>
+</tr>
+<tr>
+<td>单页应用</td>
+<td>SPA</td>
+<td>一个 HTML，路由靠 JS</td>
+</tr>
+<tr>
+<td>蓝图</td>
+<td>Blueprint</td>
+<td>Flask 模块化路由</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Deploy</td>
+<td>把代码发布到公网服务器</td>
+</tr>
+<tr>
+<td>健康检查</td>
+<td>Health Check</td>
+<td><code>/api/health</code> 看服务是否活着</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="14">14. 检查清单（下次上线直接照着做）</h2>
+<h3 id="141-google">14.1 Google 登录上线前</h3>
+<ul>
+<li>[ ] Google Cloud：Web 应用 OAuth 客户端</li>
+<li>[ ] Google redirect：<code>https://&lt;project&gt;.supabase.co/auth/v1/callback</code></li>
+<li>[ ] Supabase Google Provider：ID + Secret 无空格</li>
+<li>[ ] Supabase Site URL：前端域名（无路径）</li>
+<li>[ ] Supabase Redirect URLs：前端 <code>/auth/callback</code>（含 https）</li>
+<li>[ ] Vercel 三个 <code>VITE_*</code> 变量 + Redeploy</li>
+<li>[ ] Railway <code>SUPABASE_*</code> + Root Directory = <code>backend</code></li>
+<li>[ ] <code>curl</code> oauth/complete 返回 401（非 404）</li>
+<li>[ ] 无痕窗口完整走一遍 Google 登录</li>
+</ul>
+<h3 id="142">14.2 每次改代码后</h3>
+<ul>
+<li>[ ] <code>git push origin main</code></li>
+<li>[ ] Vercel Deployment Success（前端）</li>
+<li>[ ] Railway Deployment Success（后端）</li>
+<li>[ ] 用手机测一次（响应式 + 登录）</li>
+</ul>
+<hr />
+<h2 id="_2">结语</h2>
+<p>你今天完成的不只是「加一个 Google 按钮」，而是一条完整的<strong>现代 Web 全栈链路</strong>：</p>
+<blockquote>
+<p>第三方身份（Google）→ 身份平台（Supabase）→ 自己的业务后端（Flask）→ 自己的数据库（PostgreSQL）→ 托管在两家云平台（Vercel + Railway）</p>
+</blockquote>
+<p>能独立把这条链路跑通，已经远超「只会写页面」的阶段。<br />
+今天踩的每一个坑（redirect、PKCE、Failed to fetch、Python 构建）都是真实公司里会遇到的部署问题。</p>
+<p><strong>保存这份 PDF，下次做 Apple 登录、GitHub 登录、或换域名时，80% 的步骤可以复用。</strong></p>
+<hr />
+<p><em>EduSync Learning Guide · Generated 2026-06-10 · Zachary Zhou</em></p>
+</div>
+<div class="footer-note">EduSync Learning Guide · Generated 2026-06-10 · 保存此 PDF 供 Apple/GitHub 登录与换域名时复用</div>
+</body>
+</html>

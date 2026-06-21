@@ -6,6 +6,17 @@ from app.config import Config #import config class, flask can read the config of
 from app.blueprints.health import health_bp
 from app.blueprints.auth import auth_bp
 from app.blueprints.users import users_bp
+from app.blueprints.classes import classes_bp
+from app.blueprints.sessions import sessions_bp
+from app.blueprints.students import students_bp
+from app.blueprints.reschedule_requests import reschedule_bp
+from app.blueprints.notifications import notifications_bp
+from app.blueprints.cron import cron_bp
+from app.blueprints.assignments import assignments_bp
+from app.blueprints.tuition import tuition_bp
+from app.blueprints.dashboard import dashboard_bp
+from app.blueprints.ai import ai_bp
+from app.blueprints.feedback import feedback_bp
 
 def create_app():
     app = Flask(__name__)
@@ -16,6 +27,17 @@ def create_app():
     app.register_blueprint(health_bp) 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(classes_bp)
+    app.register_blueprint(sessions_bp)
+    app.register_blueprint(students_bp)
+    app.register_blueprint(reschedule_bp)
+    app.register_blueprint(notifications_bp)
+    app.register_blueprint(cron_bp)
+    app.register_blueprint(assignments_bp)
+    app.register_blueprint(tuition_bp)
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(ai_bp)
+    app.register_blueprint(feedback_bp)
     # register the health_bp into the falsk, then the /api/health will be activated#
 
     print('Flask app created successfully')
