@@ -19,23 +19,23 @@ import { useAuth } from "@/context/AuthContext";
 const aiPillars = [
   {
     icon: MessageSquareText,
-    title: "Talk to plan your week",
+    title: "Ask your classroom, not the internet",
     description:
-      "Describe what you need in plain language — the AI helps draft sessions, check your calendar, and answer questions about your classes.",
+      "Unlike generic chatbots, EduSync AI reads your live schedules, rosters, homework, and balances — in English or Chinese.",
     accent: "violet",
   },
   {
     icon: ShieldCheck,
     title: "You stay in control",
     description:
-      "AI suggestions are read-only during beta. Nothing changes until you review and confirm — built for real classrooms, not autopilot.",
+      "Beta is read-only today: answers only, no silent changes. Confirm-before-act scheduling is on the roadmap — built for tutors, not autopilot.",
     accent: "slate",
   },
   {
     icon: BookOpen,
     title: "Grounded in your materials",
     description:
-      "Coming soon: upload teaching resources so students can ask an AI that answers from your library — not random web guesses.",
+      "Coming soon: AI answers from the files you upload — so student Q&A stays tied to your teaching, not random web guesses.",
     accent: "indigo",
   },
 ];
@@ -43,9 +43,9 @@ const aiPillars = [
 const workflowFeatures = [
   {
     icon: Bot,
-    title: "AI assistant for teachers",
+    title: "Classroom-aware AI (unique to EduSync)",
     description:
-      "A copilot inside EduSync for scheduling, class questions, and daily teaching workflow — right next to your calendar.",
+      "Tutor CRMs handle billing; ChatGPT doesn't know your roster. EduSync AI sits on your real class data — next to your calendar.",
     highlight: true,
   },
   {
@@ -65,9 +65,9 @@ const workflowFeatures = [
 ];
 
 const teacherSteps = [
-  "Create your teacher account",
-  "Set up classes and share invite codes",
-  "Use AI + calendar to plan sessions",
+  "Create your teacher account and first class",
+  "Ask the AI about your week, homework, or balances (Beta)",
+  "Schedule on the calendar — students stay synced automatically",
 ];
 
 const studentSteps = [
@@ -77,10 +77,10 @@ const studentSteps = [
 ];
 
 const heroHighlights = [
-  "AI scheduling assistant (Beta)",
-  "Shared class calendar",
-  "Teacher & student workspaces",
-  "Invite-code enrollment",
+  "Classroom-aware AI (Beta)",
+  "Live schedule & homework data",
+  "Calendar + student portal included",
+  "Confirm-before-act actions (next)",
 ];
 
 export default function HomePage() {
@@ -100,7 +100,7 @@ export default function HomePage() {
             </div>
             <div>
               <p className="text-lg font-semibold tracking-tight">EduSync</p>
-              <p className="text-xs text-muted-foreground">AI-assisted teaching workspace</p>
+              <p className="text-xs text-muted-foreground">AI-native tutor workspace</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -121,18 +121,18 @@ export default function HomePage() {
             <div className="animate-fade-in">
               <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-900 dark:text-violet-100">
                 <Sparkles className="h-3.5 w-3.5" />
-                AI-assisted · Built for tutors & small classes
+                Unique: AI on your class data · For independent tutors
               </div>
               <h1 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl md:leading-[1.08]">
-                Teach with clarity.
+                Ask your classes.
                 <span className="mt-1 block text-violet-700 dark:text-violet-300">
-                  Plan faster with AI beside you.
+                  Get answers from your real data.
                 </span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-                EduSync combines class management, a shared calendar, and an AI assistant
-                that helps teachers schedule, organize, and answer workflow questions —
-                while students stay synced to what matters.
+                EduSync is the tutor workspace where AI reads your schedules, students,
+                homework, and balances — not the open web. Calendar and student portal
+                are built in; generic CRMs and chatbots are not.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button size="lg" className="gap-2 shadow-sm" asChild>
@@ -172,11 +172,12 @@ export default function HomePage() {
                 AI at the center
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                Not just another LMS — an assistant that knows your classroom
+                Not TutorBird. Not ChatGPT. AI inside your tutor workspace.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                EduSync is designed around how tutors actually work: fewer tabs, less
-                admin, and an AI layer that supports planning without taking over.
+                Billing-first tools rarely ship classroom AI. Generic AI never sees your
+                roster. EduSync&apos;s differentiator is an assistant wired to your EduSync
+                data — with calendar and classes in the same place.
               </p>
             </div>
 
@@ -215,7 +216,7 @@ export default function HomePage() {
                 Everything connected
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                AI, calendar, and classes in one calm workspace
+                AI first — calendar and classes follow
               </h2>
             </div>
 
@@ -264,7 +265,7 @@ export default function HomePage() {
                 For teachers
               </p>
               <h3 className="mt-3 text-2xl font-semibold tracking-tight">
-                Run classes with AI at your side
+                Start with AI on your classroom data
               </h3>
               <ul className="mt-6 space-y-3">
                 {teacherSteps.map((step) => (
@@ -313,11 +314,12 @@ export default function HomePage() {
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <h2 className="text-3xl font-semibold tracking-tight text-white">
-              Ready to teach with AI-assisted workflow?
+              Try the AI that knows your classroom
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/80 md:text-base">
-              Create a teacher account, set up your first class, and try the AI assistant
-              on your calendar. Core scheduling is live — more AI features are on the way.
+              Create a teacher account, add a class, and ask about your schedule or
+              homework in plain language. Beta is read-only today — confirm-to-act
+              scheduling is next.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button
@@ -344,9 +346,9 @@ export default function HomePage() {
       <footer className="border-t border-border/70 bg-card/60 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-6 text-sm text-muted-foreground md:flex-row">
           <div className="text-center md:text-left">
-            <p>EduSync · AI-assisted education management</p>
+            <p>EduSync · AI-native workspace for tutors</p>
             <p className="mt-1 text-xs text-muted-foreground/80">
-              Classes, calendar, and intelligent planning for teachers
+              Classroom-aware AI, calendar, and student portal — built for small classes
             </p>
           </div>
           <div className="flex items-center gap-4">

@@ -18,11 +18,11 @@ const navItems = [
 const aiMessages = [
   {
     role: "user" as const,
-    text: "Add a weekly Algebra session Tuesdays 4pm for Class 8A",
+    text: "Who hasn't submitted homework in Algebra II?",
   },
   {
     role: "assistant" as const,
-    text: "I can draft 6 Tuesday sessions through May. Review times and confirm before saving.",
+    text: "3 students in Class 8A haven't submitted yet. Next session: Tue 16:00 — pulled from your EduSync data.",
   },
 ];
 
@@ -113,7 +113,7 @@ export function HomeProductPreview() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold">AI Assistant</p>
-                  <p className="text-[9px] text-muted-foreground">Beta · read-only planning</p>
+                  <p className="text-[9px] text-muted-foreground">Beta · read-only · your data only</p>
                 </div>
               </div>
               <div className="flex min-h-0 flex-1 flex-col gap-2">
