@@ -1,6 +1,7 @@
 """NVIDIA NIM chat API client (OpenAI-compatible)."""
 
 import json
+import time
 from typing import Any, Iterator
 
 import httpx
@@ -9,6 +10,8 @@ from app.config import Config
 
 DEFAULT_TIMEOUT = httpx.Timeout(90.0, connect=10.0)
 MAX_TOOL_ROUNDS = 6
+MAX_ATTEMPTS = 4
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 def is_configured():
@@ -64,7 +67,19 @@ def complete_chat(messages, system_prompt=None, tools=None) -> dict[str, Any]:
         body['tool_choice'] = 'auto'
 
     with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
-        response = client.post(_api_url(), headers=_headers(), json=body)
+        # NVIDIA's shared endpoint intermittently returns 5xx/429 under load.
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                response = client.post(_api_url(), headers=_headers(), json=body)
+            except httpx.TransportError:
+                if attempt == MAX_ATTEMPTS - 1:
+                    raise
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            if response.status_code in RETRY_STATUSES and attempt < MAX_ATTEMPTS - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            break
         if response.status_code >= 400:
             detail = response.text
             raise RuntimeError(_format_api_error(response.status_code, detail))
