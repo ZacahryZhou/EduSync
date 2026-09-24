@@ -300,7 +300,7 @@
     "sessionsWholeNumber": "按课次充值须为整数（例如 12，不能 12.01）"
   },
   "ai": {
-    "pageSubtitle": "可询问班级、课表和 EduSync 操作说明。仅老师可用。",
+    "pageSubtitle": "可询问班级、课表和 EduSync 操作说明。",
     "betaBadge": "测试版",
     "betaTitle": "AI 助手（测试版）",
     "betaBody": "本功能处于早期测试阶段。回答会基于 EduSync 实时数据，但表述与能力可能调整。重要事项请在应用中再次核对，勿单独依赖 AI。",

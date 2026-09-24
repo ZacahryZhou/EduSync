@@ -114,7 +114,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           </main>
-          {isTeacherRole(role) ? <AiAssistantFab /> : null}
+          {isTeacherRole(role) || isStudentRole(role) ? <AiAssistantFab /> : null}
         </div>
       </div>
     </SidebarProvider>

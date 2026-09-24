@@ -1,6 +1,6 @@
 # EduSync AI 安全与回答范围政策 / AI Safety & Scope Policy
 
-> **适用范围：** 教师端 AI Assistant（DeepSeek）及后续 AI-1 / AI-2 / 文件导入功能。  
+> **适用范围：** 教师端与学生端 AI Assistant（NVIDIA NIM）及后续 AI-1 / AI-2 / 文件导入功能。  
 > **权威副本：** 后端 system prompt 必须与本文件一致；代码见 `backend/app/blueprints/ai.py`。  
 > **更新：** 2026-06-16
 
@@ -40,7 +40,7 @@
 
 | 类别 | 示例 |
 |------|------|
-| 认证与密钥 | 密码、JWT、Supabase service key、DeepSeek API key、`.env` 内容 |
+| 认证与密钥 | 密码、JWT、Supabase service key、NVIDIA API key、`.env` 内容 |
 | 学生身份 | 邮箱、电话、住址、家长联系方式、学号（若未来有） |
 | 学业与评价 | 成绩、作业评语全文、私有 `student_notes` 大段引用 |
 | 财务 | 课时余额明细、充值记录（除非老师明确查询某生余额且 tool 已返回） |
@@ -92,12 +92,12 @@
 
 ---
 
-## 6. 日志与第三方 LLM / Logging & DeepSeek
+## 6. 日志与第三方 LLM / Logging & NVIDIA NIM
 
 | 项目 | 要求 |
 |------|------|
 | `ai_interactions` | 记录对话便于排错；生产环境避免写入完整 PII 附件 |
-| DeepSeek | 仅发送完成任务所需的消息与 tool 结果；密钥仅存后端 |
+| NVIDIA NIM | 仅发送完成任务所需的消息与 tool 结果；密钥仅存后端 |
 | 老师告知 | 产品说明中注明：对话会经第三方模型处理，请勿粘贴无关机密 |
 
 ---

@@ -300,7 +300,7 @@
     "sessionsWholeNumber": "Session top-ups must be whole numbers (e.g. 12, not 12.01)"
   },
   "ai": {
-    "pageSubtitle": "Ask about your classes, schedule, and EduSync workflows. Teacher-only.",
+    "pageSubtitle": "Ask about your classes, schedule, and EduSync workflows.",
     "betaBadge": "Beta",
     "betaTitle": "AI Assistant (testing)",
     "betaBody": "This feature is in early testing. Answers are based on live EduSync data, but wording and coverage may change. Do not rely on it for critical decisions without checking the app.",

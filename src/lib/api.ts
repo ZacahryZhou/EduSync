@@ -1725,7 +1725,7 @@ export async function markAllNotificationsRead(): Promise<void> {
   }
 }
 
-/** --- Teacher AI (DeepSeek) --- */
+/** --- AI assistant (NVIDIA NIM, teacher + student) --- */
 
 export type AiChatRole = "user" | "assistant";
 
@@ -1763,7 +1763,7 @@ export type AiLogsResponse = {
   logging_enabled: boolean;
 };
 
-/** Whether DeepSeek is configured on the backend */
+/** Whether the AI provider is configured on the backend */
 export async function getAiStatus(): Promise<AiStatus> {
   const response = await apiFetch("/ai/status", { method: "GET" });
   if (!response.ok) {
@@ -1772,7 +1772,7 @@ export async function getAiStatus(): Promise<AiStatus> {
   return (await response.json()) as AiStatus;
 }
 
-/** Recent AI conversation logs for the current teacher */
+/** Recent AI conversation logs for the current user */
 export async function listAiLogs(limit = 30): Promise<AiLogsResponse> {
   const response = await apiFetch(`/ai/logs?limit=${limit}`, { method: "GET" });
   if (!response.ok) {
@@ -1782,7 +1782,7 @@ export async function listAiLogs(limit = 30): Promise<AiLogsResponse> {
 }
 
 /**
- * Stream a teacher chat completion (SSE).
+ * Stream an AI chat completion (SSE).
  * Events: token chunks, done, or error.
  */
 export async function streamAiChat(

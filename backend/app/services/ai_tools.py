@@ -13,7 +13,7 @@ MAX_LIST_ITEMS = 40
 
 
 def tool_definitions():
-    """OpenAI-compatible tool schemas for DeepSeek."""
+    """OpenAI-compatible tool schemas for the teacher assistant."""
     return [
         {
             'type': 'function',

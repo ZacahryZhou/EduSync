@@ -73,9 +73,9 @@ gunicorn run:app --bind 0.0.0.0:$PORT
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role 密钥（保密） | `eyJ...` |
 | `FRONTEND_URL` | 先填 `http://localhost:8080`，第 2 步后再改 | 见下文 |
 | `FLASK_ENV` | `production` | `production` |
-| `DEEPSEEK_API_KEY` | 老师 AI 助手（DeepSeek） | `sk-...` |
-| `DEEPSEEK_API_BASE` | 可选 | `https://api.deepseek.com` |
-| `DEEPSEEK_MODEL` | 可选 | `deepseek-chat` |
+| `NVIDIA_API_KEY` | AI 助手（NVIDIA NIM，老师和学生共用） | `nvapi-...` |
+| `NVIDIA_API_BASE` | 可选 | `https://integrate.api.nvidia.com/v1` |
+| `NVIDIA_MODEL` | 可选 | `nvidia/nemotron-3-super-120b-a12b` |
 
 **不要**把 `.env` 提交到 Git；只在 Railway 网页里填。本地 `backend/.env` 里的 key **不会**随 `git push` 上传。
 

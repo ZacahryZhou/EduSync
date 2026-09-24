@@ -2,14 +2,15 @@ import json
 
 from flask import Blueprint, Response, g, jsonify, request
 
-from app.config import Config
 from app.extensions import supabase
 from app.middleware.auth import require_role, _load_user_record
+from app.services.ai_student_tools import execute_student_tool, student_tool_definitions
 from app.services.ai_tools import execute_tool, tool_definitions
-from app.services.deepseek import (
+from app.services.llm import (
     MAX_TOOL_ROUNDS,
     complete_chat,
     is_configured,
+    model_name,
     stream_chat,
 )
 
@@ -42,6 +43,43 @@ BEHAVIOR
 - Destructive or bulk changes: require in-app confirmation flows; do not bypass.
 
 Full policy: docs/AI-SAFETY-POLICY.md"""
+
+STUDENT_SYSTEM_PROMPT = """You are EduSync AI for logged-in students only.
+
+SCOPE
+- Answer ONLY using data returned by EduSync tools/API for this student, plus the student's current message.
+- For schedule, homework, grades, balances, or reschedule questions: call the appropriate read tool first.
+- Never invent sessions, grades, or balances. If data is missing, say you don't have it.
+- You may explain how to use EduSync (e.g. submit homework, request a reschedule) in general terms.
+- You cannot change data; tell the student to use the app UI for submitting or requesting changes.
+- Do not do the student's homework for them; you may explain concepts and give study tips.
+
+CONFIDENTIALITY (NEVER disclose)
+- Passwords, tokens, API keys, .env, database credentials.
+- Any other student's information, or teachers' private notes.
+- Claiming an action was executed when you cannot execute actions.
+
+BEHAVIOR
+- After tool results, summarize clearly with class names and dates.
+- Be friendly and concise; match the student's language (Chinese or English).
+- Refuse policy-violating requests briefly and safely.
+
+Full policy: docs/AI-SAFETY-POLICY.md"""
+
+ROLE_CONFIG = {
+    'teacher': {
+        'prompt': TEACHER_SYSTEM_PROMPT,
+        'tools': tool_definitions,
+        'execute': execute_tool,
+        'fallback_name': 'Teacher',
+    },
+    'student': {
+        'prompt': STUDENT_SYSTEM_PROMPT,
+        'tools': student_tool_definitions,
+        'execute': execute_student_tool,
+        'fallback_name': 'Student',
+    },
+}
 
 
 def _sanitize_messages(raw_messages):
@@ -97,6 +135,8 @@ def _parse_tool_arguments(raw):
 
 def _tool_label(tool_name):
     labels = {
+        'get_my_balances': 'balances',
+        'list_my_reschedules': 'reschedule requests',
         'list_my_classes': 'classes',
         'list_sessions': 'schedule',
         'list_class_students': 'students',
@@ -109,11 +149,12 @@ def _tool_label(tool_name):
 
 
 @ai_bp.route('/api/ai/status', methods=['GET'])
-@require_role('teacher')
+@require_role('teacher', 'student')
 def ai_status():
     return jsonify({
         'configured': is_configured(),
-        'model': Config.DEEPSEEK_MODEL or 'deepseek-chat',
+        'model': model_name(),
+        'role': g.current_user_role,
         'read_tools': True,
         'write_tools': False,
         'phase': 'beta',
@@ -121,9 +162,9 @@ def ai_status():
 
 
 @ai_bp.route('/api/ai/logs', methods=['GET'])
-@require_role('teacher')
+@require_role('teacher', 'student')
 def ai_logs():
-    """Recent AI chat logs for the logged-in teacher (ai_interactions table)."""
+    """Recent AI chat logs for the logged-in user (ai_interactions table)."""
     user_id = g.current_user.id
     try:
         raw_limit = int(request.args.get('limit', 30))
@@ -147,12 +188,12 @@ def ai_logs():
 
 
 @ai_bp.route('/api/ai/chat', methods=['POST'])
-@require_role('teacher')
+@require_role('teacher', 'student')
 def ai_chat():
     if not is_configured():
         return jsonify({
             'error': (
-                'AI is not configured. Set DEEPSEEK_API_KEY in backend/.env '
+                'AI is not configured. Set NVIDIA_API_KEY in backend/.env '
                 'and restart the server.'
             ),
         }), 503
@@ -163,15 +204,17 @@ def ai_chat():
         return jsonify({'error': err}), 400
 
     user_record = _load_user_record() or {}
-    teacher_name = user_record.get('display_name') or 'Teacher'
+    role = g.current_user_role
+    cfg = ROLE_CONFIG[role]
+    display_name = user_record.get('display_name') or cfg['fallback_name']
     system_prompt = (
-        f'{TEACHER_SYSTEM_PROMPT}\n\n'
-        f'The teacher\'s display name is {teacher_name}.'
+        f'{cfg["prompt"]}\n\n'
+        f'The {role}\'s display name is {display_name}.'
     )
-    model = Config.DEEPSEEK_MODEL or 'deepseek-chat'
+    model = model_name()
     user_id = g.current_user.id
-    teacher_id = user_id
-    tools = tool_definitions()
+    tools = cfg['tools']()
+    run_tool = cfg['execute']
 
     def generate():
         reply_parts = []
@@ -204,7 +247,7 @@ def ai_chat():
                             f'data: {json.dumps({"type": "tool_start", "name": tool_name, "label": _tool_label(tool_name)})}\n\n'
                         )
 
-                        tool_result = execute_tool(tool_name, args, teacher_id)
+                        tool_result = run_tool(tool_name, args, user_id)
 
                         agent_messages.append({
                             'role': 'tool',
@@ -230,7 +273,7 @@ def ai_chat():
                         yield f'data: {json.dumps({"type": "token", "content": token})}\n\n'
 
                 full_reply = ''.join(reply_parts)
-                _log_interaction(user_id, 'teacher', model, messages, full_reply)
+                _log_interaction(user_id, role, model, messages, full_reply)
                 yield f'data: {json.dumps({"type": "done"})}\n\n'
                 return
 
@@ -238,7 +281,7 @@ def ai_chat():
         except Exception as exc:
             message = str(exc) or 'AI request failed'
             _log_interaction(
-                user_id, 'teacher', model, messages, ''.join(reply_parts), message
+                user_id, role, model, messages, ''.join(reply_parts), message
             )
             yield f'data: {json.dumps({"type": "error", "message": message})}\n\n'
 

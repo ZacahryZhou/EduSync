@@ -4,14 +4,14 @@ import { Bot } from "lucide-react";
 import { AiAssistant } from "@/components/AiAssistant";
 import { AiBetaBadge } from "@/components/AiBetaNotice";
 import { useAuth } from "@/context/AuthContext";
-import { isTeacherRole, normalizeRole } from "@/lib/roles";
+import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
 export default function AiPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isTeacher = isTeacherRole(normalizeRole(user?.role));
+  const role = normalizeRole(user?.role);
 
-  if (!isTeacher) {
+  if (!isTeacherRole(role) && !isStudentRole(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

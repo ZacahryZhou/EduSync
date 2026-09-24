@@ -1,4 +1,4 @@
-"""DeepSeek chat API client (OpenAI-compatible)."""
+"""NVIDIA NIM chat API client (OpenAI-compatible)."""
 
 import json
 from typing import Any, Iterator
@@ -12,26 +12,26 @@ MAX_TOOL_ROUNDS = 6
 
 
 def is_configured():
-    return bool((Config.DEEPSEEK_API_KEY or '').strip())
+    return bool((Config.NVIDIA_API_KEY or '').strip())
 
 
 def _api_url():
-    base = (Config.DEEPSEEK_API_BASE or 'https://api.deepseek.com').rstrip('/')
+    base = (Config.NVIDIA_API_BASE or 'https://integrate.api.nvidia.com/v1').rstrip('/')
     if base.endswith('/v1'):
         return f'{base}/chat/completions'
     return f'{base}/v1/chat/completions'
 
 
 def _headers():
-    key = (Config.DEEPSEEK_API_KEY or '').strip()
+    key = (Config.NVIDIA_API_KEY or '').strip()
     return {
         'Authorization': f'Bearer {key}',
         'Content-Type': 'application/json',
     }
 
 
-def _model():
-    return Config.DEEPSEEK_MODEL or 'deepseek-chat'
+def model_name():
+    return Config.NVIDIA_MODEL or 'nvidia/nemotron-3-super-120b-a12b'
 
 
 def _build_payload_messages(messages, system_prompt=None):
@@ -47,14 +47,14 @@ def complete_chat(messages, system_prompt=None, tools=None) -> dict[str, Any]:
     Non-streaming completion. Returns assistant message dict:
     { content, tool_calls, finish_reason }.
     """
-    key = (Config.DEEPSEEK_API_KEY or '').strip()
+    key = (Config.NVIDIA_API_KEY or '').strip()
     if not key:
         raise RuntimeError(
-            'DEEPSEEK_API_KEY is not set. Add it to backend/.env and restart Flask.'
+            'NVIDIA_API_KEY is not set. Add it to backend/.env and restart Flask.'
         )
 
     body: dict[str, Any] = {
-        'model': _model(),
+        'model': model_name(),
         'messages': _build_payload_messages(messages, system_prompt),
         'stream': False,
         'temperature': 0.3,
@@ -72,7 +72,7 @@ def complete_chat(messages, system_prompt=None, tools=None) -> dict[str, Any]:
         data = response.json()
         choices = data.get('choices') or []
         if not choices:
-            raise RuntimeError('DeepSeek returned no choices')
+            raise RuntimeError('NVIDIA API returned no choices')
 
         message = choices[0].get('message') or {}
         return {
@@ -83,15 +83,15 @@ def complete_chat(messages, system_prompt=None, tools=None) -> dict[str, Any]:
 
 
 def stream_chat(messages, system_prompt=None) -> Iterator[str]:
-    """Yield assistant text deltas from DeepSeek streaming chat."""
-    key = (Config.DEEPSEEK_API_KEY or '').strip()
+    """Yield assistant text deltas from NVIDIA streaming chat."""
+    key = (Config.NVIDIA_API_KEY or '').strip()
     if not key:
         raise RuntimeError(
-            'DEEPSEEK_API_KEY is not set. Add it to backend/.env and restart Flask.'
+            'NVIDIA_API_KEY is not set. Add it to backend/.env and restart Flask.'
         )
 
     body = {
-        'model': _model(),
+        'model': model_name(),
         'messages': _build_payload_messages(messages, system_prompt),
         'stream': True,
         'temperature': 0.3,
@@ -138,4 +138,4 @@ def _format_api_error(status_code, detail):
             message = detail
     except json.JSONDecodeError:
         message = detail or f'HTTP {status_code}'
-    return f'DeepSeek API error ({status_code}): {message}'
+    return f'NVIDIA API error ({status_code}): {message}'

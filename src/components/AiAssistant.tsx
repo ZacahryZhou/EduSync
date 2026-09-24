@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Bot, Loader2, Send } from "lucide-react";
 import { AiBetaNotice } from "@/components/AiBetaNotice";
+import { useAuth } from "@/context/AuthContext";
+import { isStudentRole, normalizeRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,10 +16,16 @@ import {
   type AiChatMessage,
 } from "@/lib/api";
 
-const STARTER_PROMPTS = [
+const TEACHER_STARTER_PROMPTS = [
   "What sessions do I have this week?",
   "Who hasn't submitted homework yet?",
   "这周有哪些课？",
+];
+
+const STUDENT_STARTER_PROMPTS = [
+  "What classes do I have this week?",
+  "Which homework is due soon?",
+  "我的学费还剩多少？",
 ];
 
 const TOOL_LABELS: Record<string, string> = {
@@ -28,6 +36,8 @@ const TOOL_LABELS: Record<string, string> = {
   list_pending_submissions: "Checking submissions to grade…",
   get_student_balances: "Loading tuition balances…",
   list_pending_reschedules: "Loading reschedule requests…",
+  get_my_balances: "Loading your balances…",
+  list_my_reschedules: "Loading your reschedule requests…",
 };
 
 type AiAssistantProps = {
@@ -44,6 +54,9 @@ export function AiAssistant({
   onInteractionComplete,
 }: AiAssistantProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isStudent = isStudentRole(normalizeRole(user?.role));
+  const starterPrompts = isStudent ? STUDENT_STARTER_PROMPTS : TEACHER_STARTER_PROMPTS;
   const embedded = variant === "embedded";
   const modal = variant === "modal";
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
@@ -79,7 +92,7 @@ export function AiAssistant({
     }
 
     if (statusQuery.data && !statusQuery.data.configured) {
-      toast.error("AI is not configured. Add DEEPSEEK_API_KEY to backend/.env.");
+      toast.error("AI is not configured. Add NVIDIA_API_KEY to backend/.env.");
       return;
     }
 
@@ -151,14 +164,14 @@ export function AiAssistant({
   }
 
   const configured = statusQuery.data?.configured === true;
-  const modelName = statusQuery.data?.model ?? "DeepSeek";
+  const modelName = statusQuery.data?.model ?? "NVIDIA";
   const statusHint = statusQuery.isLoading
     ? "Checking AI status…"
     : statusQuery.isError
       ? "Cannot reach the API. Is the backend running? Check VITE_API_URL."
       : configured
         ? t("ai.statusBetaModel", { model: modelName })
-        : "Add DEEPSEEK_API_KEY to backend/.env (local) or Railway Variables (production), then restart the server.";
+        : "Add NVIDIA_API_KEY to backend/.env (local) or Railway Variables (production), then restart the server.";
 
   return (
     <Card
@@ -194,10 +207,11 @@ export function AiAssistant({
           {messages.length === 0 ? (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Ask about your schedule, classes, students, homework, balances, or
-                pending reschedule requests.
+                {isStudent
+                  ? "Ask about your schedule, classes, homework and grades, tuition balance, or reschedule requests."
+                  : "Ask about your schedule, classes, students, homework, balances, or pending reschedule requests."}
               </p>
-              {!embedded ? (
+              {!embedded && !isStudent ? (
                 <p className="text-xs text-muted-foreground">
                   Invited students who have not registered yet can still appear in tuition
                   and attendance, but not in assignments, private notes, or AI class rosters
@@ -205,7 +219,7 @@ export function AiAssistant({
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                {STARTER_PROMPTS.map((prompt) => (
+                {starterPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
@@ -247,7 +261,7 @@ export function AiAssistant({
             placeholder={
               configured
                 ? "Ask EduSync AI…"
-                : "Configure DeepSeek API key first"
+                : "Configure NVIDIA API key first"
             }
             rows={embedded ? 1 : 2}
             className="min-h-0 resize-none"
