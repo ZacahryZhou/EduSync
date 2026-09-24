@@ -10,6 +10,22 @@ _REPO_ROOT = _BACKEND_DIR.parent
 load_dotenv(_REPO_ROOT / ".env")
 load_dotenv(_BACKEND_DIR / ".env", override=True)
 
+def _find_nvidia_key():
+    """NVIDIA key from NVIDIA_API_KEY, or any env var whose name looks like it
+    (case-insensitive, e.g. `Nvia_Api`); strips stray quotes/whitespace."""
+    exact = os.getenv("NVIDIA_API_KEY")
+    candidates = [exact] if exact else []
+    for name, value in os.environ.items():
+        lowered = name.strip().lower()
+        if lowered != "nvidia_api_key" and lowered in ("nvia_api", "nvidia_api", "nvidia_key", "nvidia_api_key"):
+            candidates.append(value)
+    for value in candidates:
+        cleaned = (value or "").strip().strip("\"'").strip()
+        if cleaned:
+            return cleaned
+    return None
+
+
 class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -20,7 +36,7 @@ class Config:
 
     # NVIDIA NIM (OpenAI-compatible) — AI assistant for teachers and students.
     # `Nvia_Api` is accepted as a legacy spelling of the key variable name.
-    NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY") or os.getenv("Nvia_Api")
+    NVIDIA_API_KEY = _find_nvidia_key()
     NVIDIA_API_BASE = os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com/v1")
     NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 

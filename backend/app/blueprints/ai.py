@@ -1,4 +1,5 @@
 import json
+import os
 
 from flask import Blueprint, Response, g, jsonify, request
 
@@ -151,14 +152,22 @@ def _tool_label(tool_name):
 @ai_bp.route('/api/ai/status', methods=['GET'])
 @require_role('teacher', 'student')
 def ai_status():
-    return jsonify({
-        'configured': is_configured(),
+    configured = is_configured()
+    payload = {
+        'configured': configured,
         'model': model_name(),
         'role': g.current_user_role,
         'read_tools': True,
         'write_tools': False,
         'phase': 'beta',
-    })
+    }
+    if not configured:
+        # Names only (never values) so a misnamed Railway variable is easy to spot.
+        payload['hint_env_names'] = sorted(
+            name for name in os.environ
+            if 'nv' in name.lower() or 'api' in name.lower()
+        )
+    return jsonify(payload)
 
 
 @ai_bp.route('/api/ai/logs', methods=['GET'])
