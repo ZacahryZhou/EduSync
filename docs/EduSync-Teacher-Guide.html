@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EduSync 教师使用指南（测试版）</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #1a1a1a;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .cover {
+    page-break-after: always;
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 0;
+    border-bottom: 4px solid #2563eb;
+  }
+  .cover h1 {
+    font-size: 28pt;
+    color: #1e3a8a;
+    margin: 0 0 0.5rem;
+    line-height: 1.25;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #475569;
+    margin-bottom: 2rem;
+  }
+  .cover .meta {
+    font-size: 10pt;
+    color: #64748b;
+    line-height: 1.8;
+  }
+  .cover .meta strong { color: #334155; }
+  h1 {
+    font-size: 18pt;
+    color: #1e40af;
+    border-bottom: 2px solid #dbeafe;
+    padding-bottom: 0.35rem;
+    margin-top: 1.8rem;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 13pt;
+    color: #1d4ed8;
+    margin-top: 1.4rem;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #2563eb;
+    margin-top: 1rem;
+    page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  ul, ol { margin: 0.4rem 0 0.8rem 1.2rem; padding-left: 0.5rem; }
+  li { margin: 0.25rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0 1.2rem;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #bfdbfe;
+  }
+  td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: #0f172a;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 8pt;
+    line-height: 1.5;
+    page-break-inside: avoid;
+    margin: 0.8rem 0;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  blockquote {
+    border-left: 4px solid #3b82f6;
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+    background: #f0f9ff;
+    color: #1e3a8a;
+    page-break-inside: avoid;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 1.5rem 0;
+  }
+  a { color: #2563eb; text-decoration: none; }
+  .toc {
+    page-break-after: always;
+    padding-bottom: 1rem;
+  }
+  .toc h2 { margin-top: 0; }
+  .toc ul { list-style: none; margin-left: 0; padding-left: 0; }
+  .toc li { margin: 0.35rem 0; }
+  .toc a { color: #334155; }
+  .footer-note {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>EduSync 教师使用指南（测试版）</h1>
+  <div class="subtitle">独立授课老师（学生账号见第 2 节）</div>
+  <div class="meta">
+    <strong>版本：</strong>2026 年 6 月 · 老师内测版<br><strong>网站：</strong>https://edu-sync-gamma.vercel.app<br><strong>适用对象：</strong>独立授课老师（学生账号见第 2 节）
+  </div>
+</div>
+<div class="toc"><h2>目录</h2><ul><li><a href="#section-1">1. 快速开始</a></li><li><a href="#section-2">2. 功能导览（老师）</a></li><li><a href="#section-3">3. AI 助手（测试版 Beta）</a></li><li><a href="#section-4">4. 常见问题</a></li><li><a href="#section-5">5. 测试时请你重点体验</a></li><li><a href="#section-6">6. 路线图摘要（给老师参考）</a></li></ul></div>
+<div class="content">
+<p><strong>版本：</strong> 2026 年 6 月 · 老师内测版<br />
+<strong>网站：</strong> https://edu-sync-gamma.vercel.app<br />
+<strong>适用对象：</strong> 独立授课老师（学生账号见第 2 节）</p>
+<hr />
+<h2 id="1">1. 快速开始</h2>
+<h3 id="11">1.1 老师注册与登录</h3>
+<ol>
+<li>打开网站 → 选择 <strong>注册</strong> → 角色选 <strong>老师（Teacher）</strong></li>
+<li>填写邮箱、密码、显示名称；也可用 <strong>Google 登录</strong></li>
+<li>登录后左侧为功能菜单，<strong>仪表盘</strong> 为首页总览</li>
+</ol>
+<h3 id="12">1.2 添加学生（推荐：邮箱邀请）</h3>
+<ol>
+<li>进入 <strong>学生（Students）</strong> 或 <strong>班级（Classes）</strong> → 打开班级名册</li>
+<li>点击 <strong>添加学生</strong>，填写 <strong>邮箱 + 姓名</strong>（可选年级、备注）</li>
+<li>系统会 <strong>自动创建学生登录账号</strong>，初始密码：<strong><code>123456</code></strong></li>
+<li>告诉学生：打开同一网站 → <strong>登录</strong>（不要注册）→ 邮箱 + <code>123456</code></li>
+<li>学生首次登录后可在各页面看到自己的班级、课表、作业</li>
+</ol>
+<p><strong>备选：</strong> 在班级页分享 <strong>班级邀请码</strong>，学生自行注册后加入。</p>
+<h3 id="13">1.3 学生能做什么 / 不能做什么</h3>
+<table>
+<thead>
+<tr>
+<th>可以</th>
+<th>暂不支持或受限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>看自己的课表、班级、作业</td>
+<td>看不到其他学生隐私</td>
+</tr>
+<tr>
+<td>提交作业、申请改课</td>
+<td>未注册邀请生不能交作业</td>
+</tr>
+<tr>
+<td>看自己的课时余额</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 功能导览（老师）</h2>
+<h3 id="21-dashboard">2.1 仪表盘 Dashboard</h3>
+<ul>
+<li>今日/近期课程、待办摘要</li>
+<li>快速了解「今天要上什么课」</li>
+</ul>
+<h3 id="22-calendar">2.2 日历 Calendar</h3>
+<ul>
+<li><strong>月视图 / 日视图</strong> 查看与排课</li>
+<li>老师：<strong>新建课程</strong>（选班级、日期、时间、标题、地点/会议链接）</li>
+<li><strong>编辑 / 删除</strong> 已有课次</li>
+<li><strong>记出勤</strong>：打开某节课 → 勾选出席学生</li>
+<li>页面下方有 <strong>AI 助手</strong> 卡片（测试版，见第 3 节）</li>
+</ul>
+<h3 id="23-classes">2.3 班级 Classes</h3>
+<ul>
+<li><strong>新建班级</strong>：名称、颜色、计费方式等</li>
+<li><strong>邀请码</strong>：学生可凭码加入</li>
+<li><strong>名册</strong>：查看已加入学生；邮箱添加学生</li>
+<li><strong>编辑 / 删除</strong> 班级</li>
+</ul>
+<h3 id="24-students">2.4 学生 Students</h3>
+<ul>
+<li><strong>全部学生</strong> 一览（跨班级）</li>
+<li><strong>添加学生</strong> 到指定班级（邮箱 + 初始密码 <code>123456</code>）</li>
+<li><strong>私有备注</strong>：仅老师可见，学生看不到</li>
+<li>点击学生可查看所属班级、备注</li>
+</ul>
+<h3 id="25-assignments">2.5 作业 Assignments</h3>
+<ul>
+<li>按班级 <strong>布置作业</strong>（标题、说明、截止日期）</li>
+<li>查看 <strong>提交情况</strong>、批改与反馈</li>
+<li>学生提交后你会收到 <strong>通知</strong></li>
+</ul>
+<h3 id="26-tuition">2.6 学费 / 课时 Tuition</h3>
+<ul>
+<li>为学生 <strong>充值课时</strong> 或调整余额</li>
+<li>查看各学生余额与消费记录</li>
+<li>记出勤时可关联扣课时（若班级设为按课时计费）</li>
+</ul>
+<h3 id="27-notifications">2.7 通知 Notifications</h3>
+<ul>
+<li>改课申请、作业提交、入班等系统提醒</li>
+<li>在 <strong>改课申请</strong> 中批准或拒绝学生请求</li>
+</ul>
+<h3 id="28-settings">2.8 设置 Settings</h3>
+<ul>
+<li>修改 <strong>显示名称</strong></li>
+<li>头像（若已上传）</li>
+</ul>
+<hr />
+<h2 id="3-ai-beta">3. AI 助手（测试版 Beta）</h2>
+<p><strong>入口：</strong> 左侧 <strong>AI 助手</strong>，或 <strong>日历</strong> 页底部卡片。</p>
+<h3 id="31">3.1 当前能做什么（只读）</h3>
+<p>用自然语言 <strong>查询</strong> 你自己的数据，例如：</p>
+<ul>
+<li>「这周有哪些课？」</li>
+<li>「Math 10 班有哪些学生？」</li>
+<li>「谁还没交作业？」</li>
+<li>「学费余额怎么样？」</li>
+<li>「有没有待审批的改课？」</li>
+</ul>
+<p>AI 会先查系统真实数据再回答，支持 <strong>中文 / 英文</strong>。</p>
+<h3 id="32">3.2 使用注意（测试版）</h3>
+<ul>
+<li>界面标有 <strong>「测试版」</strong>：功能与表述可能调整</li>
+<li><strong>不能代替你改数据</strong>：排课、出勤、充值等请在对应页面操作</li>
+<li>重要决定前请在应用里 <strong>再核对</strong> 班级名、日期、学生姓名</li>
+<li>仅 <strong>老师账号</strong> 可用；学生端暂无 AI</li>
+</ul>
+<h3 id="33">3.3 即将推出（收集你的反馈后开发）</h3>
+<ul>
+<li>用说话方式 <strong>排课 / 改课</strong> → 弹出确认卡 → 你点确认后才执行</li>
+<li>记出勤、充课时、布置作业、写备注等（均需确认）</li>
+<li>可选：从 Excel/PDF 导入学生名单</li>
+</ul>
+<hr />
+<h2 id="4">4. 常见问题</h2>
+<p><strong>Q：学生说登录不了？</strong><br />
+A：确认用 <strong>登录</strong> 而非注册；密码是否为 <code>123456</code>。若仍失败，在 <strong>学生</strong> 页用同一邮箱 <strong>再添加一次</strong> 到班级，系统会修复账号状态。</p>
+<p><strong>Q：邀请的学生显示「待加入」？</strong><br />
+A：多为旧邀请记录。请 <strong>重新添加</strong> 该邮箱，或让学生用 <code>123456</code> 登录。</p>
+<p><strong>Q：AI 没反应？</strong><br />
+A：需管理员在服务器配置 AI 密钥；若提示未配置，请联系平台维护者。</p>
+<p><strong>Q：邮件通知收不到？</strong><br />
+A：当前版本以 <strong>站内通知</strong> 为主；邮件功能仍在完善。</p>
+<hr />
+<h2 id="5">5. 测试时请你重点体验</h2>
+<p>请老师在内测中重点试这些流程，并反馈是否顺手：</p>
+<ol>
+<li>建班 → 邮箱添加 1～2 名测试学生 → 学生用 <code>123456</code> 登录  </li>
+<li>日历排课 2～3 节 → 记出勤 → 看仪表盘/日历是否一致  </li>
+<li>布置一条作业 → 学生提交 → 老师批改  </li>
+<li>学费充值 → 出勤后看余额变化  </li>
+<li>学生发起改课申请 → 老师批准/拒绝  </li>
+<li>AI 助手：问课表、学生、作业各 1 次，看回答是否准确  </li>
+</ol>
+<p><strong>反馈方式：</strong> 直接告诉产品/开发负责人（问题页面、操作步骤、截图更佳）。</p>
+<hr />
+<h2 id="6">6. 路线图摘要（给老师参考）</h2>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✅ 已可用</td>
+<td>班级、日历、学生、作业、学费、通知、改课、Google 登录</td>
+</tr>
+<tr>
+<td>🧪 测试中</td>
+<td>AI 助手（仅查询，测试版）</td>
+</tr>
+<tr>
+<td>⏸️ 等你测完再做</td>
+<td>AI 代操作（确认后执行）</td>
+</tr>
+<tr>
+<td>📌 以后</td>
+<td>学生端 AI、自动提醒、更多报表</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>EduSync · 教师内测指南 · 如有更新以线上产品为准</em></p>
+</div>
+<div class="footer-note">EduSync 教师使用指南（测试版） · EduSync</div>
+</body>
+</html>

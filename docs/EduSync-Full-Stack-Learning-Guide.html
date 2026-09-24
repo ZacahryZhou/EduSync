@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EduSync 全栈开发学习手册</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #1a1a1a;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .cover {
+    page-break-after: always;
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 0;
+    border-bottom: 4px solid #2563eb;
+  }
+  .cover h1 {
+    font-size: 28pt;
+    color: #1e3a8a;
+    margin: 0 0 0.5rem;
+    line-height: 1.25;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #475569;
+    margin-bottom: 2rem;
+  }
+  .cover .meta {
+    font-size: 10pt;
+    color: #64748b;
+    line-height: 1.8;
+  }
+  .cover .meta strong { color: #334155; }
+  h1 {
+    font-size: 18pt;
+    color: #1e40af;
+    border-bottom: 2px solid #dbeafe;
+    padding-bottom: 0.35rem;
+    margin-top: 1.8rem;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 13pt;
+    color: #1d4ed8;
+    margin-top: 1.4rem;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #2563eb;
+    margin-top: 1rem;
+    page-break-after: avoid;
+  }
+  p { margin: 0.5rem 0; }
+  ul, ol { margin: 0.4rem 0 0.8rem 1.2rem; padding-left: 0.5rem; }
+  li { margin: 0.25rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0 1.2rem;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #bfdbfe;
+  }
+  td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: #0f172a;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 8pt;
+    line-height: 1.5;
+    page-break-inside: avoid;
+    margin: 0.8rem 0;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  blockquote {
+    border-left: 4px solid #3b82f6;
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+    background: #f0f9ff;
+    color: #1e3a8a;
+    page-break-inside: avoid;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 1.5rem 0;
+  }
+  a { color: #2563eb; text-decoration: none; }
+  .toc {
+    page-break-after: always;
+    padding-bottom: 1rem;
+  }
+  .toc h2 { margin-top: 0; }
+  .toc ul { list-style: none; margin-left: 0; padding-left: 0; }
+  .toc li { margin: 0.35rem 0; }
+  .toc a { color: #334155; }
+  .footer-note {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 9pt;
+    color: #64748b;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>EduSync 全栈开发学习手册</h1>
+  <div class="subtitle">主要使用 Cursor / AI 写代码、希望系统补课的 EduSync 作者（Zachary）</div>
+  <div class="meta">
+    <strong>版本：</strong>2026年6月 · 第二版（全栈 + AI + 部署）<br><strong>网站：</strong>https://edu-sync-gamma.vercel.app<br><strong>适用对象：</strong>主要使用 Cursor / AI 写代码、希望系统补课的 EduSync 作者（Zachary）
+  </div>
+</div>
+<div class="toc"><h2>目录</h2><ul><li><a href="#section-1">1. 你为什么需要这份手册</a></li><li><a href="#section-2">2. 你的项目全景（真实环境）</a></li><li><a href="#section-3">3. 全栈架构：一张图看懂</a></li><li><a href="#section-4">4. 数据是如何传输的（完整链路）</a></li><li><a href="#section-5">5. 前端知识体系（结合你的代码）</a></li><li><a href="#section-6">6. 后端知识体系（Flask + Python）</a></li><li><a href="#section-7">7. Supabase 深度解析</a></li><li><a href="#section-8">8. 认证与登录完整流程</a></li><li><a href="#section-9">9. AI 功能架构（DeepSeek）</a></li><li><a href="#section-10">10. 部署：Vercel + Railway + Git</a></li><li><a href="#section-11">11. 环境变量完整字典</a></li><li><a href="#section-12">12. 你用 Cursor 开发时漏掉的知识点</a></li><li><a href="#section-13">13. 你项目里踩过的坑 → 对应知识点</a></li><li><a href="#section-14">14. 代码库地图（按目录）</a></li><li><a href="#section-15">15. 日常开发命令速查</a></li><li><a href="#section-16">16. 术语表（中英对照）</a></li><li><a href="#section-17">17. 延伸阅读与官方文档</a></li><li><a href="#section-18">18. 总结：你现在该记住的十句话</a></li></ul></div>
+<div class="content">
+<h2 id="cursor">从 Cursor 辅助开发到真正理解你的项目</h2>
+<p><strong>版本：</strong> 2026年6月 · 第二版（全栈 + AI + 部署）<br />
+<strong>网站：</strong> https://edu-sync-gamma.vercel.app<br />
+<strong>适用对象：</strong> 主要使用 Cursor / AI 写代码、希望系统补课的 EduSync 作者（Zachary）</p>
+<blockquote>
+<p>本手册结合 <strong>你当前真实线上环境</strong>、<strong>仓库里实际代码</strong>、以及 <strong>开发过程中踩过的坑</strong> 编写。<br />
+第一版 OAuth 专题见：<code>docs/EduSync-Google-OAuth-Deploy-Learning-Guide.pdf</code>（本册会涵盖并扩展）。</p>
+</blockquote>
+<hr />
+<h2 id="1">1. 你为什么需要这份手册</h2>
+<h3 id="11-cursor-vs">1.1 Cursor 开发 vs 真正学会</h3>
+<table>
+<thead>
+<tr>
+<th>你用 Cursor 时</th>
+<th>你可能没真正掌握</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「帮我加一个登录页」</td>
+<td>React 组件、状态、路由如何配合</td>
+</tr>
+<tr>
+<td>「部署到 Vercel」</td>
+<td>构建时注入 vs 运行时、CORS、环境变量</td>
+</tr>
+<tr>
+<td>「接 Supabase」</td>
+<td>Auth、PostgreSQL、RLS、service_role 区别</td>
+</tr>
+<tr>
+<td>「修这个 500 错误」</td>
+<td>请求从浏览器到数据库的完整链路</td>
+</tr>
+</tbody>
+</table>
+<p><strong>结论：</strong> Cursor 是加速器，不是替代品。你要能回答三个问题：</p>
+<ol>
+<li><strong>数据从哪来、到哪去？</strong>（浏览器 → API → 数据库 → 返回）</li>
+<li><strong>谁负责哪一层？</strong>（Vercel / Railway / Supabase / Google 各干什么）</li>
+<li><strong>改一个地方会影响哪里？</strong>（例如改 <code>VITE_API_URL</code> 必须重新 build）</li>
+</ol>
+<h3 id="12">1.2 本手册覆盖范围</h3>
+<ul>
+<li>全栈架构与数据流（含图示）</li>
+<li>前端：React、Vite、TypeScript、Tailwind、React Query、路由守卫</li>
+<li>后端：Flask、Blueprint、中间件、Supabase Python 客户端</li>
+<li>数据库：Supabase PostgreSQL、表关系、SQL 迁移文件</li>
+<li>认证：邮箱密码、Google OAuth、JWT、localStorage</li>
+<li>AI：DeepSeek、SSE 流式、工具调用（read tools）</li>
+<li>部署：Vercel（前端）+ Railway（后端）+ 环境变量大全</li>
+<li>你用 Cursor 时容易漏掉的知识点 + 学习路线</li>
+</ul>
+<hr />
+<h2 id="2">2. 你的项目全景（真实环境）</h2>
+<h3 id="21">2.1 线上地址一览</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>平台</th>
+<th>地址 / 说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前端（用户访问）</td>
+<td><strong>Vercel</strong></td>
+<td><code>https://edu-sync-gamma.vercel.app</code></td>
+</tr>
+<tr>
+<td>后端 API</td>
+<td><strong>Railway</strong></td>
+<td><code>https://edusync-production-6d33.up.railway.app/api</code></td>
+</tr>
+<tr>
+<td>数据库 + Auth</td>
+<td><strong>Supabase</strong></td>
+<td><code>https://ptxrmujnqrvwakfpdyhh.supabase.co</code></td>
+</tr>
+<tr>
+<td>AI 模型</td>
+<td><strong>DeepSeek</strong></td>
+<td>仅后端调用，密钥在 Railway Variables</td>
+</tr>
+<tr>
+<td>代码仓库</td>
+<td><strong>GitHub</strong></td>
+<td><code>fanxiaotuGod/EduSync</code></td>
+</tr>
+<tr>
+<td>邮件（可选）</td>
+<td><strong>Resend</strong></td>
+<td>后端 <code>RESEND_API_KEY</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-edusync">2.2 EduSync 是什么（产品层）</h3>
+<p>面向 <strong>老师 + 学生</strong> 的教学协作平台：</p>
+<ul>
+<li>班级与邀请码、学生账号</li>
+<li>共享日历 / 排课、出勤、调课申请</li>
+<li>作业发布与提交</li>
+<li>学费 / 课时余额</li>
+<li>通知</li>
+<li><strong>老师端 AI 助手</strong>（Beta，只读查询 + 对话）</li>
+<li><strong>新功能预告投票</strong>（拖拽排课、学生资料 AI、微信/WhatsApp、周期报告、Google Drive 等）</li>
+</ul>
+<h3 id="23">2.3 技术栈总表</h3>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>技术</th>
+<th>在你项目里的角色</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UI</td>
+<td>React 18 + TypeScript</td>
+<td>所有页面与组件</td>
+</tr>
+<tr>
+<td>构建</td>
+<td>Vite</td>
+<td>开发服务器、<code>npm run build</code> 产出 <code>dist/</code></td>
+</tr>
+<tr>
+<td>样式</td>
+<td>Tailwind CSS + shadcn/ui</td>
+<td>按钮、对话框、侧边栏等</td>
+</tr>
+<tr>
+<td>数据请求</td>
+<td>TanStack React Query</td>
+<td>缓存 API 结果、自动 refetch</td>
+</tr>
+<tr>
+<td>国际化</td>
+<td>i18next</td>
+<td><code>src/locales/zh.json</code>、<code>en.json</code></td>
+</tr>
+<tr>
+<td>路由</td>
+<td>React Router v6</td>
+<td><code>App.tsx</code> 里定义路径</td>
+</tr>
+<tr>
+<td>API 封装</td>
+<td><code>src/lib/api.ts</code></td>
+<td><code>apiFetch</code>、各业务函数</td>
+</tr>
+<tr>
+<td>后端框架</td>
+<td>Flask (Python)</td>
+<td><code>backend/app/</code></td>
+</tr>
+<tr>
+<td>ORM/DB 访问</td>
+<td>Supabase Python SDK</td>
+<td>直接 <code>.table().select()</code></td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>PostgreSQL (Supabase)</td>
+<td>所有业务表</td>
+</tr>
+<tr>
+<td>身份认证</td>
+<td>Supabase Auth + 自签 JWT</td>
+<td>登录、Google OAuth</td>
+</tr>
+<tr>
+<td>文件存储</td>
+<td>Supabase Storage</td>
+<td>班级资料、作业文件</td>
+</tr>
+<tr>
+<td>前端托管</td>
+<td>Vercel</td>
+<td>静态站点 + SPA 路由</td>
+</tr>
+<tr>
+<td>后端托管</td>
+<td>Railway</td>
+<td>Gunicorn 跑 Flask</td>
+</tr>
+<tr>
+<td>LLM</td>
+<td>DeepSeek API</td>
+<td><code>/api/ai/chat</code> 流式回复</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3">3. 全栈架构：一张图看懂</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│  用户浏览器（Chrome / Safari / 手机）                              │
+│  打开：https://edu-sync-gamma.vercel.app                         │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTPS
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  VERCEL — 只托管「前端静态文件」                                   │
+│  • HTML / JS / CSS（Vite build 后的 dist/）                       │
+│  • vercel.json：所有路径 rewrite 到 index.html（SPA）              │
+│  • 构建时注入：VITE_API_URL、VITE_SUPABASE_URL、VITE_SUPABASE_ANON_KEY │
+│  ⚠️ Vercel 不跑 Python，不连数据库                                 │
+└────────────┬───────────────────────────────┬────────────────────┘
+             │ fetch /api/*                   │ Supabase JS（Google 登录）
+             ▼                                ▼
+┌────────────────────────────┐    ┌──────────────────────────────┐
+│  RAILWAY — Flask 后端       │    │  SUPABASE — Auth + Storage    │
+│  Gunicorn + run:app         │    │  • Google OAuth 回调           │
+│  /api/health                │    │  • 发 session / access token   │
+│  /api/auth/login            │    │  • anon key（前端可用）         │
+│  /api/classes ...           │    └──────────────┬───────────────┘
+│  /api/ai/chat (SSE)         │                   │
+│  DEEPSEEK_API_KEY 在此       │                   │
+└────────────┬───────────────┘                   │
+             │ service_role key                    │ PostgreSQL
+             ▼                                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  SUPABASE PostgreSQL — 所有业务数据                                │
+│  users, class_groups, sessions, assignments, notifications, ...   │
+└─────────────────────────────────────────────────────────────────┘
+             │
+             ▼（AI 聊天时）
+┌─────────────────────────────────────────────────────────────────┐
+│  DEEPSEEK API（外部）— 大语言模型，仅后端调用                        │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="31">3.1 关键理解（必背）</h3>
+<ol>
+<li><strong>前端和后端是两次部署、两个域名</strong> — 浏览器用 <code>fetch</code> 跨域访问 Railway，靠 <strong>CORS</strong> 允许。</li>
+<li><strong>Supabase 有两套密钥</strong> — <code>anon</code>（前端）和 <code>service_role</code>（仅后端，权限极大，绝不能进前端或 Git）。</li>
+<li><strong>Vite 环境变量以 <code>VITE_</code> 开头</strong> — 只在 <strong><code>npm run build</code> 时</strong> 打进 JS；改 Vercel 变量后必须 <strong>Redeploy</strong>。</li>
+<li><strong>Railway 环境变量在进程启动时读取</strong> — 改完通常自动重新部署；不需要「build 前端」那种概念。</li>
+</ol>
+<hr />
+<h2 id="4">4. 数据是如何传输的（完整链路）</h2>
+<h3 id="41">4.1 例子：老师打开日历页，看到课程列表</h3>
+<pre><code>1. 用户已登录 → localStorage 有 edusync_token
+2. CalendarPage 挂载 → useQuery 调用 listSessions()
+3. listSessions() → apiFetch('/sessions?month=2026-06')
+4. apiFetch 拼接 BASE_URL：
+   生产：https://edusync-production-6d33.up.railway.app/api/sessions?month=...
+   本地：http://127.0.0.1:5000/api/sessions?month=...
+5. 请求头自动加：Authorization: Bearer &lt;JWT&gt;
+6. Railway 上 Flask → sessions blueprint → @require_auth
+7. require_auth 用 supabase_auth.auth.get_user(token) 验证 JWT
+8. 查 PostgreSQL：sessions 表 + class_groups 权限
+9. 返回 JSON 数组
+10. React Query 缓存数据 → 页面渲染列表
+</code></pre>
+<h3 id="42-http">4.2 HTTP 请求里有什么</h3>
+<table>
+<thead>
+<tr>
+<th>部分</th>
+<th>示例</th>
+<th>谁关心</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Method</td>
+<td><code>GET</code> / <code>POST</code> / <code>PATCH</code> / <code>DELETE</code></td>
+<td>REST 语义</td>
+</tr>
+<tr>
+<td>URL</td>
+<td><code>/api/sessions</code></td>
+<td>路由到哪个 Blueprint</td>
+</tr>
+<tr>
+<td>Headers</td>
+<td><code>Authorization: Bearer eyJ...</code></td>
+<td>后端鉴权</td>
+</tr>
+<tr>
+<td>Headers</td>
+<td><code>Content-Type: application/json</code></td>
+<td>POST body 格式</td>
+</tr>
+<tr>
+<td>Body</td>
+<td><code>{"class_id":"...","date":"2026-06-15"}</code></td>
+<td>创建/更新数据</td>
+</tr>
+<tr>
+<td>Response</td>
+<td><code>200</code> + JSON 或 <code>401</code>/<code>403</code>/<code>500</code></td>
+<td>前端 toast / 跳转登录</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-apits">4.3 前端 api.ts 的设计（你应该会读）</h3>
+<p>文件：<code>src/lib/api.ts</code></p>
+<ul>
+<li><code>BASE_URL</code> = <code>import.meta.env.VITE_API_URL</code> 或本地默认 <code>http://127.0.0.1:5000/api</code></li>
+<li><code>apiFetch(path, init)</code>：自动加 Bearer token（从 <code>localStorage</code> 的 <code>edusync_token</code>）</li>
+<li>每个业务一个函数：<code>listClasses()</code>、<code>createSession()</code>、<code>streamAiChat()</code> 等</li>
+</ul>
+<p><strong>学习作业：</strong> 打开 <code>CalendarPage.tsx</code>，搜 <code>listSessions</code>，跟到 <code>api.ts</code>，再跟到 <code>backend/app/blueprints/sessions.py</code>（或类似文件）。</p>
+<h3 id="44-blueprint">4.4 后端 Blueprint 模式</h3>
+<p>文件：<code>backend/app/__init__.py</code> 注册所有 blueprint：</p>
+<table>
+<thead>
+<tr>
+<th>Blueprint</th>
+<th>大致职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>health_bp</code></td>
+<td><code>GET /api/health</code> 健康检查</td>
+</tr>
+<tr>
+<td><code>auth_bp</code></td>
+<td>注册、登录、OAuth</td>
+</tr>
+<tr>
+<td><code>users_bp</code></td>
+<td>个人资料</td>
+</tr>
+<tr>
+<td><code>classes_bp</code></td>
+<td>班级 CRUD、资料上传</td>
+</tr>
+<tr>
+<td><code>sessions_bp</code></td>
+<td>日历课程</td>
+</tr>
+<tr>
+<td><code>students_bp</code></td>
+<td>学生管理、邀请</td>
+</tr>
+<tr>
+<td><code>assignments_bp</code></td>
+<td>作业</td>
+</tr>
+<tr>
+<td><code>tuition_bp</code></td>
+<td>学费余额</td>
+</tr>
+<tr>
+<td><code>notifications_bp</code></td>
+<td>通知</td>
+</tr>
+<tr>
+<td><code>ai_bp</code></td>
+<td>AI 聊天 SSE</td>
+</tr>
+<tr>
+<td><code>feedback_bp</code></td>
+<td>新功能投票</td>
+</tr>
+</tbody>
+</table>
+<p>每个 blueprint 是一个 Python 文件，用 <code>@blueprint.route</code> 定义 URL。</p>
+<h3 id="45-require_auth-require_role">4.5 中间件：require_auth 与 require_role</h3>
+<p>文件：<code>backend/app/middleware/auth.py</code></p>
+<pre><code>require_auth：
+  读 Authorization 头 → 取 Bearer token → supabase_auth.get_user(token)
+  → 成功则 g.current_user = 用户 → 继续执行视图函数
+  → 失败返回 401
+
+require_role('teacher')：
+  在 require_auth 之后 → 查 users 表 role → 不是 teacher 则 403
+</code></pre>
+<hr />
+<h2 id="5">5. 前端知识体系（结合你的代码）</h2>
+<h3 id="51-react">5.1 React 核心概念</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>在你项目中的例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>组件</td>
+<td><code>CalendarPage.tsx</code>、<code>AiAssistant.tsx</code></td>
+</tr>
+<tr>
+<td>Props</td>
+<td>父传子，如 <code>&lt;AiAssistant variant="embedded" /&gt;</code></td>
+</tr>
+<tr>
+<td>State</td>
+<td><code>useState</code>：表单、对话框开关</td>
+</tr>
+<tr>
+<td>Effect</td>
+<td><code>useEffect</code>：页面加载时同步 URL 参数</td>
+</tr>
+<tr>
+<td>Context</td>
+<td><code>AuthContext</code>：全局 user / token / login / logout</td>
+</tr>
+<tr>
+<td>自定义 Hook</td>
+<td><code>useAuth()</code>、<code>use-mobile.tsx</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-react-router">5.2 React Router（路由）</h3>
+<p>文件：<code>src/App.tsx</code></p>
+<table>
+<thead>
+<tr>
+<th>路径</th>
+<th>组件</th>
+<th>守卫</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/</code></td>
+<td>HomePage</td>
+<td>无（已登录则跳 dashboard）</td>
+</tr>
+<tr>
+<td><code>/login</code></td>
+<td>LoginPage</td>
+<td>GuestRoute（已登录不能进）</td>
+</tr>
+<tr>
+<td><code>/register</code></td>
+<td>RegisterPage</td>
+<td>GuestRoute</td>
+</tr>
+<tr>
+<td><code>/auth/callback</code></td>
+<td>AuthCallbackPage</td>
+<td>Google OAuth 回调</td>
+</tr>
+<tr>
+<td><code>/dashboard</code> 等</td>
+<td>各业务页</td>
+<td>ProtectedRoute（未登录 → /login）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ProtectedRoute</strong>（<code>src/components/ProtectedRoute.tsx</code>）：没有 token → <code>&lt;Navigate to="/login" /&gt;</code><br />
+<strong>GuestRoute</strong>：已有 token → 跳 dashboard</p>
+<h3 id="53-tanstack-react-query">5.3 TanStack React Query</h3>
+<p>为什么用：避免每个页面自己 <code>useEffect + fetch</code>，统一 loading/error/缓存。</p>
+<pre><code class="language-tsx">const classesQuery = useQuery({
+  queryKey: [&quot;classes&quot;, user?.id],
+  queryFn: () =&gt; listClasses(),
+  enabled: Boolean(user?.id),
+});
+</code></pre>
+<ul>
+<li><code>queryKey</code>：缓存键，数据变了用 <code>queryClient.invalidateQueries</code></li>
+<li><code>enabled</code>：没登录就不请求</li>
+</ul>
+<h3 id="54-vite">5.4 Vite 是什么</h3>
+<ul>
+<li><strong>开发：</strong> <code>npm run dev</code> → 本地 <code>http://localhost:8080</code>，热更新</li>
+<li><strong>生产：</strong> <code>npm run build</code> → 输出 <code>dist/</code> 文件夹（纯静态）</li>
+<li><strong>环境变量：</strong> 只有 <code>VITE_</code> 前缀会暴露给前端代码</li>
+</ul>
+<h3 id="55-tailwind-shadcnui">5.5 Tailwind + shadcn/ui</h3>
+<ul>
+<li>Tailwind：用 class 写样式，如 <code>flex gap-2 rounded-xl</code></li>
+<li>shadcn：可复制组件在 <code>src/components/ui/</code>，基于 Radix UI</li>
+</ul>
+<h3 id="56-i18n">5.6 国际化 i18n</h3>
+<ul>
+<li>文案在 <code>src/locales/zh.json</code>、<code>en.json</code></li>
+<li>页面里：<code>const { t } = useTranslation();</code> → <code>t("calendar.title")</code></li>
+<li><strong>改 UI 文字优先改 json</strong>，不要硬编码英文（HomePage 营销页除外）</li>
+</ul>
+<hr />
+<h2 id="6-flask-python">6. 后端知识体系（Flask + Python）</h2>
+<h3 id="61">6.1 项目入口</h3>
+<pre><code>backend/
+  run.py          → from app import create_app; app = create_app()
+  Procfile        → gunicorn run:app --bind 0.0.0.0:$PORT  （Railway 用）
+  app/
+    __init__.py   → create_app() 注册 blueprint
+    config.py     → 从环境变量读配置
+    extensions.py → supabase 客户端单例
+    blueprints/   → 各 API 模块
+    middleware/   → auth 装饰器
+    services/     → 业务逻辑（email、AI、学生账号等）
+</code></pre>
+<h3 id="62-config-extensions">6.2 Config 与 extensions</h3>
+<ul>
+<li><code>Config</code> 类：启动时检查 <code>SUPABASE_URL</code>、<code>SUPABASE_SERVICE_ROLE_KEY</code> 等是否缺失</li>
+<li><code>extensions.py</code>：<code>supabase</code> 用 <strong>service_role</strong> 连接，可绕过 RLS 做后端操作</li>
+</ul>
+<h3 id="63">6.3 本地运行后端</h3>
+<pre><code class="language-bash">cd backend
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # 填 Supabase 等
+python run.py               # 默认 http://127.0.0.1:5000
+curl http://127.0.0.1:5000/api/health
+</code></pre>
+<h3 id="64-gunicorn">6.4 Gunicorn（生产）</h3>
+<p>Railway 不用 <code>python run.py</code>，用 <strong>Gunicorn</strong> 多 worker 跑 WSGI 应用，更稳。</p>
+<hr />
+<h2 id="7-supabase">7. Supabase 深度解析</h2>
+<h3 id="71-supabase">7.1 Supabase 不是「只有一个数据库」</h3>
+<p>它是一套 BaaS（Backend-as-a-Service）：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PostgreSQL</strong></td>
+<td>存 users、sessions、classes…</td>
+</tr>
+<tr>
+<td><strong>Auth</strong></td>
+<td>注册、登录、OAuth、发 JWT</td>
+</tr>
+<tr>
+<td><strong>Storage</strong></td>
+<td>上传 PDF、作业文件（bucket）</td>
+</tr>
+<tr>
+<td><strong>Dashboard SQL Editor</strong></td>
+<td>跑 <code>backend/sql/*.sql</code> 迁移</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72">7.2 两把钥匙（最重要）</h3>
+<table>
+<thead>
+<tr>
+<th>密钥</th>
+<th>在哪用</th>
+<th>权限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>anon（public）</strong></td>
+<td>前端 <code>VITE_SUPABASE_ANON_KEY</code></td>
+<td>受 RLS 限制，适合客户端</td>
+</tr>
+<tr>
+<td><strong>service_role</strong></td>
+<td>后端 <code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+<td>几乎全权，<strong>绝不能泄露</strong></td>
+</tr>
+</tbody>
+</table>
+<p>你的 Flask 后端用 service_role 直接操作表；前端 Google 登录用 anon + Supabase JS SDK。</p>
+<h3 id="73">7.3 主要数据表（逻辑关系）</h3>
+<pre><code>users（用户：老师/学生）
+  │
+  ├── class_groups（班级，teacher_id 指向 users）
+  │     ├── class_enrollments（学生加入班级）
+  │     ├── sessions（排课）
+  │     ├── assignments（作业）
+  │     └── class_materials（资料文件）
+  │
+  ├── notifications（通知）
+  ├── student_balances / transactions（学费）
+  ├── attendance（出勤）
+  ├── feature_feedback（新功能投票）
+  └── ai_interactions（AI 对话日志，可选）
+</code></pre>
+<h3 id="74-sql">7.4 SQL 迁移文件在哪</h3>
+<p>目录：<code>backend/sql/</code></p>
+<p>常见：</p>
+<ul>
+<li><code>create_mvp_tables.sql</code> — 基础表</li>
+<li><code>fix_sessions_schema.sql</code>、<code>fix_class_groups_schema.sql</code> — 修列</li>
+<li><code>create_feature_feedback.sql</code> — 功能投票</li>
+<li><code>create_ai_interactions.sql</code> — AI 日志</li>
+<li><code>setup_materials_bucket.sql</code> — Storage 桶</li>
+</ul>
+<p><strong>操作：</strong> Supabase 控制台 → SQL Editor → 粘贴 → Run（每个文件通常只需跑一次）。</p>
+<h3 id="75-rlsrow-level-security">7.5 RLS（Row Level Security）</h3>
+<p>Supabase 表可开 RLS 限制「谁能读哪一行」。<br />
+你的架构是 <strong>后端用 service_role 统一访问</strong>，前端 <strong>不直接查表</strong>（除 OAuth 用 Auth API）。这是常见 BFF（Backend For Frontend）模式。</p>
+<hr />
+<h2 id="8">8. 认证与登录完整流程</h2>
+<h3 id="81">8.1 邮箱 + 密码登录</h3>
+<pre><code>1. LoginPage 提交 email/password
+2. POST /api/auth/login → auth blueprint
+3. 后端查 users、校验密码（Supabase Auth 或 bcrypt，以实现为准）
+4. 返回 { token, user: { id, display_name, role } }
+5. AuthContext.login(token, user) → 写入 localStorage + React state
+6. navigate 到 /dashboard 或 from 参数指向的页面
+</code></pre>
+<p><strong>localStorage 键：</strong></p>
+<ul>
+<li><code>edusync_token</code> — JWT</li>
+<li><code>edusync_user</code> — JSON 用户信息</li>
+</ul>
+<h3 id="82-google-oauth">8.2 Google 一键登录（OAuth）</h3>
+<p>详见第一版 PDF；核心两步跳转：</p>
+<ol>
+<li>用户点 Google → Supabase → <strong>Google</strong> 授权 → 回到 <code>https://xxx.supabase.co/auth/v1/callback</code></li>
+<li>Supabase → 重定向到你的 <strong><code>/auth/callback</code></strong>，带 token 或 code</li>
+<li><code>AuthCallbackPage</code> 调后端 <code>POST /api/auth/oauth/complete</code> 或 <code>register</code></li>
+<li>后端在 <code>users</code> 表建/查记录，返回你自己的 JWT</li>
+</ol>
+<p><strong>配置位置：</strong></p>
+<ul>
+<li>Google Cloud Console：redirect URI = Supabase callback</li>
+<li>Supabase：Redirect URLs = 你的 Vercel 域名 <code>/auth/callback</code></li>
+</ul>
+<h3 id="83">8.3 老师添加学生账号</h3>
+<ul>
+<li>后端 <code>student_accounts.py</code>：创建 Supabase Auth 用户、默认密码 <code>123456</code>、确认邮箱</li>
+<li>学生用 <strong>登录</strong> 而非注册；常见问题「Email not confirmed」已通过服务端 confirm 修复</li>
+</ul>
+<h3 id="84-api">8.4 每次 API 请求如何带身份</h3>
+<p><code>apiFetch</code> 自动：<code>Authorization: Bearer &lt;edusync_token&gt;</code><br />
+后端 <code>@require_auth</code> 验证 → 业务逻辑里用 <code>g.current_user.id</code></p>
+<hr />
+<h2 id="9-ai-deepseek">9. AI 功能架构（DeepSeek）</h2>
+<h3 id="91">9.1 设计原则</h3>
+<ul>
+<li><strong>密钥只在后端</strong> — <code>DEEPSEEK_API_KEY</code> 在 <code>backend/.env</code> / Railway，Never <code>VITE_*</code></li>
+<li><strong>仅老师可用</strong> — <code>@require_role('teacher')</code> on <code>ai_bp</code></li>
+<li><strong>Beta 阶段只读</strong> — AI 可调 read tools 查班级/课表，写操作需未来 confirm 流程</li>
+</ul>
+<h3 id="92-ai">9.2 数据流：老师发一条 AI 消息</h3>
+<pre><code>1. AiAssistant 组件 → streamAiChat(messages)
+2. POST /api/ai/chat，body: { messages: [...] }
+3. Flask 调 DeepSeek API（backend/app/services/deepseek.py）
+4. 若模型要查数据 → ai_tools.py 读 Supabase
+5. 响应用 SSE（Server-Sent Events）流式返回 token
+6. 前端 ReadableStream 逐字显示
+7. 可选写入 ai_interactions 表
+</code></pre>
+<h3 id="93-sse">9.3 SSE 事件类型</h3>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token</code></td>
+<td>一段文字</td>
+</tr>
+<tr>
+<td><code>tool_start</code></td>
+<td>开始查数据库</td>
+</tr>
+<tr>
+<td><code>tool_done</code></td>
+<td>查完</td>
+</tr>
+<tr>
+<td><code>done</code></td>
+<td>结束</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>出错</td>
+</tr>
+</tbody>
+</table>
+<h3 id="94">9.4 相关文件</h3>
+<ul>
+<li><code>backend/app/blueprints/ai.py</code></li>
+<li><code>backend/app/services/deepseek.py</code>、<code>ai_tools.py</code></li>
+<li><code>src/components/AiAssistant.tsx</code></li>
+<li><code>docs/AI-ARCHITECTURE.md</code>、<code>docs/AI-SAFETY-POLICY.md</code></li>
+</ul>
+<h3 id="95-ai">9.5 路线图上的 AI 功能（预告投票）</h3>
+<table>
+<thead>
+<tr>
+<th>feature_id</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>calendar_drag_schedule</code></td>
+<td>拖拽排课</td>
+</tr>
+<tr>
+<td><code>student_materials_ai</code></td>
+<td>学生基于老师资料问答</td>
+</tr>
+<tr>
+<td><code>messaging_ai_integration</code></td>
+<td>微信/WhatsApp 连 AI</td>
+</tr>
+<tr>
+<td><code>periodic_teacher_reports</code></td>
+<td>周期学情报告</td>
+</tr>
+<tr>
+<td><code>google_drive_integration</code></td>
+<td>Google Drive 资料接入</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-vercel-railway-git">10. 部署：Vercel + Railway + Git</h2>
+<h3 id="101-git-github">10.1 Git 与 GitHub 在流程中的位置</h3>
+<pre><code>你本地改代码 → git commit → git push origin main
+       ↓                        ↓
+  Cursor 编辑              GitHub 仓库更新
+                                ↓
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+              Vercel 自动 build        Railway 自动 deploy
+              （前端 dist/）            （backend/ + Gunicorn）
+</code></pre>
+<h3 id="102-vercel">10.2 Vercel 详解</h3>
+<p><strong>它是什么：</strong> 静态网站 + Serverless 边缘 CDN 托管商。</p>
+<p><strong>EduSync 配置：</strong></p>
+<ul>
+<li>根目录：仓库根（不是 <code>backend/</code>）</li>
+<li>Build：<code>npm run build</code></li>
+<li>Output：<code>dist</code></li>
+<li><code>vercel.json</code>：<code>rewrites</code> 让所有路径回到 <code>index.html</code>（React SPA 必须，否则刷新 <code>/calendar</code> 会 404）</li>
+</ul>
+<p><strong>环境变量（Production）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td><code>https://edusync-production-6d33.up.railway.app/api</code></td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_URL</code></td>
+<td>你的 Supabase URL</td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_ANON_KEY</code></td>
+<td>anon key</td>
+</tr>
+</tbody>
+</table>
+<p>⚠️ 改完必须 <strong>Redeploy</strong>，否则旧 JS 里仍是旧 API 地址。</p>
+<h3 id="103-railway">10.3 Railway 详解</h3>
+<p><strong>它是什么：</strong> 跑长期在线进程的平台（你的 Flask）。</p>
+<p><strong>关键设置：</strong></p>
+<ul>
+<li>Root Directory：<code>backend</code></li>
+<li>Start：<code>gunicorn run:app --bind 0.0.0.0:$PORT</code>（见 <code>Procfile</code>）</li>
+<li>Variables：见下一节</li>
+</ul>
+<p><strong>试用限制：</strong> Trial 约 30 天或 $5 额度用完；长期需 Hobby 付费。</p>
+<p><strong>健康检查：</strong> <code>GET /api/health</code> → <code>{"status":"ok"}</code></p>
+<h3 id="104-vercel">10.4 只部署 Vercel 可以吗？</h3>
+<p><strong>不行。</strong> 前端静态页没有你的业务 API；必须 Railway（或 Render、自建 VPS）同时在线。</p>
+<h3 id="105-cors">10.5 CORS</h3>
+<p><code>backend/app/__init__.py</code> 里 <code>CORS(app)</code> 允许浏览器从 <code>vercel.app</code> 域名访问 Railway API。<br />
+<code>FRONTEND_URL</code> 环境变量用于邮件链接、OAuth 等需要拼前端地址的地方。</p>
+<hr />
+<h2 id="11">11. 环境变量完整字典</h2>
+<h3 id="111-env-vercel">11.1 前端（<code>.env</code> 或 Vercel）</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td>生产必填</td>
+<td>后端根，含 <code>/api</code></td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_URL</code></td>
+<td>Google 登录必填</td>
+<td>Supabase 项目 URL</td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_ANON_KEY</code></td>
+<td>Google 登录必填</td>
+<td>公开 anon key</td>
+</tr>
+</tbody>
+</table>
+<h3 id="112-backendenv-railway">11.2 后端（<code>backend/.env</code> 或 Railway）</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SUPABASE_URL</code></td>
+<td>✅</td>
+<td>同上前缀</td>
+</tr>
+<tr>
+<td><code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+<td>✅</td>
+<td>service_role，保密</td>
+</tr>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td>推荐</td>
+<td><code>https://edu-sync-gamma.vercel.app</code></td>
+</tr>
+<tr>
+<td><code>FLASK_ENV</code></td>
+<td>推荐</td>
+<td><code>production</code></td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_API_KEY</code></td>
+<td>AI 必填</td>
+<td>DeepSeek</td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_API_BASE</code></td>
+<td>可选</td>
+<td>默认 deepseek.com</td>
+</tr>
+<tr>
+<td><code>DEEPSEEK_MODEL</code></td>
+<td>可选</td>
+<td>默认 deepseek-chat</td>
+</tr>
+<tr>
+<td><code>RESEND_API_KEY</code></td>
+<td>邮件功能</td>
+<td>Resend</td>
+</tr>
+<tr>
+<td><code>CRON_SECRET</code></td>
+<td>定时任务</td>
+<td>调 <code>/api/cron/*</code></td>
+</tr>
+<tr>
+<td><code>DEFAULT_STUDENT_PASSWORD</code></td>
+<td>可选</td>
+<td>默认 <code>123456</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="113-git">11.3 绝对不要提交 Git 的</h3>
+<ul>
+<li>任何 <code>.env</code></li>
+<li><code>SUPABASE_SERVICE_ROLE_KEY</code></li>
+<li><code>DEEPSEEK_API_KEY</code></li>
+<li>Google Client Secret</li>
+</ul>
+<p><code>.gitignore</code> 应已忽略；用 <code>.env.example</code> 做模板。</p>
+<hr />
+<h2 id="12-cursor">12. 你用 Cursor 开发时漏掉的知识点</h2>
+<h3 id="121-48">12.1 建议补课顺序（4–8 周）</h3>
+<table>
+<thead>
+<tr>
+<th>周</th>
+<th>主题</th>
+<th>具体行动</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>HTTP + REST</td>
+<td>用浏览器 F12 Network 跟一次登录、一次 listSessions</td>
+</tr>
+<tr>
+<td>2</td>
+<td>React 基础</td>
+<td>读 <code>AuthContext</code>、<code>ProtectedRoute</code>、一个完整 Page</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Flask 路由</td>
+<td>读 <code>auth.py</code>、<code>classes.py</code> 各一个 endpoint</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Supabase + SQL</td>
+<td>在 Dashboard 看表结构，跑一条 SELECT</td>
+</tr>
+<tr>
+<td>5</td>
+<td>部署链路</td>
+<td>自己改一行文案 → push → 看 Vercel 部署日志</td>
+</tr>
+<tr>
+<td>6</td>
+<td>AI/SSE</td>
+<td>读 <code>AiAssistant</code> + <code>ai.py</code> 流式部分</td>
+</tr>
+<tr>
+<td>7</td>
+<td>安全</td>
+<td>anon vs service_role、JWT、CORS</td>
+</tr>
+<tr>
+<td>8</td>
+<td>综合</td>
+<td>独立加一个小 API（如 GET /api/ping-you）不用 Cursor</td>
+</tr>
+</tbody>
+</table>
+<h3 id="122">12.2 每个平台「一句话」</h3>
+<table>
+<thead>
+<tr>
+<th>名词</th>
+<th>一句话</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vercel</strong></td>
+<td>托管你 build 出来的前端网页</td>
+</tr>
+<tr>
+<td><strong>Railway</strong></td>
+<td>24 小时运行你的 Python 后端</td>
+</tr>
+<tr>
+<td><strong>Supabase</strong></td>
+<td>云上的 PostgreSQL + 登录 + 文件桶</td>
+</tr>
+<tr>
+<td><strong>GitHub</strong></td>
+<td>代码版本库，触发自动部署</td>
+</tr>
+<tr>
+<td><strong>Vite</strong></td>
+<td>把 React 源码打包成浏览器能跑的 JS</td>
+</tr>
+<tr>
+<td><strong>Flask</strong></td>
+<td>Python 里写 URL → 函数的轻量 Web 框架</td>
+</tr>
+<tr>
+<td><strong>JWT</strong></td>
+<td>登录后发的「通行证」，每次 API 带上</td>
+</tr>
+<tr>
+<td><strong>OAuth</strong></td>
+<td>用 Google 登录而不把 Google 密码给你</td>
+</tr>
+<tr>
+<td><strong>SSE</strong></td>
+<td>服务器一边生成 AI 字一边推给浏览器</td>
+</tr>
+<tr>
+<td><strong>CORS</strong></td>
+<td>浏览器允许 A 网站请求 B 网站 API 的规则</td>
+</tr>
+<tr>
+<td><strong>Blueprint</strong></td>
+<td>Flask 里按模块拆分路由的方式</td>
+</tr>
+<tr>
+<td><strong>React Query</strong></td>
+<td>管 API 数据缓存和刷新的库</td>
+</tr>
+</tbody>
+</table>
+<h3 id="123-cursor">12.3 Cursor 使用建议</h3>
+<ol>
+<li><strong>让 AI 改代码后，你自己读 diff</strong> — 问「这段为什么这样写」</li>
+<li><strong>大功能先画数据流</strong> — 再让 Cursor 实现</li>
+<li><strong>部署问题先查日志</strong> — Vercel Build Log、Railway Deploy Log</li>
+<li><strong>数据库变更自己跑 SQL</strong> — 知道执行了哪条 migration</li>
+</ol>
+<hr />
+<h2 id="13">13. 你项目里踩过的坑 → 对应知识点</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>根因</th>
+<th>学到什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>学生无法登录 123456</td>
+<td>Supabase Email not confirmed</td>
+<td>Auth 状态机、服务端 confirm</td>
+</tr>
+<tr>
+<td>Google 登录 redirect 错误</td>
+<td>两套 redirect URL 混了</td>
+<td>OAuth 流程、Supabase vs Google 配置</td>
+</tr>
+<tr>
+<td>Failed to fetch</td>
+<td><code>VITE_API_URL</code> 错或未 redeploy</td>
+<td>构建时环境变量</td>
+</tr>
+<tr>
+<td>Railway ModuleNotFoundError</td>
+<td>Root Directory 不是 <code>backend</code></td>
+<td>部署目录、Procfile</td>
+</tr>
+<tr>
+<td>column does not exist</td>
+<td>SQL 迁移未跑</td>
+<td>Schema 版本与 <code>backend/sql/</code></td>
+</tr>
+<tr>
+<td>AI 双滚动条</td>
+<td>嵌套 overflow</td>
+<td>CSS flex + overflow 布局</td>
+</tr>
+<tr>
+<td>功能投票 503</td>
+<td><code>feature_feedback</code> 表不存在</td>
+<td>先跑 SQL 再调 API</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="14">14. 代码库地图（按目录）</h2>
+<pre><code>EduSync/
+├── src/                          # 前端源码
+│   ├── App.tsx                   # 路由总表
+│   ├── pages/                    # 每个 URL 一个页面
+│   ├── components/               # 可复用 UI（含 ui/ shadcn）
+│   ├── context/AuthContext.tsx   # 登录状态中枢
+│   ├── lib/api.ts                # 所有 HTTP API
+│   ├── lib/roles.ts              # teacher/student 判断
+│   └── locales/                  # 中英文文案
+├── backend/
+│   ├── app/blueprints/           # REST API 模块
+│   ├── app/middleware/auth.py    # 鉴权装饰器
+│   ├── app/services/             # 复杂业务逻辑
+│   ├── sql/                      # 数据库迁移
+│   ├── run.py                    # 本地入口
+│   └── requirements.txt          # Python 依赖
+├── docs/                         # 文档、本 PDF 源文件
+├── public/                       # 静态资源（图片）
+├── vercel.json                   # Vercel SPA 配置
+├── DEPLOY.md                     # 部署步骤
+└── package.json                  # 前端 npm 脚本
+</code></pre>
+<hr />
+<h2 id="15">15. 日常开发命令速查</h2>
+<h3 id="151">15.1 前端</h3>
+<pre><code class="language-bash">npm install
+npm run dev          # http://localhost:8080
+npm run build        # 生产构建，检查能否通过
+npm run lint
+</code></pre>
+<h3 id="152">15.2 后端</h3>
+<pre><code class="language-bash">cd backend &amp;&amp; source .venv/bin/activate
+python run.py
+# 或
+FLASK_APP=app flask run --port 5001
+</code></pre>
+<h3 id="153-ai">15.3 联调（AI 示例）</h3>
+<pre><code class="language-bash"># 终端 1
+cd backend &amp;&amp; flask run --port 5001
+
+# 终端 2
+VITE_API_URL=http://127.0.0.1:5001/api npm run dev -- --port 8080
+</code></pre>
+<h3 id="154-git">15.4 Git</h3>
+<pre><code class="language-bash">git status
+git add &lt;files&gt;
+git commit -m &quot;描述做了什么、为什么&quot;
+git push origin main
+</code></pre>
+<h3 id="155-pdf">15.5 生成本 PDF</h3>
+<pre><code class="language-bash">cd /Users/yixinzhou/Desktop/EduSync
+python3 scripts/md_to_pdf.py \
+  docs/EduSync-Full-Stack-Learning-Guide.md \
+  docs/EduSync-Full-Stack-Learning-Guide.pdf
+</code></pre>
+<hr />
+<h2 id="16">16. 术语表（中英对照）</h2>
+<table>
+<thead>
+<tr>
+<th>中文</th>
+<th>English</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前端</td>
+<td>Frontend</td>
+<td>React 跑在浏览器</td>
+</tr>
+<tr>
+<td>后端</td>
+<td>Backend</td>
+<td>Flask 跑在服务器</td>
+</tr>
+<tr>
+<td>全栈</td>
+<td>Full-stack</td>
+<td>前端 + 后端 + 库</td>
+</tr>
+<tr>
+<td>接口 / API</td>
+<td>API / Endpoint</td>
+<td>URL + 方法 + 返回 JSON</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Deploy</td>
+<td>把代码发布到公网</td>
+</tr>
+<tr>
+<td>构建</td>
+<td>Build</td>
+<td>源码 → 可运行产物</td>
+</tr>
+<tr>
+<td>环境变量</td>
+<td>Environment variable</td>
+<td>配置密钥和 URL</td>
+</tr>
+<tr>
+<td>令牌</td>
+<td>Token / JWT</td>
+<td>登录凭证</td>
+</tr>
+<tr>
+<td>蓝图</td>
+<td>Blueprint</td>
+<td>Flask 路由模块</td>
+</tr>
+<tr>
+<td>迁移</td>
+<td>Migration</td>
+<td>SQL 改表结构</td>
+</tr>
+<tr>
+<td>流式响应</td>
+<td>Streaming / SSE</td>
+<td>AI 逐字输出</td>
+</tr>
+<tr>
+<td>单页应用</td>
+<td>SPA</td>
+<td>一个 index.html + JS 路由</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="17">17. 延伸阅读与官方文档</h2>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>链接</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>React 官方</td>
+<td>https://react.dev</td>
+</tr>
+<tr>
+<td>Vite</td>
+<td>https://vitejs.dev</td>
+</tr>
+<tr>
+<td>Flask</td>
+<td>https://flask.palletsprojects.com</td>
+</tr>
+<tr>
+<td>Supabase Docs</td>
+<td>https://supabase.com/docs</td>
+</tr>
+<tr>
+<td>Vercel Docs</td>
+<td>https://vercel.com/docs</td>
+</tr>
+<tr>
+<td>Railway Docs</td>
+<td>https://docs.railway.app</td>
+</tr>
+<tr>
+<td>TanStack Query</td>
+<td>https://tanstack.com/query</td>
+</tr>
+<tr>
+<td>DeepSeek API</td>
+<td>https://platform.deepseek.com/api-docs</td>
+</tr>
+<tr>
+<td>项目部署</td>
+<td>仓库内 <code>DEPLOY.md</code></td>
+</tr>
+<tr>
+<td>AI 架构</td>
+<td>仓库内 <code>docs/AI-ARCHITECTURE.md</code></td>
+</tr>
+<tr>
+<td>OAuth 专题 PDF</td>
+<td><code>docs/EduSync-Google-OAuth-Deploy-Learning-Guide.pdf</code></td>
+</tr>
+<tr>
+<td>老师测试指南 PDF</td>
+<td><code>docs/EduSync-Teacher-Guide.pdf</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="18">18. 总结：你现在该记住的十句话</h2>
+<ol>
+<li><strong>用户只访问 Vercel 前端；API 在 Railway；数据在 Supabase。</strong></li>
+<li><strong><code>apiFetch</code> + JWT 连接前端与 Flask。</strong></li>
+<li><strong><code>VITE_*</code> 改后要重新 build / redeploy Vercel。</strong></li>
+<li><strong>service_role 永远不能进前端或 GitHub。</strong></li>
+<li><strong>新数据库能力 = 先写 SQL 在 Supabase 跑，再写 API，最后写页面。</strong></li>
+<li><strong>Google 登录是 Supabase Auth + 你自己的 <code>/auth/callback</code> 页面。</strong></li>
+<li><strong>AI 密钥只在 Railway；老师端 Beta 只读工具。</strong></li>
+<li><strong>React Query 管数据；AuthContext 管登录态。</strong></li>
+<li><strong>出问题：F12 Network → Railway Logs → Supabase Logs。</strong></li>
+<li><strong>Cursor 写代码，你来理解链路——这样才能独立改 bug 和面试讲项目。</strong></li>
+</ol>
+<hr />
+<p><em>文档结束 · EduSync Full-Stack Learning Guide · 可与 <code>EduSync-Google-OAuth-Deploy-Learning-Guide.pdf</code> 配合阅读</em></p>
+</div>
+<div class="footer-note">EduSync 全栈开发学习手册 · EduSync</div>
+</body>
+</html>
