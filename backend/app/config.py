@@ -11,13 +11,13 @@ load_dotenv(_REPO_ROOT / ".env")
 load_dotenv(_BACKEND_DIR / ".env", override=True)
 
 def _find_nvidia_key():
-    """NVIDIA key from NVIDIA_API_KEY, or any env var whose name looks like it
-    (case-insensitive, e.g. `Nvia_Api`); strips stray quotes/whitespace."""
-    exact = os.getenv("NVIDIA_API_KEY")
-    candidates = [exact] if exact else []
+    """NVIDIA key from NVIDIA_API_KEY, or a near-miss name such as `NVDIA_API_KEY`
+    or `Nvia_Api` (any name starting with "nv" and ending in "key"/"api",
+    case-insensitive); strips stray quotes/whitespace."""
+    candidates = [os.getenv("NVIDIA_API_KEY")]
     for name, value in os.environ.items():
         lowered = name.strip().lower()
-        if lowered != "nvidia_api_key" and lowered in ("nvia_api", "nvidia_api", "nvidia_key", "nvidia_api_key"):
+        if lowered.startswith("nv") and lowered.endswith(("key", "api")):
             candidates.append(value)
     for value in candidates:
         cleaned = (value or "").strip().strip("\"'").strip()
