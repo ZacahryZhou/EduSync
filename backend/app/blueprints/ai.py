@@ -9,10 +9,9 @@ from app.services.ai_student_tools import execute_student_tool, student_tool_def
 from app.services.ai_tools import execute_tool, tool_definitions
 from app.services.llm import (
     MAX_TOOL_ROUNDS,
-    complete_chat,
     is_configured,
     model_name,
-    stream_chat,
+    stream_chat_full,
 )
 
 ai_bp = Blueprint('ai', __name__)
@@ -231,17 +230,29 @@ def ai_chat():
 
         try:
             for _ in range(MAX_TOOL_ROUNDS):
-                result = complete_chat(
+                round_reply_parts = []
+                tool_calls = []
+                finish_reason = ''
+
+                # Real streaming: forward each token to the client as NVIDIA
+                # generates it, instead of waiting for the full completion.
+                for event in stream_chat_full(
                     agent_messages,
                     system_prompt=system_prompt,
                     tools=tools,
-                )
-                tool_calls = result.get('tool_calls') or []
+                ):
+                    if event['type'] == 'token':
+                        reply_parts.append(event['content'])
+                        round_reply_parts.append(event['content'])
+                        yield f'data: {json.dumps({"type": "token", "content": event["content"]})}\n\n'
+                    elif event['type'] == 'done':
+                        tool_calls = event.get('tool_calls') or []
+                        finish_reason = event.get('finish_reason') or ''
 
                 if tool_calls:
                     assistant_message = {
                         'role': 'assistant',
-                        'content': result.get('content') or None,
+                        'content': ''.join(round_reply_parts) or None,
                         'tool_calls': tool_calls,
                     }
                     agent_messages.append(assistant_message)
@@ -268,18 +279,6 @@ def ai_chat():
                             f'data: {json.dumps({"type": "tool_done", "name": tool_name})}\n\n'
                         )
                     continue
-
-                final_text = (result.get('content') or '').strip()
-                if final_text:
-                    chunk_size = 24
-                    for index in range(0, len(final_text), chunk_size):
-                        piece = final_text[index:index + chunk_size]
-                        reply_parts.append(piece)
-                        yield f'data: {json.dumps({"type": "token", "content": piece})}\n\n'
-                else:
-                    for token in stream_chat(agent_messages, system_prompt=system_prompt):
-                        reply_parts.append(token)
-                        yield f'data: {json.dumps({"type": "token", "content": token})}\n\n'
 
                 full_reply = ''.join(reply_parts)
                 _log_interaction(user_id, role, model, messages, full_reply)
