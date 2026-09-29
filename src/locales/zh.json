@@ -87,9 +87,36 @@
     "submit": "登录",
     "submitting": "登录中…",
     "error": "邮箱或密码错误，请重试",
+    "forgotPassword": "忘记密码？",
     "noAccount": "还没有账号？",
     "register": "注册",
     "backHome": "返回首页"
+  },
+  "forgotPassword": {
+    "shellTitle": "帮你重新登录",
+    "shellSubtitle": "我们会给你发一封邮件，里面有设置新密码的链接。",
+    "title": "重置密码",
+    "subtitle": "输入邮箱，我们会给你发送重置链接。",
+    "submit": "发送重置链接",
+    "submitting": "发送中…",
+    "error": "出错了，请重试",
+    "backToLogin": "返回登录"
+  },
+  "resetPassword": {
+    "shellTitle": "设置新密码",
+    "shellSubtitle": "设置一个新密码，重新登录你的账号。",
+    "title": "设置新密码",
+    "checking": "正在验证重置链接…",
+    "notConfigured": "密码重置功能未配置。",
+    "invalidLink": "这个重置链接无效或已过期，请重新申请一个。",
+    "requestNew": "重新申请链接",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "tooShort": "密码至少需要 6 个字符",
+    "mismatch": "两次输入的密码不一致",
+    "submit": "设置新密码",
+    "submitting": "保存中…",
+    "error": "重置密码失败，请重试"
   },
   "settings": {
     "title": "设置",
@@ -189,6 +216,16 @@
     "joinMeeting": "加入会议"
   },
   "classes": {
+    "credentialsDialog": {
+      "title": "学生账号已创建",
+      "subtitle": "把这个登录信息发给学生——这个密码只会显示这一次。",
+      "password": "密码",
+      "copy": "复制",
+      "copied": "已复制到剪贴板",
+      "copyFailed": "复制失败，请手动复制",
+      "hint": "学生登录后可以自己修改密码，也可以在登录页用「忘记密码？」重置。",
+      "done": "完成"
+    },
     "title": "班级",
     "subtitleTeacher": "创建班级并将班级码分享给学生",
     "subtitleStudent": "使用老师提供的班级码加入班级",

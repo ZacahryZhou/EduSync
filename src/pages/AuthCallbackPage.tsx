@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 
 type PendingProfile = {
   accessToken: string;
+  refreshToken?: string;
   email: string;
   suggestedDisplayName: string;
   avatarUrl?: string;
@@ -57,6 +58,7 @@ export default function AuthCallbackPage() {
       }
 
       let accessToken: string | null = hashParams.get("access_token");
+      let refreshToken: string | null = hashParams.get("refresh_token");
 
       if (!accessToken) {
         const { data, error } = await supabase.auth.getSession();
@@ -67,6 +69,7 @@ export default function AuthCallbackPage() {
           return;
         }
         accessToken = data.session?.access_token ?? null;
+        refreshToken = data.session?.refresh_token ?? null;
       }
 
       if (!accessToken) {
@@ -76,7 +79,10 @@ export default function AuthCallbackPage() {
       }
 
       try {
-        const result = await completeOAuthSignIn(accessToken);
+        const result = await completeOAuthSignIn(
+          accessToken,
+          refreshToken ?? undefined,
+        );
         if (cancelled) return;
 
         window.history.replaceState({}, "", "/auth/callback");
@@ -84,6 +90,7 @@ export default function AuthCallbackPage() {
         if (result.status === "needs_profile") {
           setPendingProfile({
             accessToken: result.token,
+            refreshToken: refreshToken ?? undefined,
             email: result.email,
             suggestedDisplayName: result.suggested_display_name,
             avatarUrl: result.avatar_url,
@@ -93,13 +100,17 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        login(result.token, {
-          id: result.user.id,
-          name: result.user.display_name,
-          role: result.user.role,
-          email: result.user.email,
-          avatar: result.user.avatar_url ?? undefined,
-        });
+        login(
+          result.token,
+          {
+            id: result.user.id,
+            name: result.user.display_name,
+            role: result.user.role,
+            email: result.user.email,
+            avatar: result.user.avatar_url ?? undefined,
+          },
+          result.refresh_token,
+        );
         navigate(getPostLoginPath(result.user.role), { replace: true });
       } catch (error: unknown) {
         if (cancelled) return;
@@ -119,6 +130,7 @@ export default function AuthCallbackPage() {
 
   function handleProfileComplete(payload: {
     token: string;
+    refresh_token?: string;
     user: {
       id: string;
       email: string;
@@ -127,13 +139,17 @@ export default function AuthCallbackPage() {
       avatar_url?: string | null;
     };
   }) {
-    login(payload.token, {
-      id: payload.user.id,
-      name: payload.user.display_name,
-      role: payload.user.role,
-      email: payload.user.email,
-      avatar: payload.user.avatar_url ?? undefined,
-    });
+    login(
+      payload.token,
+      {
+        id: payload.user.id,
+        name: payload.user.display_name,
+        role: payload.user.role,
+        email: payload.user.email,
+        avatar: payload.user.avatar_url ?? undefined,
+      },
+      payload.refresh_token,
+    );
     navigate(getPostLoginPath(payload.user.role), { replace: true });
   }
 
@@ -165,6 +181,7 @@ export default function AuthCallbackPage() {
           open={roleDialogOpen}
           onOpenChange={setRoleDialogOpen}
           accessToken={pendingProfile.accessToken}
+          refreshToken={pendingProfile.refreshToken}
           email={pendingProfile.email}
           suggestedDisplayName={pendingProfile.suggestedDisplayName}
           avatarUrl={pendingProfile.avatarUrl}

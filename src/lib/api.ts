@@ -50,10 +50,12 @@ export const BASE_URL =
   import.meta.env.VITE_API_URL?.trim() || "http://127.0.0.1:5000/api";
 
 /**
- * Must match `STORAGE_KEY_TOKEN` in AuthContext / 必须与 AuthContext 中的 token 键一致
+ * Must match `STORAGE_KEY_TOKEN` / `STORAGE_KEY_REFRESH` in AuthContext /
+ * 必须与 AuthContext 中的键名一致
  * @see src/context/AuthContext.tsx
  */
 const AUTH_TOKEN_STORAGE_KEY = "edusync_token";
+const AUTH_REFRESH_TOKEN_STORAGE_KEY = "edusync_refresh_token";
 
 /**
  * Read JWT from localStorage (set by AuthContext.login) /
@@ -64,6 +66,93 @@ function getStoredAccessToken(): string | null {
     return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
+  }
+}
+
+function getStoredRefreshToken(): string | null {
+  try {
+    return localStorage.getItem(AUTH_REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Persist a refreshed access/refresh token pair after a silent refresh. */
+function storeRefreshedTokens(token: string, refreshToken: string): void {
+  try {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    localStorage.setItem(AUTH_REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+  } catch {
+    // ignore — worst case the next request just re-triggers a refresh
+  }
+}
+
+/**
+ * Access token expired and refreshing it also failed (or there was no
+ * refresh token to try). AuthContext listens for this to clear its state
+ * and send the user back to the login page immediately, instead of only
+ * noticing on the next page load.
+ */
+function broadcastSessionExpired(): void {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+  try {
+    window.dispatchEvent(new Event("edusync:session-expired"));
+  } catch {
+    // ignore (e.g. not in a browser environment)
+  }
+}
+
+/**
+ * Exchange the stored refresh_token for a new access token. Returns true on
+ * success (and updates localStorage), false if there's nothing to refresh
+ * or the refresh itself failed.
+ *
+ * Several requests can hit a 401 around the same time (e.g. a page that
+ * fires a few queries at once) — `refreshInFlight` makes them share one
+ * network call instead of racing multiple refreshes against the same
+ * refresh_token (Supabase invalidates a refresh_token after its first use,
+ * so a second concurrent call would fail).
+ */
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  refreshInFlight = (async () => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) {
+      return false;
+    }
+    try {
+      const response = await fetch(resolveUrl("/auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const body = (await response.json()) as {
+        token: string;
+        refresh_token: string;
+      };
+      storeRefreshedTokens(body.token, body.refresh_token);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
 
@@ -98,24 +187,46 @@ function resolveUrl(path: string): string {
  * **中文：** 若你在 `init.headers` 里已经写了 `Authorization`，本函数不会覆盖，
  * 方便极少数不需要默认 token 或要自己指定头的请求。
  */
+/**
+ * Paths that must never trigger a silent-refresh retry on 401 — refreshing
+ * here would either recurse (`/auth/refresh` itself) or paper over a
+ * genuinely wrong password with a confusing extra round-trip.
+ */
+const NO_REFRESH_RETRY_PATHS = ["/auth/login", "/auth/refresh", "/auth/register"];
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const url = resolveUrl(path);
-  const token = getStoredAccessToken();
+  const skipRefreshRetry = NO_REFRESH_RETRY_PATHS.some((p) => url.includes(p));
 
-  const headers = new Headers(init?.headers ?? undefined);
-
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  async function attempt(): Promise<Response> {
+    const token = getStoredAccessToken();
+    const headers = new Headers(init?.headers ?? undefined);
+    if (token && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    return fetch(url, { ...init, headers });
   }
 
-  return fetch(url, {
-    ...init,
-    headers,
-  });
+  const response = await attempt();
+
+  // Access tokens expire (Supabase default: ~1 hour). A 401 on an
+  // authenticated request means "try a silent refresh, then retry once"
+  // instead of immediately kicking the user back to the login page.
+  if (response.status === 401 && !skipRefreshRetry && getStoredAccessToken()) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      return attempt();
+    }
+    broadcastSessionExpired();
+  }
+
+  return response;
 }
 
 export type LoginUserResponse = {
   token: string;
+  /** Present on real email/password logins; used for silent token refresh. */
+  refresh_token?: string;
   user: {
     id: string;
     email: string;
@@ -171,6 +282,26 @@ export async function loginUser(
 }
 //成功的话 就把后端返回的JSON解析出来返回给调用者//
 
+/**
+ * Request a password-reset email. Always resolves with a generic message
+ * (the backend never reveals whether the email has an account) — the only
+ * thing that can throw here is a rate limit (too many requests) or a
+ * network error.
+ */
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const response = await apiFetch("/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    await parseApiError(response, `Request failed (${response.status})`);
+  }
+
+  return (await response.json()) as { message: string };
+}
+
 export type OAuthUserPayload = {
   id: string;
   email: string;
@@ -182,6 +313,7 @@ export type OAuthUserPayload = {
 export type OAuthCompleteOk = {
   status: "ok";
   token: string;
+  refresh_token?: string;
   user: OAuthUserPayload;
 };
 
@@ -215,13 +347,17 @@ async function parseApiError(
 
 export async function completeOAuthSignIn(
   accessToken: string,
+  refreshToken?: string,
 ): Promise<OAuthCompleteResponse> {
   const response = await apiFetch("/auth/oauth/complete", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ access_token: accessToken }),
+    body: JSON.stringify({
+      access_token: accessToken,
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
+    }),
   });
 
   if (!response.ok) {
@@ -236,7 +372,8 @@ export async function registerOAuthUser(
   role: "teacher" | "student",
   displayName: string,
   avatarUrl?: string,
-): Promise<{ token: string; user: OAuthUserPayload }> {
+  refreshToken?: string,
+): Promise<{ token: string; refresh_token?: string; user: OAuthUserPayload }> {
   const response = await apiFetch("/auth/oauth/register", {
     method: "POST",
     headers: {
@@ -247,6 +384,7 @@ export async function registerOAuthUser(
       role,
       display_name: displayName,
       ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
     }),
   });
 
@@ -259,9 +397,10 @@ export async function registerOAuthUser(
 
   const body = (await response.json()) as {
     token: string;
+    refresh_token?: string;
     user: OAuthUserPayload;
   };
-  return { token: body.token, user: body.user };
+  return { token: body.token, refresh_token: body.refresh_token, user: body.user };
 }
 
 export type RegisterStudentResponse = {

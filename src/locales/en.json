@@ -87,9 +87,36 @@
     "submit": "Login",
     "submitting": "Logging in…",
     "error": "Invalid email or password, please try again",
+    "forgotPassword": "Forgot password?",
     "noAccount": "Don't have an account?",
     "register": "Register",
     "backHome": "Back to home"
+  },
+  "forgotPassword": {
+    "shellTitle": "Let's get you back in",
+    "shellSubtitle": "We'll email you a link to set a new password.",
+    "title": "Reset your password",
+    "subtitle": "Enter your email and we'll send you a reset link.",
+    "submit": "Send reset link",
+    "submitting": "Sending…",
+    "error": "Something went wrong, please try again",
+    "backToLogin": "Back to login"
+  },
+  "resetPassword": {
+    "shellTitle": "Set a new password",
+    "shellSubtitle": "Pick a new password to get back into your account.",
+    "title": "Set a new password",
+    "checking": "Checking your reset link…",
+    "notConfigured": "Password reset is not configured.",
+    "invalidLink": "This reset link is invalid or has expired. Please request a new one.",
+    "requestNew": "Request a new link",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "tooShort": "Password must be at least 6 characters",
+    "mismatch": "Passwords do not match",
+    "submit": "Set new password",
+    "submitting": "Saving…",
+    "error": "Could not reset your password, please try again"
   },
   "settings": {
     "title": "Settings",
@@ -189,6 +216,16 @@
     "joinMeeting": "Join meeting"
   },
   "classes": {
+    "credentialsDialog": {
+      "title": "Student account created",
+      "subtitle": "Share this login with the student — this password is only shown once.",
+      "password": "Password",
+      "copy": "Copy",
+      "copied": "Copied to clipboard",
+      "copyFailed": "Could not copy — please copy it manually",
+      "hint": "They can change this password after logging in, or use \"Forgot password?\" on the login page.",
+      "done": "Done"
+    },
     "title": "Classes",
     "subtitleTeacher": "Create classes and share the class code with students",
     "subtitleStudent": "Join a class with the code from your teacher",

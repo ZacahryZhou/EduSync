@@ -16,11 +16,13 @@ type OAuthRoleDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accessToken: string;
+  refreshToken?: string;
   email: string;
   suggestedDisplayName: string;
   avatarUrl?: string;
   onSuccess: (payload: {
     token: string;
+    refresh_token?: string;
     user: {
       id: string;
       email: string;
@@ -35,6 +37,7 @@ export function OAuthRoleDialog({
   open,
   onOpenChange,
   accessToken,
+  refreshToken,
   email,
   suggestedDisplayName,
   avatarUrl,
@@ -69,6 +72,7 @@ export function OAuthRoleDialog({
         role,
         displayName.trim(),
         avatarUrl,
+        refreshToken,
       );
       onSuccess(result);
       onOpenChange(false);

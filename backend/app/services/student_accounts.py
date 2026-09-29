@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import secrets
+
 from app.config import Config
 from app.extensions import supabase, supabase_auth
 from app.services.email_utils import normalize_email
 
+# Kept as a last-resort fallback (e.g. if random generation ever throws) —
+# no longer shown to users, since each student now gets their own random
+# password (see generate_temp_password below).
 DEFAULT_STUDENT_PASSWORD = (Config.DEFAULT_STUDENT_PASSWORD or '123456').strip() or '123456'
+
+# No 0/O/1/l/I — easy to misread when a teacher reads it aloud or a student
+# copy-types it from a screenshot. Not meant to be "strong" (it's a one-time
+# password the student is expected to change or reset), just unguessable
+# and unique per student instead of one shared default for everyone.
+_PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
+
+
+def generate_temp_password(length: int = 8) -> str:
+    return ''.join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
 
 
 def _list_auth_users_page(page: int, per_page: int = 200):
@@ -57,22 +72,30 @@ def friendly_provision_error(exc):
     return message
 
 
-def _ensure_auth_login_ready(user_id, *, reset_password=True):
-    """Confirm email and optionally set the teacher default password."""
+def _ensure_auth_login_ready(user_id, *, password=None):
+    """Confirm email and optionally set a new password."""
     payload = {'email_confirm': True}
-    if reset_password:
-        payload['password'] = DEFAULT_STUDENT_PASSWORD
+    if password:
+        payload['password'] = password
     supabase_auth.auth.admin.update_user_by_id(user_id, payload)
 
 
 def provision_student_account(email, display_name, *, grade=None, reset_password=True):
     """
-    Ensure a student can log in with email + default password.
-    Returns (student_id, status) where status is created|synced|existing.
+    Ensure a student can log in. When reset_password is True (default), a
+    fresh random password is generated for them — unique per student, never
+    the same shared default for everyone.
+
+    Returns (student_id, status, password) where status is
+    created|synced|existing, and password is the new plaintext password
+    when one was generated (reset_password=True), else None — this is the
+    only moment the plaintext password exists outside the student's head;
+    Supabase only ever stores its hash after this call returns.
     """
     norm = normalize_email(email)
     name = (display_name or '').strip() or norm.split('@')[0] or 'Student'
     grade_value = (grade or '').strip() or None
+    new_password = generate_temp_password() if reset_password else None
 
     existing_profile = _find_public_student_by_email(norm)
     auth_user_id = find_auth_user_id_by_email(norm)
@@ -88,7 +111,7 @@ def provision_student_account(email, display_name, *, grade=None, reset_password
         try:
             created = supabase_auth.auth.admin.create_user({
                 'email': norm,
-                'password': DEFAULT_STUDENT_PASSWORD,
+                'password': new_password or DEFAULT_STUDENT_PASSWORD,
                 'email_confirm': True,
                 'user_metadata': {'display_name': name},
             })
@@ -139,15 +162,17 @@ def provision_student_account(email, display_name, *, grade=None, reset_password
         status = 'created' if created_new else 'synced'
 
     try:
-        _ensure_auth_login_ready(user_id, reset_password=reset_password)
+        _ensure_auth_login_ready(user_id, password=new_password)
     except Exception as exc:
         raise RuntimeError(friendly_provision_error(exc)) from exc
 
-    return user_id, status
+    return user_id, status, new_password
 
 
-def initial_password_message():
+def initial_password_message(password: str | None = None):
+    if not password:
+        return 'Student account is ready. Share their login password with them separately.'
     return (
         f'Student account is ready. They can log in with this email and initial '
-        f'password: {DEFAULT_STUDENT_PASSWORD}'
+        f'password: {password}'
     )

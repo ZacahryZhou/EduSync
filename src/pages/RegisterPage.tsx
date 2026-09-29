@@ -38,12 +38,16 @@ export default function RegisterPage() {
       }
 
       const data = await loginUser(email, password);
-      login(data.token, {
-        id: data.user.id,
-        name: data.user.display_name,
-        role: data.user.role,
-        email: data.user.email,
-      });
+      login(
+        data.token,
+        {
+          id: data.user.id,
+          name: data.user.display_name,
+          role: data.user.role,
+          email: data.user.email,
+        },
+        data.refresh_token,
+      );
       navigate(getPostLoginPath(data.user.role), { replace: true });
     } catch (error: unknown) {
       const message =

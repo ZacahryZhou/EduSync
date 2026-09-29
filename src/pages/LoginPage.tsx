@@ -32,16 +32,22 @@ export default function LoginPage() {
 
     try {
       const data = await loginUser(email.trim(), password);
-      login(data.token, {
-        id: data.user.id,
-        name: data.user.display_name,
-        role: data.user.role,
-        email: data.user.email,
-        avatar: data.user.avatar_url ?? undefined,
-      });
+      login(
+        data.token,
+        {
+          id: data.user.id,
+          name: data.user.display_name,
+          role: data.user.role,
+          email: data.user.email,
+          avatar: data.user.avatar_url ?? undefined,
+        },
+        data.refresh_token,
+      );
       navigate(getPostLoginPath(data.user.role, fromPath), { replace: true });
-    } catch {
-      setErrorMessage(t("login.error"));
+    } catch (error) {
+      // Show the backend's actual message when there is one (e.g. the
+      // rate-limit lockout text) instead of always the generic string.
+      setErrorMessage(error instanceof Error ? error.message : t("login.error"));
     } finally {
       setIsLoading(false);
     }
@@ -77,9 +83,17 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="login-password" className="text-xs">
-              {t("login.password")}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="login-password" className="text-xs">
+                {t("login.password")}
+              </Label>
+              <Link
+                to="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {t("login.forgotPassword")}
+              </Link>
+            </div>
             <Input
               id="login-password"
               type="password"

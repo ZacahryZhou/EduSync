@@ -29,6 +29,8 @@ import { normalizeRole } from "@/lib/roles";
 /** Keys used in localStorage — keep stable / localStorage 键名，不要随意改名 */
 const STORAGE_KEY_TOKEN = "edusync_token";
 const STORAGE_KEY_USER = "edusync_user";
+/** Must match AUTH_REFRESH_TOKEN_STORAGE_KEY in lib/api.ts / 必须与 api.ts 中的键名一致 */
+const STORAGE_KEY_REFRESH = "edusync_refresh_token";
 
 /**
  * Logged-in user shape for the UI layer / 前端使用的「当前用户」结构
@@ -60,7 +62,7 @@ type AuthContextValue = {
    * @param newToken — token string from `POST /api/auth/login` / 登录接口返回的 token 字符串
    * @param newUser — minimal user object (id, name, role) / 至少包含 id、name、role
    */
-  login: (newToken: string, newUser: AuthUser) => void;
+  login: (newToken: string, newUser: AuthUser, refreshToken?: string) => void;
   /** Clear session everywhere / 清除内存与 localStorage 中的登录信息 */
   logout: () => void;
   /** Update in-memory profile fields (e.g. display name) / 更新内存中的用户资料 */
@@ -190,16 +192,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   //每次调用login函数时， 会更新React state和localStorage 刷新页面保持稳定//
   //useCallback -> 让这个函数稳定不变， 不会因为组件重新渲染而重新创建， 提高性能//
-  const login = useCallback((newToken: string, newUser: AuthUser) => {
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
-    void queryClient.prefetchQuery({
-      queryKey: ["classes", newUser.id, normalizeRole(newUser.role)],
-      queryFn: listClasses,
-    });
-  }, []);
+  const login = useCallback(
+    (newToken: string, newUser: AuthUser, refreshToken?: string) => {
+      setToken(newToken);
+      setUser(newUser);
+      localStorage.setItem(STORAGE_KEY_TOKEN, newToken);
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+      if (refreshToken) {
+        localStorage.setItem(STORAGE_KEY_REFRESH, refreshToken);
+      } else {
+        // No refresh token this time (e.g. some OAuth paths) — don't leave
+        // a stale one from a previous session lying around.
+        localStorage.removeItem(STORAGE_KEY_REFRESH);
+      }
+      void queryClient.prefetchQuery({
+        queryKey: ["classes", newUser.id, normalizeRole(newUser.role)],
+        queryFn: listClasses,
+      });
+    },
+    [],
+  );
 
   //logout函数：清空 state + 删除 localStorage。//
   const logout = useCallback(() => {
@@ -207,7 +219,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_USER);
+    localStorage.removeItem(STORAGE_KEY_REFRESH);
   }, []);
+
+  /**
+   * lib/api.ts dispatches this when a request gets a 401 and a silent
+   * token refresh also fails (expired/invalid refresh token) — log out
+   * immediately instead of waiting for the next page load to notice.
+   * 静默刷新也失败时（refresh token 过期/无效），api.ts 会派发这个事件，
+   * 立刻登出而不是等下次刷新页面才发现。
+   */
+  useEffect(() => {
+    function handleSessionExpired() {
+      logout();
+    }
+    window.addEventListener("edusync:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("edusync:session-expired", handleSessionExpired);
+    };
+  }, [logout]);
 
   const updateUser = useCallback((updates: Partial<AuthUser>) => {
     setUser((prev) => {

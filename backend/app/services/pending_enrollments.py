@@ -10,7 +10,6 @@ from app.services.balances import (
 )
 from app.services.email_utils import normalize_email
 from app.services.student_accounts import (
-    DEFAULT_STUDENT_PASSWORD,
     friendly_provision_error,
     initial_password_message,
     provision_student_account,
@@ -219,7 +218,7 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
         return None, 'This student is already in the class'
 
     try:
-        student_id, _provision_status = provision_student_account(
+        student_id, _provision_status, generated_password = provision_student_account(
             norm,
             name,
             grade=grade_value,
@@ -258,7 +257,7 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
     assignments = _open_assignments_for_class(class_id)
     _notify_open_assignments(student_id, class_name, assignments)
 
-    message = initial_password_message()
+    message = initial_password_message(generated_password)
 
     return {
         'status': 'active',
@@ -266,7 +265,7 @@ def create_class_invite(teacher_id, class_id, *, email, display_name, grade=None
         'email': norm,
         'display_name': name,
         'message': message,
-        'initial_password': DEFAULT_STUDENT_PASSWORD,
+        'initial_password': generated_password,
     }, None
 
 

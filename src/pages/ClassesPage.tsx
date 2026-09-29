@@ -152,6 +152,10 @@ export default function ClassesPage() {
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [newStudentCredentials, setNewStudentCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
 
   const classesQueryKey = ["classes", user?.id, role] as const;
 
@@ -175,7 +179,18 @@ export default function ClassesPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["class-students"] });
       queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
-      toast.success(result.message);
+      // Each student gets their own randomly generated password now (never
+      // a shared default) — this is the only moment it's ever shown, so
+      // surface it in a dialog the teacher can copy from, not just a toast
+      // that disappears in a few seconds.
+      if (result.initial_password && result.email) {
+        setNewStudentCredentials({
+          email: result.email,
+          password: result.initial_password,
+        });
+      } else {
+        toast.success(result.message);
+      }
       setRosterInviteName("");
       setRosterInviteEmail("");
     },
@@ -1256,6 +1271,72 @@ export default function ClassesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={newStudentCredentials !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNewStudentCredentials(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("classes.credentialsDialog.title")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t("classes.credentialsDialog.subtitle")}
+          </p>
+          <div className="space-y-3 rounded-md border border-border bg-secondary/40 p-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                {t("login.email")}
+              </Label>
+              <p className="break-all text-sm font-medium">
+                {newStudentCredentials?.email}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                {t("classes.credentialsDialog.password")}
+              </Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded bg-background px-2 py-1.5 font-mono text-sm">
+                  {newStudentCredentials?.password}
+                </code>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => {
+                    if (!newStudentCredentials) return;
+                    void navigator.clipboard
+                      .writeText(
+                        `${newStudentCredentials.email}\n${newStudentCredentials.password}`,
+                      )
+                      .then(() =>
+                        toast.success(t("classes.credentialsDialog.copied")),
+                      )
+                      .catch(() => toast.error(t("classes.credentialsDialog.copyFailed")));
+                  }}
+                  aria-label={t("classes.credentialsDialog.copy")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("classes.credentialsDialog.hint")}
+          </p>
+          <DialogFooter>
+            <Button type="button" onClick={() => setNewStudentCredentials(null)}>
+              {t("classes.credentialsDialog.done")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
