@@ -42,6 +42,8 @@ def create_app():
 
     print('Flask app created successfully')
 
+    #this is for testing 
+
     return app
 
     #CORS -> Cross-Origin Resource Sharing, 允许前端访问后端接口#
