@@ -1890,16 +1890,25 @@ export type AiStatus = {
 
 export type AiInteractionLog = {
   id: string;
+  /** Null for logs written before the conversation_id migration. */
+  conversation_id: string | null;
   model: string | null;
+  /** The conversation's opening exchange — used as the list preview. */
   messages: AiChatMessage[] | null;
   reply: string | null;
   error_message: string | null;
   created_at: string;
+  turn_count: number;
 };
 
 export type AiLogsResponse = {
   logs: AiInteractionLog[];
   logging_enabled: boolean;
+};
+
+export type AiConversationDetail = {
+  conversation_id: string;
+  messages: AiChatMessage[];
 };
 
 /** Whether the AI provider is configured on the backend */
@@ -1911,13 +1920,27 @@ export async function getAiStatus(): Promise<AiStatus> {
   return (await response.json()) as AiStatus;
 }
 
-/** Recent AI conversation logs for the current user */
+/** Recent AI conversation logs for the current user (one entry per conversation) */
 export async function listAiLogs(limit = 30): Promise<AiLogsResponse> {
   const response = await apiFetch(`/ai/logs?limit=${limit}`, { method: "GET" });
   if (!response.ok) {
     throw new Error(await readApiError(response, "Failed to load AI logs"));
   }
   return (await response.json()) as AiLogsResponse;
+}
+
+/** Full message history for one conversation — used to resume it in the Chat tab. */
+export async function getAiConversation(
+  conversationId: string,
+): Promise<AiConversationDetail> {
+  const response = await apiFetch(
+    `/ai/conversations/${encodeURIComponent(conversationId)}`,
+    { method: "GET" },
+  );
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to load conversation"));
+  }
+  return (await response.json()) as AiConversationDetail;
 }
 
 /**
@@ -1928,6 +1951,7 @@ export async function streamAiChat(
   messages: AiChatMessage[],
   onEvent: (event: AiStreamEvent) => void,
   signal?: AbortSignal,
+  conversationId?: string,
 ): Promise<void> {
   const response = await apiFetch("/ai/chat", {
     method: "POST",
@@ -1935,7 +1959,10 @@ export async function streamAiChat(
       "Content-Type": "application/json",
       Accept: "text/event-stream",
     },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({
+      messages,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
+    }),
     signal,
   });
 

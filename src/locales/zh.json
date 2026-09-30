@@ -354,6 +354,9 @@
     "logAnswer": "回答",
     "logEmpty": "暂无记录。先向 AI 提问一次。",
     "logDisabledTitle": "日志未启用",
-    "logDisabledHint": "请在 Supabase 中运行 backend/sql/create_ai_interactions.sql 以保存对话历史。"
+    "logDisabledHint": "请在 Supabase 中运行 backend/sql/create_ai_interactions.sql 以保存对话历史。",
+    "newChat": "新对话",
+    "logTurnCount": "{{count}} 轮对话",
+    "logResumeFailed": "无法加载这段对话"
   }
 }

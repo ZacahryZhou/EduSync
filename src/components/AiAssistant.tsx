@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Bot, Loader2, Send } from "lucide-react";
+import { Bot, Loader2, Plus, Send } from "lucide-react";
 import { AiBetaNotice } from "@/components/AiBetaNotice";
 import { useAuth } from "@/context/AuthContext";
 import { isStudentRole, normalizeRole } from "@/lib/roles";
@@ -15,6 +15,17 @@ import {
   streamAiChat,
   type AiChatMessage,
 } from "@/lib/api";
+
+/** A past conversation the parent (AiAssistantFab's Log tab) wants loaded
+ * into the chat so the user can keep talking to it. */
+export type AiResumeRequest = {
+  conversationId: string;
+  messages: AiChatMessage[];
+};
+
+function newConversationId(): string {
+  return crypto.randomUUID();
+}
 
 const TEACHER_STARTER_PROMPTS = [
   "What sessions do I have this week?",
@@ -46,12 +57,18 @@ type AiAssistantProps = {
   variant?: "page" | "embedded" | "modal";
   /** Called after a chat completes (for refreshing server logs) */
   onInteractionComplete?: () => void;
+  /** Set when the Log tab wants to resume a past conversation here. */
+  resumeRequest?: AiResumeRequest | null;
+  /** Called once a resumeRequest has been loaded, so the parent can clear it. */
+  onResumed?: () => void;
 };
 
 export function AiAssistant({
   className,
   variant = "page",
   onInteractionComplete,
+  resumeRequest,
+  onResumed,
 }: AiAssistantProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -65,6 +82,35 @@ export function AiAssistant({
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // One id per chat; resending it with every message groups them into the
+  // same conversation server-side (backend/app/blueprints/ai.py ai_chat).
+  const conversationIdRef = useRef<string>(newConversationId());
+  const lastResumedIdRef = useRef<string | null>(null);
+
+  // Load a conversation picked from the Log tab. Guarded by
+  // lastResumedIdRef so the same request object doesn't reload on every
+  // re-render, and so switching away and back doesn't clear it.
+  useEffect(() => {
+    if (!resumeRequest || resumeRequest.conversationId === lastResumedIdRef.current) {
+      return;
+    }
+    lastResumedIdRef.current = resumeRequest.conversationId;
+    abortRef.current?.abort();
+    setStreaming(false);
+    setToolStatus(null);
+    conversationIdRef.current = resumeRequest.conversationId;
+    setMessages(resumeRequest.messages);
+    onResumed?.();
+  }, [resumeRequest, onResumed]);
+
+  function startNewChat() {
+    abortRef.current?.abort();
+    setStreaming(false);
+    setToolStatus(null);
+    conversationIdRef.current = newConversationId();
+    lastResumedIdRef.current = null;
+    setMessages([]);
+  }
 
   const statusQuery = useQuery({
     queryKey: ["ai-status"],
@@ -146,6 +192,7 @@ export function AiAssistant({
           }
         },
         controller.signal,
+        conversationIdRef.current,
       );
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -183,10 +230,24 @@ export function AiAssistant({
     >
       {!modal ? (
         <CardHeader className="shrink-0 space-y-1 px-4 pb-2 pt-4 sm:px-6">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Bot className="h-4 w-4 text-primary" />
-            AI Assistant
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Bot className="h-4 w-4 text-primary" />
+              AI Assistant
+            </CardTitle>
+            {messages.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-xs text-muted-foreground"
+                onClick={startNewChat}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("ai.newChat")}
+              </Button>
+            ) : null}
+          </div>
           <p className="text-xs text-muted-foreground">{statusHint}</p>
         </CardHeader>
       ) : null}
@@ -197,7 +258,21 @@ export function AiAssistant({
         )}
       >
         {modal ? (
-          <p className="shrink-0 px-1 text-xs text-muted-foreground">{statusHint}</p>
+          <div className="flex shrink-0 items-center justify-between gap-2 px-1">
+            <p className="text-xs text-muted-foreground">{statusHint}</p>
+            {messages.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 gap-1 text-xs text-muted-foreground"
+                onClick={startNewChat}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("ai.newChat")}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         <AiBetaNotice compact={embedded || modal} className="shrink-0" />
         <div

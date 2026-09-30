@@ -354,6 +354,10 @@
     "logAnswer": "Answer",
     "logEmpty": "No conversations logged yet. Ask the AI something first.",
     "logDisabledTitle": "Logging not enabled",
-    "logDisabledHint": "Run backend/sql/create_ai_interactions.sql in Supabase to store conversation history."
+    "logDisabledHint": "Run backend/sql/create_ai_interactions.sql in Supabase to store conversation history.",
+    "newChat": "New chat",
+    "logTurnCount": "{{count}} exchanges",
+    "logTurnCount_one": "{{count}} exchange",
+    "logResumeFailed": "Could not load this conversation"
   }
 }

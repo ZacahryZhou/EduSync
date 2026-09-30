@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 
 from flask import Blueprint, Response, g, jsonify, request
 
@@ -106,7 +107,14 @@ def _sanitize_messages(raw_messages):
     return cleaned, None
 
 
-def _log_interaction(user_id, role, model, messages, reply, error_message=None):
+def _valid_conversation_id(raw):
+    try:
+        return str(uuid.UUID(str(raw)))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _log_interaction(user_id, role, model, messages, reply, conversation_id, error_message=None):
     try:
         payload = {
             'user_id': user_id,
@@ -114,10 +122,13 @@ def _log_interaction(user_id, role, model, messages, reply, error_message=None):
             'model': model,
             'messages': messages,
             'reply': reply,
+            'conversation_id': conversation_id,
             'error_message': error_message,
         }
         supabase.table('ai_interactions').insert(payload).execute()
     except Exception:
+        # Also covers a not-yet-migrated DB (conversation_id column missing) —
+        # see backend/sql/add_ai_conversation_id.sql.
         pass
 
 
@@ -172,7 +183,21 @@ def ai_status():
 @ai_bp.route('/api/ai/logs', methods=['GET'])
 @require_role('teacher', 'student')
 def ai_logs():
-    """Recent AI chat logs for the logged-in user (ai_interactions table)."""
+    """
+    One entry per conversation for the logged-in user, newest first — not
+    one entry per logged turn. Each conversation can have many rows (one
+    per exchange); this groups them by conversation_id and, for each
+    group, returns:
+    - the most recent row's timing/model/error (what's "live" right now)
+    - the FIRST row's opening user message as the preview/title
+    - that row's own id, used by /api/ai/conversations/<id> to reload
+      the full thread for "continue this chat".
+
+    Rows logged before the conversation_id migration (see
+    backend/sql/add_ai_conversation_id.sql) have conversation_id = NULL;
+    each of those is shown as its own single-turn "conversation" (grouped
+    by its own row id) so old history doesn't just disappear.
+    """
     user_id = g.current_user.id
     try:
         raw_limit = int(request.args.get('limit', 30))
@@ -181,18 +206,83 @@ def ai_logs():
     limit = max(1, min(raw_limit, 100))
 
     try:
+        # Fetch more raw rows than `limit` conversations, since several rows
+        # collapse into one conversation entry.
         result = (
             supabase.table('ai_interactions')
-            .select('id, model, messages, reply, error_message, created_at')
+            .select('id, conversation_id, model, messages, reply, error_message, created_at')
             .eq('user_id', user_id)
             .order('created_at', desc=True)
-            .limit(limit)
+            .limit(max(limit * 8, 200))
             .execute()
         )
         rows = result.data or []
-        return jsonify({'logs': rows, 'logging_enabled': True})
     except Exception:
         return jsonify({'logs': [], 'logging_enabled': False})
+
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = row.get('conversation_id') or f"row:{row['id']}"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(row)
+
+    logs = []
+    for key in order[:limit]:
+        group_rows = groups[key]  # already newest-first within the group
+        latest = group_rows[0]
+        earliest = group_rows[-1]
+        logs.append({
+            'id': latest['id'],
+            'conversation_id': latest.get('conversation_id'),
+            'model': latest.get('model'),
+            'messages': earliest.get('messages'),
+            'reply': latest.get('reply'),
+            'error_message': latest.get('error_message'),
+            'created_at': latest.get('created_at'),
+            'turn_count': len(group_rows),
+        })
+
+    return jsonify({'logs': logs, 'logging_enabled': True})
+
+
+@ai_bp.route('/api/ai/conversations/<conversation_id>', methods=['GET'])
+@require_role('teacher', 'student')
+def ai_conversation_detail(conversation_id):
+    """Full message history for one conversation, to resume it in the chat tab."""
+    valid_id = _valid_conversation_id(conversation_id)
+    if not valid_id:
+        return jsonify({'error': 'Invalid conversation id'}), 400
+
+    user_id = g.current_user.id
+    try:
+        result = (
+            supabase.table('ai_interactions')
+            .select('messages, reply, created_at')
+            .eq('user_id', user_id)
+            .eq('conversation_id', valid_id)
+            .order('created_at', desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return jsonify({'error': 'Could not load this conversation'}), 500
+
+    rows = result.data or []
+    if not rows:
+        return jsonify({'error': 'Conversation not found'}), 404
+
+    latest = rows[0]
+    # `messages` on the latest row is everything BEFORE that turn's answer;
+    # the answer itself is stored separately in `reply` — stitch them back
+    # together into one ordinary alternating user/assistant transcript.
+    messages = list(latest.get('messages') or [])
+    if latest.get('reply'):
+        messages.append({'role': 'assistant', 'content': latest['reply']})
+
+    return jsonify({'conversation_id': valid_id, 'messages': messages})
 
 
 @ai_bp.route('/api/ai/chat', methods=['POST'])
@@ -210,6 +300,12 @@ def ai_chat():
     messages, err = _sanitize_messages(data.get('messages'))
     if err:
         return jsonify({'error': err}), 400
+
+    # Frontend generates one UUID per chat (crypto.randomUUID()) and resends
+    # it with every message in that chat so all its turns log under the same
+    # conversation_id — an invalid/missing one just means logging won't be
+    # groupable for this turn, not a request failure.
+    conversation_id = _valid_conversation_id(data.get('conversation_id'))
 
     user_record = _load_user_record() or {}
     role = g.current_user_role
@@ -281,7 +377,7 @@ def ai_chat():
                     continue
 
                 full_reply = ''.join(reply_parts)
-                _log_interaction(user_id, role, model, messages, full_reply)
+                _log_interaction(user_id, role, model, messages, full_reply, conversation_id)
                 yield f'data: {json.dumps({"type": "done"})}\n\n'
                 return
 
@@ -289,7 +385,7 @@ def ai_chat():
         except Exception as exc:
             message = str(exc) or 'AI request failed'
             _log_interaction(
-                user_id, role, model, messages, ''.join(reply_parts), message
+                user_id, role, model, messages, ''.join(reply_parts), conversation_id, message
             )
             yield f'data: {json.dumps({"type": "error", "message": message})}\n\n'
 

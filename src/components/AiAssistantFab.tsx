@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { History, MessageSquare, Sparkles } from "lucide-react";
-import { AiAssistant } from "@/components/AiAssistant";
+import { AiAssistant, type AiResumeRequest } from "@/components/AiAssistant";
 import { AiInteractionLog } from "@/components/AiInteractionLog";
 import { AiBetaBadge } from "@/components/AiBetaNotice";
 import {
@@ -22,6 +22,7 @@ export function AiAssistantFab() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AiPanelTab>("chat");
+  const [resumeRequest, setResumeRequest] = useState<AiResumeRequest | null>(null);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -32,6 +33,11 @@ export function AiAssistantFab() {
 
   function refreshLogs() {
     void queryClient.invalidateQueries({ queryKey: ["ai-logs"] });
+  }
+
+  function handleResume(request: AiResumeRequest) {
+    setResumeRequest(request);
+    setTab("chat");
   }
 
   return (
@@ -125,18 +131,24 @@ export function AiAssistantFab() {
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
-            {tab === "chat" ? (
+            {/* Both stay mounted (hidden via CSS, not unmounted) so switching
+                to the Log tab and back doesn't wipe an in-progress chat. */}
+            <div className={cn("h-full", tab !== "chat" && "hidden")}>
               <AiAssistant
                 variant="modal"
                 className="h-[min(68vh,40rem)]"
                 onInteractionComplete={refreshLogs}
+                resumeRequest={resumeRequest}
+                onResumed={() => setResumeRequest(null)}
               />
-            ) : (
+            </div>
+            <div className={cn("h-full", tab !== "log" && "hidden")}>
               <AiInteractionLog
                 className="h-[min(68vh,40rem)]"
-                enabled={open && tab === "log"}
+                enabled={open}
+                onResume={handleResume}
               />
-            )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
