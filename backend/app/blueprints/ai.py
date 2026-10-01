@@ -1,0 +1,400 @@
+import json
+import os
+import uuid
+
+from flask import Blueprint, Response, g, jsonify, request
+
+from app.extensions import supabase
+from app.middleware.auth import require_role, _load_user_record
+from app.services.ai_student_tools import execute_student_tool, student_tool_definitions
+from app.services.ai_tools import execute_tool, tool_definitions
+from app.services.llm import (
+    MAX_TOOL_ROUNDS,
+    is_configured,
+    model_name,
+    stream_chat_full,
+)
+
+ai_bp = Blueprint('ai', __name__)
+
+MAX_MESSAGES = 40
+MAX_MESSAGE_CHARS = 8000
+ALLOWED_ROLES = frozenset({'user', 'assistant'})
+
+TEACHER_SYSTEM_PROMPT = """You are EduSync AI for logged-in teachers only.
+
+SCOPE
+- Answer ONLY using data returned by EduSync tools/API for this teacher, plus the teacher's current message.
+- For schedule, students, homework, balances, or reschedule questions: call the appropriate read tool first.
+- Never invent students, sessions, grades, or balances. If data is missing, say you don't have it.
+- Do not use general world knowledge as if it were this school's records.
+- You cannot change data in this version; suggest using the app UI for edits.
+
+CONFIDENTIALITY (NEVER disclose)
+- Passwords, tokens, API keys, .env, database credentials.
+- Other teachers' classes or students outside this teacher's access.
+- Unnecessary PII: student emails, phones, addresses, full grade/feedback dumps, full uploaded files.
+- Claiming an action was executed unless the app confirmed it after teacher approval.
+
+BEHAVIOR
+- After tool results, summarize clearly with class names and dates.
+- Minimize sensitive fields in replies; use display names only.
+- Refuse policy-violating requests briefly and safely.
+- Match the teacher's language (Chinese or English).
+- Destructive or bulk changes: require in-app confirmation flows; do not bypass.
+
+Full policy: docs/AI-SAFETY-POLICY.md"""
+
+STUDENT_SYSTEM_PROMPT = """You are EduSync AI for logged-in students only.
+
+SCOPE
+- Answer ONLY using data returned by EduSync tools/API for this student, plus the student's current message.
+- For schedule, homework, grades, balances, or reschedule questions: call the appropriate read tool first.
+- Never invent sessions, grades, or balances. If data is missing, say you don't have it.
+- You may explain how to use EduSync (e.g. submit homework, request a reschedule) in general terms.
+- You cannot change data; tell the student to use the app UI for submitting or requesting changes.
+- Do not do the student's homework for them; you may explain concepts and give study tips.
+
+CONFIDENTIALITY (NEVER disclose)
+- Passwords, tokens, API keys, .env, database credentials.
+- Any other student's information, or teachers' private notes.
+- Claiming an action was executed when you cannot execute actions.
+
+BEHAVIOR
+- After tool results, summarize clearly with class names and dates.
+- Be friendly and concise; match the student's language (Chinese or English).
+- Refuse policy-violating requests briefly and safely.
+
+Full policy: docs/AI-SAFETY-POLICY.md"""
+
+ROLE_CONFIG = {
+    'teacher': {
+        'prompt': TEACHER_SYSTEM_PROMPT,
+        'tools': tool_definitions,
+        'execute': execute_tool,
+        'fallback_name': 'Teacher',
+    },
+    'student': {
+        'prompt': STUDENT_SYSTEM_PROMPT,
+        'tools': student_tool_definitions,
+        'execute': execute_student_tool,
+        'fallback_name': 'Student',
+    },
+}
+
+
+def _sanitize_messages(raw_messages):
+    if not isinstance(raw_messages, list):
+        return None, 'messages must be an array'
+
+    cleaned = []
+    for item in raw_messages[-MAX_MESSAGES:]:
+        if not isinstance(item, dict):
+            continue
+        role = (item.get('role') or '').strip().lower()
+        if role not in ALLOWED_ROLES:
+            continue
+        content = (item.get('content') or '').strip()
+        if not content:
+            continue
+        if len(content) > MAX_MESSAGE_CHARS:
+            content = content[:MAX_MESSAGE_CHARS]
+        cleaned.append({'role': role, 'content': content})
+
+    if not cleaned or cleaned[-1]['role'] != 'user':
+        return None, 'Last message must be a non-empty user message'
+
+    return cleaned, None
+
+
+def _valid_conversation_id(raw):
+    try:
+        return str(uuid.UUID(str(raw)))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _log_interaction(user_id, role, model, messages, reply, conversation_id, error_message=None):
+    try:
+        payload = {
+            'user_id': user_id,
+            'role': role,
+            'model': model,
+            'messages': messages,
+            'reply': reply,
+            'conversation_id': conversation_id,
+            'error_message': error_message,
+        }
+        supabase.table('ai_interactions').insert(payload).execute()
+    except Exception:
+        # Also covers a not-yet-migrated DB (conversation_id column missing) —
+        # see backend/sql/add_ai_conversation_id.sql.
+        pass
+
+
+def _parse_tool_arguments(raw):
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _tool_label(tool_name):
+    labels = {
+        'get_my_balances': 'balances',
+        'list_my_reschedules': 'reschedule requests',
+        'list_my_classes': 'classes',
+        'list_sessions': 'schedule',
+        'list_class_students': 'students',
+        'list_assignments': 'assignments',
+        'list_pending_submissions': 'submissions',
+        'get_student_balances': 'balances',
+        'list_pending_reschedules': 'reschedule requests',
+    }
+    return labels.get(tool_name, tool_name)
+
+
+@ai_bp.route('/api/ai/status', methods=['GET'])
+@require_role('teacher', 'student')
+def ai_status():
+    configured = is_configured()
+    payload = {
+        'configured': configured,
+        'model': model_name(),
+        'role': g.current_user_role,
+        'read_tools': True,
+        'write_tools': False,
+        'phase': 'beta',
+    }
+    if not configured:
+        # Names only (never values) so a misnamed Railway variable is easy to spot.
+        payload['hint_env_names'] = sorted(
+            name for name in os.environ
+            if 'nv' in name.lower() or 'api' in name.lower()
+        )
+    return jsonify(payload)
+
+
+@ai_bp.route('/api/ai/logs', methods=['GET'])
+@require_role('teacher', 'student')
+def ai_logs():
+    """
+    One entry per conversation for the logged-in user, newest first — not
+    one entry per logged turn. Each conversation can have many rows (one
+    per exchange); this groups them by conversation_id and, for each
+    group, returns:
+    - the most recent row's timing/model/error (what's "live" right now)
+    - the FIRST row's opening user message as the preview/title
+    - that row's own id, used by /api/ai/conversations/<id> to reload
+      the full thread for "continue this chat".
+
+    Rows logged before the conversation_id migration (see
+    backend/sql/add_ai_conversation_id.sql) have conversation_id = NULL;
+    each of those is shown as its own single-turn "conversation" (grouped
+    by its own row id) so old history doesn't just disappear.
+    """
+    user_id = g.current_user.id
+    try:
+        raw_limit = int(request.args.get('limit', 30))
+    except (TypeError, ValueError):
+        raw_limit = 30
+    limit = max(1, min(raw_limit, 100))
+
+    try:
+        # Fetch more raw rows than `limit` conversations, since several rows
+        # collapse into one conversation entry.
+        result = (
+            supabase.table('ai_interactions')
+            .select('id, conversation_id, model, messages, reply, error_message, created_at')
+            .eq('user_id', user_id)
+            .order('created_at', desc=True)
+            .limit(max(limit * 8, 200))
+            .execute()
+        )
+        rows = result.data or []
+    except Exception:
+        return jsonify({'logs': [], 'logging_enabled': False})
+
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = row.get('conversation_id') or f"row:{row['id']}"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(row)
+
+    logs = []
+    for key in order[:limit]:
+        group_rows = groups[key]  # already newest-first within the group
+        latest = group_rows[0]
+        earliest = group_rows[-1]
+        logs.append({
+            'id': latest['id'],
+            'conversation_id': latest.get('conversation_id'),
+            'model': latest.get('model'),
+            'messages': earliest.get('messages'),
+            'reply': latest.get('reply'),
+            'error_message': latest.get('error_message'),
+            'created_at': latest.get('created_at'),
+            'turn_count': len(group_rows),
+        })
+
+    return jsonify({'logs': logs, 'logging_enabled': True})
+
+
+@ai_bp.route('/api/ai/conversations/<conversation_id>', methods=['GET'])
+@require_role('teacher', 'student')
+def ai_conversation_detail(conversation_id):
+    """Full message history for one conversation, to resume it in the chat tab."""
+    valid_id = _valid_conversation_id(conversation_id)
+    if not valid_id:
+        return jsonify({'error': 'Invalid conversation id'}), 400
+
+    user_id = g.current_user.id
+    try:
+        result = (
+            supabase.table('ai_interactions')
+            .select('messages, reply, created_at')
+            .eq('user_id', user_id)
+            .eq('conversation_id', valid_id)
+            .order('created_at', desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return jsonify({'error': 'Could not load this conversation'}), 500
+
+    rows = result.data or []
+    if not rows:
+        return jsonify({'error': 'Conversation not found'}), 404
+
+    latest = rows[0]
+    # `messages` on the latest row is everything BEFORE that turn's answer;
+    # the answer itself is stored separately in `reply` — stitch them back
+    # together into one ordinary alternating user/assistant transcript.
+    messages = list(latest.get('messages') or [])
+    if latest.get('reply'):
+        messages.append({'role': 'assistant', 'content': latest['reply']})
+
+    return jsonify({'conversation_id': valid_id, 'messages': messages})
+
+
+@ai_bp.route('/api/ai/chat', methods=['POST'])
+@require_role('teacher', 'student')
+def ai_chat():
+    if not is_configured():
+        return jsonify({
+            'error': (
+                'AI is not configured. Set NVIDIA_API_KEY in backend/.env '
+                'and restart the server.'
+            ),
+        }), 503
+
+    data = request.get_json(silent=True) or {}
+    messages, err = _sanitize_messages(data.get('messages'))
+    if err:
+        return jsonify({'error': err}), 400
+
+    # Frontend generates one UUID per chat (crypto.randomUUID()) and resends
+    # it with every message in that chat so all its turns log under the same
+    # conversation_id — an invalid/missing one just means logging won't be
+    # groupable for this turn, not a request failure.
+    conversation_id = _valid_conversation_id(data.get('conversation_id'))
+
+    user_record = _load_user_record() or {}
+    role = g.current_user_role
+    cfg = ROLE_CONFIG[role]
+    display_name = user_record.get('display_name') or cfg['fallback_name']
+    system_prompt = (
+        f'{cfg["prompt"]}\n\n'
+        f'The {role}\'s display name is {display_name}.'
+    )
+    model = model_name()
+    user_id = g.current_user.id
+    tools = cfg['tools']()
+    run_tool = cfg['execute']
+
+    def generate():
+        reply_parts = []
+        agent_messages = list(messages)
+
+        try:
+            for _ in range(MAX_TOOL_ROUNDS):
+                round_reply_parts = []
+                tool_calls = []
+                finish_reason = ''
+
+                # Real streaming: forward each token to the client as NVIDIA
+                # generates it, instead of waiting for the full completion.
+                for event in stream_chat_full(
+                    agent_messages,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                ):
+                    if event['type'] == 'token':
+                        reply_parts.append(event['content'])
+                        round_reply_parts.append(event['content'])
+                        yield f'data: {json.dumps({"type": "token", "content": event["content"]})}\n\n'
+                    elif event['type'] == 'done':
+                        tool_calls = event.get('tool_calls') or []
+                        finish_reason = event.get('finish_reason') or ''
+
+                if tool_calls:
+                    assistant_message = {
+                        'role': 'assistant',
+                        'content': ''.join(round_reply_parts) or None,
+                        'tool_calls': tool_calls,
+                    }
+                    agent_messages.append(assistant_message)
+
+                    for call in tool_calls:
+                        fn = call.get('function') or {}
+                        tool_name = fn.get('name') or ''
+                        tool_id = call.get('id') or tool_name
+                        args = _parse_tool_arguments(fn.get('arguments'))
+
+                        yield (
+                            f'data: {json.dumps({"type": "tool_start", "name": tool_name, "label": _tool_label(tool_name)})}\n\n'
+                        )
+
+                        tool_result = run_tool(tool_name, args, user_id)
+
+                        agent_messages.append({
+                            'role': 'tool',
+                            'tool_call_id': tool_id,
+                            'content': tool_result,
+                        })
+
+                        yield (
+                            f'data: {json.dumps({"type": "tool_done", "name": tool_name})}\n\n'
+                        )
+                    continue
+
+                full_reply = ''.join(reply_parts)
+                _log_interaction(user_id, role, model, messages, full_reply, conversation_id)
+                yield f'data: {json.dumps({"type": "done"})}\n\n'
+                return
+
+            yield f'data: {json.dumps({"type": "error", "message": "Too many tool steps; try a simpler question."})}\n\n'
+        except Exception as exc:
+            message = str(exc) or 'AI request failed'
+            _log_interaction(
+                user_id, role, model, messages, ''.join(reply_parts), conversation_id, message
+            )
+            yield f'data: {json.dumps({"type": "error", "message": message})}\n\n'
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        },
+    )

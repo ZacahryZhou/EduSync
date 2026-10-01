@@ -1,6 +1,8 @@
 # EduSync MVP 开发计划
 > 专为新手定制 · 目标：7周内交付可测试的 MVP
-> 更新于 2026-03-31
+> 更新于 2026-06-03
+
+**当前进度 / Current focus：** P1-07 学费/课时包 ✅ · **下一步：P1-08 导出课表（iCal）** — 见 [`docs/DEVELOPMENT-ROADMAP.md`](docs/DEVELOPMENT-ROADMAP.md)
 
 ---
 
@@ -9,9 +11,9 @@
 **做什么（MVP 核心）：**
 - ✅ 老师可以注册 / 登录
 - ✅ 学生可以注册 / 登录
-- ✅ 老师可以创建和管理班级
-- ✅ 老师可以创建课程安排（日历上可见）
-- ✅ 学生加入班级后能看到自己的课程
+- ⬜ 老师可以创建和管理班级（第 4 周）
+- ⬜ 老师可以创建课程安排（日历上可见）（第 5 周）
+- ⬜ 学生加入班级后能看到自己的课程（第 4–5 周）
 
 **暂时不做（等 MVP 通过后再加）：**
 - ❌ 作业系统（后期）
@@ -27,15 +29,15 @@
 
 ## ⏱ 时间规划总览
 
-| 阶段 | 内容 | 时间 | 里程碑 |
-|---|---|---|---|
-| 第 0 周 | 开发环境准备 + 基础概念 | 3-5天 | 前后端都能跑起来 |
-| 第 1-2 周 | 后端基础 + 数据库 + 认证 | 2周 | 能注册/登录 + Postman 测试通过 |
-| 第 3 周 | 前端接入认证（登录页）| 1周 | 浏览器里能真实登录 |
-| 第 4 周 | 班级功能（前端+后端）| 1周 | 老师能创建班级 |
-| 第 5 周 | 日历/课程功能（前端+后端）| 1周 | 能看到真实课程安排 |
-| 第 6 周 | 测试 + 修 Bug + 部署 | 1周 | 🎉 老师可以在线测试！ |
-| 第 7 周（缓冲）| 优化 + 问题处理 | 1周 | 备用周，不慌 |
+| 阶段 | 内容 | 时间 | 里程碑 | 状态 |
+|---|---|---|---|---|
+| 第 0 周 | 开发环境准备 + 基础概念 | 3-5天 | 前后端都能跑起来 | ✅ 已完成 |
+| 第 1-2 周 | 后端基础 + 数据库 + 认证 | 2周 | 能注册/登录 + API 测试通过 | ✅ 已完成 |
+| 第 3 周 | 前端接入认证（登录页）| 1周 | 浏览器里能真实登录 | ✅ 已完成 |
+| 第 4 周 | 班级功能（前端+后端）| 1周 | 老师能创建班级 | 👉 **进行中** |
+| 第 5 周 | 日历/课程功能（前端+后端）| 1周 | 能看到真实课程安排 | ⬜ 待开始 |
+| 第 6 周 | 测试 + 修 Bug + 部署 | 1周 | 🎉 老师可以在线测试！ | ⬜ 待开始 |
+| 第 7 周（缓冲）| 优化 + 问题处理 | 1周 | 备用周，不慌 | ⬜ 待开始 |
 
 **总计：6-7周 ≈ 1.5个月** ✅ 符合你 1-2 个月的目标
 
@@ -45,7 +47,7 @@
 
 ---
 
-### 第 0 周：开发环境准备（3-5天）
+### 第 0 周：开发环境准备（3-5天）✅ 已完成
 
 > **目标**：让前端和后端都能在你电脑上跑起来
 
@@ -58,9 +60,9 @@ npm install
 npm run dev
 # 浏览器打开 http://localhost:8080 能看到界面 = 成功！
 ```
-- [ ] 看懂 `src/App.tsx`（路由是什么？）
-- [ ] 看懂 `src/pages/Dashboard.tsx`（一个页面的结构）
-- [ ] 知道 `src/lib/mock-data.ts` 是干什么的
+- [x] 看懂 `src/App.tsx`（路由是什么？）
+- [x] 看懂 `src/pages/Dashboard.tsx`（一个页面的结构）
+- [x] 知道 `src/lib/mock-data.ts` 是干什么的
 
 #### Day 3-4：后端跑起来
 ```bash
@@ -69,13 +71,13 @@ pip install flask flask-cors python-dotenv
 python run.py
 # 浏览器打开 http://localhost:5000 看到 "HOME OK" = 成功！
 ```
-- [ ] 理解什么是 API（类比：前端是点菜的客人，后端是厨房，API 是菜单）
-- [ ] 用浏览器访问 `http://localhost:5000/test` 看到结果
+- [x] 理解什么是 API（类比：前端是点菜的客人，后端是厨房，API 是菜单）
+- [x] 用浏览器访问 `http://localhost:5000/test` 看到结果
 
 #### Day 5：注册 Supabase
-- [ ] 去 [supabase.com](https://supabase.com) 注册账号（免费）
-- [ ] 创建一个新项目，名字叫 `edusync`
-- [ ] 在 Project Settings → API 找到：
+- [x] 去 [supabase.com](https://supabase.com) 注册账号（免费）
+- [x] 创建一个新项目，名字叫 `edusync`
+- [x] 在 Project Settings → API 找到：
   - `Project URL`（复制保存）
   - `service_role` key（复制保存，**不要泄露！**）
 
@@ -86,7 +88,7 @@ python run.py
 
 ---
 
-### 第 1 周：后端架构 + 数据库（BE-01）
+### 第 1 周：后端架构 + 数据库（BE-01）✅ 已完成
 
 > **目标**：搭建好后端框架，在 Supabase 建好所有数据库表
 
@@ -116,7 +118,7 @@ FLASK_ENV=development
 FRONTEND_URL=http://localhost:8080
 ```
 
-- [ ] `GET /api/health` 返回 `{"status": "ok"}` = Day 2 完成目标
+- [x] `GET /api/health` 返回 `{"status": "ok"}` = Day 2 完成目标
 
 #### Day 3-5：建数据库表
 在 Supabase 控制台 → SQL Editor，**一张一张地**执行以下 SQL：
@@ -130,8 +132,8 @@ FRONTEND_URL=http://localhost:8080
 
 （SQL 代码直接从 README.md 里复制）
 
-- [ ] 每建完一张表，在 Supabase Table Editor 里能看到它 = 成功
-- [ ] 手动 INSERT 一行数据进去试试
+- [x] 每建完一张表，在 Supabase Table Editor 里能看到它 = 成功
+- [x] 手动 INSERT 一行数据进去试试
 
 **💡 本周你会学到：**
 - 什么是数据库表、主键、外键
@@ -140,7 +142,7 @@ FRONTEND_URL=http://localhost:8080
 
 ---
 
-### 第 2 周：用户认证 API（BE-02 到 BE-06）
+### 第 2 周：用户认证 API（BE-02 到 BE-06）✅ 已完成
 
 > **目标**：写好注册/登录接口，用 Thunder Client 测试通过
 
@@ -154,7 +156,7 @@ Body: { "company_name": "测试补习班", "email": "test@test.com", "password":
 期望返回: { "token": "eyJ...", "user": {...} }
 ```
 
-- [ ] 用 Thunder Client 发这个请求，能收到 token = 成功
+- [x] 用 Thunder Client 发这个请求，能收到 token = 成功
 
 #### Day 3：Student 注册（BE-04）
 ```
@@ -170,14 +172,14 @@ Body: { "email": "test@test.com", "password": "123456" }
 ```
 
 #### Day 5：JWT 保护路由（BE-06）
-- [ ] 写 `@require_auth` 装饰器
-- [ ] 测试：不带 token 访问受保护路由 → 返回 401
-- [ ] 测试：带 token 访问 → 返回正常数据
+- [x] 写 `@require_auth` 装饰器
+- [x] 测试：不带 token 访问受保护路由 → 返回 401
+- [x] 测试：带 token 访问 → 返回正常数据
 
 **本周完成标志：**
-- Thunder Client 里能注册 admin、student
+- Thunder Client 里能注册 teacher、student（实现用 Supabase Auth，非原计划 admin 路径）
 - 能登录拿到 token
-- 用 token 访问 `GET /api/users/me` 能看到自己的信息
+- 用 token 访问 `GET /api/users` 能看到自己的信息
 
 **💡 本周你会学到：**
 - 密码不能明文存储（bcrypt 是什么）
@@ -186,37 +188,34 @@ Body: { "email": "test@test.com", "password": "123456" }
 
 ---
 
-### 第 3 周：前端接入认证
+### 第 3 周：前端接入认证 ✅ 已完成
 
 > **目标**：在浏览器里能真实注册账号 + 登录跳转页面
 
 #### Day 1-2：新建登录页面
 新建文件：`src/pages/LoginPage.tsx`
-- 让 Claude 帮你生成一个登录表单（包含 email + 密码输入框）
-- 提交时调用 `POST /api/auth/login`
+- [x] 登录表单（email + 密码）
+- [x] 提交时调用 `POST /api/auth/login`
 
 #### Day 3：新建认证上下文
 新建文件：`src/context/AuthContext.tsx`
-- 存储当前用户信息（名字、角色）
-- 登录成功后把 token 存到 localStorage
+- [x] 存储当前用户信息（名字、角色）
+- [x] 登录成功后把 token 存到 localStorage
 
 #### Day 4：新建 API 工具文件
 新建文件：`src/lib/api.ts`
-```typescript
-// 这个文件封装所有 API 请求，自动带上 token
-const BASE_URL = "http://localhost:5000/api"
-```
+- [x] 封装 API 请求，自动带上 token（`BASE_URL` → `http://127.0.0.1:5000/api`）
 
 #### Day 5：路由保护
-- 未登录的人访问任何页面 → 自动跳转到 `/login`
-- 登录成功后 → 跳转到 `/`（Dashboard）
-- 右上角显示当前用户名字
+- [x] 未登录访问受保护页面 → 自动跳转到 `/login`
+- [x] 登录成功后 → 跳转到 `/`（Dashboard）
+- [x] 右上角显示当前用户名字（`RegisterPage.tsx`、`ProtectedRoute`、`GuestRoute` 已接入）
 
 **本周完成标志：**
 在浏览器里：
-1. 进入 `http://localhost:8080` → 自动跳转到登录页
-2. 填写 email + 密码 → 点击登录
-3. 成功进入 Dashboard，右上角显示用户名 🎉
+1. [x] 进入 `http://localhost:8080` → 自动跳转到登录页
+2. [x] 填写 email + 密码 → 点击登录
+3. [x] 成功进入 Dashboard，右上角显示用户名 🎉
 
 **💡 本周你会学到：**
 - React Context（全局状态）
@@ -226,7 +225,7 @@ const BASE_URL = "http://localhost:5000/api"
 
 ---
 
-### 第 4 周：班级管理（前端 + 后端）
+### 第 4 周：班级管理（前端 + 后端）👉 当前周
 
 > **目标**：老师能创建班级，学生能加入班级
 
@@ -390,4 +389,8 @@ ________________
 
 ---
 
-*计划版本 v1.0 · 如果时间进度不对，随时和 Claude 说，我帮你调整！*
+*计划版本 v1.1 · 如果时间进度不对，随时和 Claude 说，我帮你调整！*
+
+**进度记录 / Progress log**
+- 2026-05-14：完成第 1–2 周；第 3 周进行中
+- 2026-06-03：第 0–3 周全部完成 ✅ · 开始第 4 周（班级 API + ClassesPage）

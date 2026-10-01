@@ -52,16 +52,16 @@
 
 ## 7周开发计划
 
-| 周次 | 内容 | 完成标志 |
-|---|---|---|
-| 第0周 | 环境准备 + Supabase 注册 | 前后端都能跑 |
-| 第1周 | Flask 后端结构 + 建数据库表 | `/api/health` 返回 ok |
-| 第2周 | 注册/登录 API | Thunder Client 测试通过 |
-| 第3周 | 前端登录页 + 接入真实 API | 浏览器能真实登录 |
-| 第4周 | 班级功能（前后端） | 老师能创建班级 |
-| 第5周 | 日历/课程功能（前后端） | 日历上能看到真实课程 |
-| 第6周 | 测试 + 部署 Vercel + Railway | 老师拿到链接可以测试 |
-| 第7周 | 缓冲周 | 处理 bug 和意外 |
+| 周次 | 内容 | 完成标志 | 状态 |
+|---|---|---|---|
+| 第0周 | 环境准备 + Supabase 注册 | 前后端都能跑 | ✅ |
+| 第1周 | Flask 后端结构 + 建数据库表 | `/api/health` 返回 ok | ✅ |
+| 第2周 | 注册/登录 API | Thunder Client 测试通过 | ✅ |
+| 第3周 | 前端登录页 + 接入真实 API | 浏览器能真实登录 | ✅ |
+| 第4周 | 班级功能（前后端） | 老师能创建班级 | 👉 当前 |
+| 第5周 | 日历/课程功能（前后端） | 日历上能看到真实课程 | ⬜ |
+| 第6周 | 测试 + 部署 Vercel + Railway | 老师拿到链接可以测试 | ⬜ |
+| 第7周 | 缓冲周 | 处理 bug 和意外 | ⬜ |
 
 ---
 
@@ -82,10 +82,10 @@
 - [x] VS Code 已安装
 - [x] GitHub 仓库已有
 - [x] Supabase 账号已注册，项目已创建（Canada Central）
-- [ ] 复制保存 Supabase URL + service_role key
-- [ ] 在 VS Code 安装 Thunder Client 插件
-- [ ] 创建 backend/.env 文件
-- [ ] 确认 .gitignore 有保护 .env
+- [x] 复制保存 Supabase URL + service_role key
+- [x] 在 VS Code 安装 Thunder Client 插件
+- [x] 创建 backend/.env 文件
+- [x] 确认 .gitignore 有保护 .env
 
 ---
 
@@ -101,10 +101,11 @@
 
 ## 下一步（从这里继续）
 
-1. 复制 Supabase 的 URL 和 service_role key，保存到安全的地方
-2. 在 VS Code 安装 Thunder Client 插件
-3. 在 `backend/` 文件夹里创建 `.env` 文件，把 Supabase 信息填进去
-4. 开始第1周任务：完善 Flask 后端结构
+> 更新于 2026-06-03 · 第 0–3 周已完成
+
+1. 按 `MVP-PLAN.md` **第 4 周**：后端 `POST/GET/PATCH/DELETE /api/classes` + `POST /api/classes/join`
+2. Thunder Client 测通后再改 `ClassesPage.tsx`（创建班级、班级码加入）
+3. 详细任务见 `MVP-PLAN.md` 第 4 周 Day 1–5
 
 ---
 

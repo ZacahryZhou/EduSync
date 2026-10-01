@@ -1,208 +1,1440 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import {
+  Calendar as CalendarIcon,
+  ClipboardCheck,
+  Clock,
+  Download,
+  MapPin,
+  MessageSquare,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Video,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockSessions, mockClasses } from "@/lib/mock-data";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollableList } from "@/components/ScrollableList";
+import { useAuth } from "@/context/AuthContext";
+import {
+  createRescheduleRequest,
+  createSession,
+  deleteSession,
+  downloadSessionsIcal,
+  getSessionAttendance,
+  listClasses,
+  listMyAttendance,
+  listRescheduleRequests,
+  listSessions,
+  saveSessionAttendance,
+  sessionDisplayTitle,
+  updateSession,
+  type AttendanceRecord,
+  type AttendanceStatus,
+  type RescheduleRequest,
+  type SessionItem,
+} from "@/lib/api";
+import { isStudentRole, isTeacherRole, normalizeRole } from "@/lib/roles";
 
-type ViewMode = "month" | "week";
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-function getMonthDays(year: number, month: number) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const prevDays = new Date(year, month, 0).getDate();
-  const days: { date: Date; currentMonth: boolean }[] = [];
-
-  for (let i = firstDay - 1; i >= 0; i--) {
-    days.push({ date: new Date(year, month - 1, prevDays - i), currentMonth: false });
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push({ date: new Date(year, month, i), currentMonth: true });
-  }
-  const remaining = 42 - days.length;
-  for (let i = 1; i <= remaining; i++) {
-    days.push({ date: new Date(year, month + 1, i), currentMonth: false });
-  }
-  return days;
+function toMonthKey(date: Date): string {
+  return format(date, "yyyy-MM");
 }
 
-function getWeekDays(date: Date) {
-  const start = new Date(date);
-  start.setDate(start.getDate() - start.getDay());
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+function toDateKey(date: Date): string {
+  return format(date, "yyyy-MM-dd");
 }
 
-const fmt = (d: Date) => d.toISOString().split("T")[0];
+function formatTimeLabel(value: string): string {
+  return value.slice(0, 5);
+}
+
+function toTimeInputValue(value: string): string {
+  return value.slice(0, 5);
+}
+
+function timeToMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + (minutes || 0);
+}
+
+function validateTimeRange(start: string, end: string): string | null {
+  if (timeToMinutes(end) <= timeToMinutes(start)) {
+    return "End time must be after start time";
+  }
+  return null;
+}
+
+function compareSessionsByTime(a: SessionItem, b: SessionItem): number {
+  return a.start_time.localeCompare(b.start_time);
+}
+
+function rescheduleStatusLabel(status: RescheduleRequest["status"]): string {
+  if (status === "pending") {
+    return "Reschedule pending";
+  }
+  if (status === "approved") {
+    return "Reschedule approved";
+  }
+  return "Reschedule rejected";
+}
+
+function rescheduleStatusClass(status: RescheduleRequest["status"]): string {
+  if (status === "pending") {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+  }
+  if (status === "approved") {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  }
+  return "bg-muted text-muted-foreground";
+}
+
+function attendanceStatusLabel(status: AttendanceStatus): string {
+  if (status === "present") {
+    return "Present";
+  }
+  if (status === "absent") {
+    return "Absent";
+  }
+  return "Late";
+}
+
+function attendanceStatusClass(status: AttendanceStatus): string {
+  if (status === "present") {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  }
+  if (status === "absent") {
+    return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200";
+  }
+  return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+}
+
+function parseDateKey(dateKey: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addWeeksToDateKey(dateKey: string, weeks: number): string {
+  const next = parseDateKey(dateKey);
+  next.setDate(next.getDate() + weeks * 7);
+  return toDateKey(next);
+}
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<ViewMode>("month");
-  const [classFilter, setClassFilter] = useState<string>("all");
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const role = normalizeRole(user?.role);
+  const isTeacher = isTeacherRole(role);
+  const isStudent = isStudentRole(role);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const today = fmt(new Date());
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [createOpen, setCreateOpen] = useState(false);
+  const [classId, setClassId] = useState("");
+  const [title, setTitle] = useState("");
+  const [sessionDate, setSessionDate] = useState(toDateKey(new Date()));
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("10:00");
+  const [location, setLocation] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [createNotes, setCreateNotes] = useState("");
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
 
-  const filteredSessions = useMemo(() => {
-    if (classFilter === "all") return mockSessions;
-    return mockSessions.filter((s) => s.classId === classFilter);
-  }, [classFilter]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSessionDate, setEditSessionDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("09:00");
+  const [editEndTime, setEditEndTime] = useState("10:00");
+  const [editLocation, setEditLocation] = useState("");
+  const [editMeetingUrl, setEditMeetingUrl] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
-  const navigate = (dir: number) => {
-    const d = new Date(currentDate);
-    if (view === "month") d.setMonth(d.getMonth() + dir);
-    else d.setDate(d.getDate() + dir * 7);
-    setCurrentDate(d);
-  };
+  const [deleteTarget, setDeleteTarget] = useState<SessionItem | null>(null);
+  const [exportingIcal, setExportingIcal] = useState(false);
 
-  const monthDays = getMonthDays(year, month);
-  const weekDays = getWeekDays(currentDate);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleSession, setRescheduleSession] = useState<SessionItem | null>(null);
+  const [proposedDate, setProposedDate] = useState("");
+  const [proposedStart, setProposedStart] = useState("09:00");
+  const [proposedEnd, setProposedEnd] = useState("10:00");
+  const [rescheduleReason, setRescheduleReason] = useState("");
 
-  const sessionsForDate = (dateStr: string) =>
-    filteredSessions.filter((s) => s.date === dateStr);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [attendanceSession, setAttendanceSession] = useState<SessionItem | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<AttendanceRecord[]>([]);
+
+  const queryClient = useQueryClient();
+
+  const monthKey = toMonthKey(calendarMonth);
+  const classesQueryKey = ["classes", user?.id, role] as const;
+  const sessionsQueryKey = ["sessions", monthKey, user?.id, role] as const;
+
+  const classesQuery = useQuery({
+    queryKey: classesQueryKey,
+    queryFn: listClasses,
+    enabled: Boolean(user?.id) && isTeacher,
+  });
+
+  const sessionsQuery = useQuery({
+    queryKey: sessionsQueryKey,
+    queryFn: () => listSessions(monthKey),
+    enabled: Boolean(user?.id),
+  });
+
+  const rescheduleQuery = useQuery({
+    queryKey: ["reschedule-requests", user?.id, role] as const,
+    queryFn: () => listRescheduleRequests(),
+    enabled: Boolean(user?.id && isStudent),
+    staleTime: 30_000,
+  });
+
+  const teacherPendingRescheduleQuery = useQuery({
+    queryKey: ["reschedule-requests", "pending", user?.id] as const,
+    queryFn: () => listRescheduleRequests("pending"),
+    enabled: Boolean(user?.id && isTeacher),
+    staleTime: 30_000,
+  });
+
+  const myAttendanceQuery = useQuery({
+    queryKey: ["my-attendance", monthKey, user?.id] as const,
+    queryFn: () => listMyAttendance(monthKey),
+    enabled: Boolean(user?.id && isStudent),
+    staleTime: 30_000,
+  });
+
+  const attendanceQuery = useQuery({
+    queryKey: ["session-attendance", attendanceSession?.id] as const,
+    queryFn: () => getSessionAttendance(attendanceSession!.id),
+    enabled: Boolean(attendanceOpen && attendanceSession && isTeacher),
+  });
+
+  useEffect(() => {
+    if (attendanceQuery.data?.records) {
+      setAttendanceDraft(attendanceQuery.data.records);
+    }
+  }, [attendanceQuery.data]);
+
+  const createMutation = useMutation({
+    mutationFn: createSession,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      setCreateOpen(false);
+      setTitle("");
+      setLocation("");
+      setMeetingUrl("");
+      setCreateNotes("");
+      setRepeatWeekly(false);
+      setRecurrenceEndDate("");
+      const created = result.session;
+      const createdDate = parseDateKey(created.date);
+      setSelectedDate(createdDate);
+      setCalendarMonth(new Date(createdDate.getFullYear(), createdDate.getMonth(), 1));
+      if (result.count > 1) {
+        toast.success(`${result.count} weekly sessions scheduled`);
+      } else {
+        toast.success(
+          `Session scheduled for ${format(createdDate, "MMM d")} at ${formatTimeLabel(created.start_time)}`,
+        );
+      }
+      if ((result.notified_students ?? 0) > 0) {
+        toast.message(
+          `${result.notified_students} student${result.notified_students === 1 ? "" : "s"} notified`,
+        );
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      input,
+    }: {
+      sessionId: string;
+      input: {
+        title: string;
+        date: string;
+        start_time: string;
+        end_time: string;
+        location?: string;
+        meeting_url?: string;
+        notes?: string;
+      };
+    }) => updateSession(sessionId, input),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      setEditOpen(false);
+      setEditingSession(null);
+      if (updated.date !== toDateKey(selectedDate)) {
+        const [year, month, day] = updated.date.split("-").map(Number);
+        setSelectedDate(new Date(year, month - 1, day));
+        setCalendarMonth(new Date(year, month - 1, 1));
+      }
+      toast.success("Session updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      scope,
+    }: {
+      sessionId: string;
+      scope?: "this" | "series";
+    }) => deleteSession(sessionId, { scope }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      setDeleteTarget(null);
+      if (result.deleted_count > 1) {
+        toast.success(`${result.deleted_count} sessions deleted`);
+      } else {
+        toast.success("Session deleted");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: createRescheduleRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reschedule-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      setRescheduleOpen(false);
+      setRescheduleSession(null);
+      setRescheduleReason("");
+      toast.success("Reschedule request submitted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const saveAttendanceMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      records,
+    }: {
+      sessionId: string;
+      records: { student_id: string; status: AttendanceStatus }[];
+    }) => saveSessionAttendance(sessionId, records),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["my-attendance"] });
+      setAttendanceOpen(false);
+      setAttendanceSession(null);
+      setAttendanceDraft([]);
+      toast.success("Attendance saved");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const sessions = sessionsQuery.data ?? [];
+  const selectedDateKey = toDateKey(selectedDate);
+
+  const sessionsOnSelectedDay = useMemo(
+    () =>
+      sessions
+        .filter((session) => session.date === selectedDateKey)
+        .sort(compareSessionsByTime),
+    [sessions, selectedDateKey],
+  );
+
+  const daysWithSessions = useMemo(() => {
+    const uniqueDates = [...new Set(sessions.map((session) => session.date))];
+    return uniqueDates.map((dateStr) => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    });
+  }, [sessions]);
+
+  const teacherClasses = classesQuery.data ?? [];
+
+  const rescheduleBySessionId = useMemo(() => {
+    const map = new Map<string, RescheduleRequest>();
+    for (const item of rescheduleQuery.data ?? []) {
+      const existing = map.get(item.session_id);
+      if (!existing || (item.created_at ?? "") > (existing.created_at ?? "")) {
+        map.set(item.session_id, item);
+      }
+    }
+    return map;
+  }, [rescheduleQuery.data]);
+
+  const myAttendanceBySessionId = useMemo(() => {
+    const map = new Map<string, AttendanceStatus>();
+    for (const item of myAttendanceQuery.data ?? []) {
+      map.set(item.session_id, item.status);
+    }
+    return map;
+  }, [myAttendanceQuery.data]);
+
+  function openRescheduleDialog(session: SessionItem) {
+    setRescheduleSession(session);
+    setProposedDate(session.date);
+    setProposedStart(toTimeInputValue(session.start_time));
+    setProposedEnd(toTimeInputValue(session.end_time));
+    setRescheduleReason("");
+    setRescheduleOpen(true);
+  }
+
+  function handleRescheduleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!rescheduleSession) {
+      return;
+    }
+    const reason = rescheduleReason.trim();
+    if (!reason) {
+      toast.error("Please provide a reason");
+      return;
+    }
+    const timeError = validateTimeRange(proposedStart, proposedEnd);
+    if (timeError) {
+      toast.error(timeError);
+      return;
+    }
+    rescheduleMutation.mutate({
+      session_id: rescheduleSession.id,
+      proposed_date: proposedDate,
+      proposed_start: proposedStart,
+      proposed_end: proposedEnd,
+      reason,
+    });
+  }
+
+  function openCreateDialog() {
+    setSessionDate(selectedDateKey);
+    setRecurrenceEndDate(addWeeksToDateKey(selectedDateKey, 7));
+    if (!classId && teacherClasses.length > 0) {
+      setClassId(teacherClasses[0].id);
+    }
+    setCreateOpen(true);
+  }
+
+  function openEditDialog(session: SessionItem) {
+    setEditingSession(session);
+    setEditTitle(session.title);
+    setEditSessionDate(session.date);
+    setEditStartTime(toTimeInputValue(session.start_time));
+    setEditEndTime(toTimeInputValue(session.end_time));
+    setEditLocation(session.location ?? "");
+    setEditMeetingUrl(session.meeting_url ?? "");
+    setEditNotes(session.notes ?? "");
+    setEditOpen(true);
+  }
+
+  function openAttendanceDialog(session: SessionItem) {
+    setAttendanceSession(session);
+    setAttendanceDraft([]);
+    setAttendanceOpen(true);
+  }
+
+  function handleAttendanceSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!attendanceSession || attendanceDraft.length === 0) {
+      return;
+    }
+    saveAttendanceMutation.mutate({
+      sessionId: attendanceSession.id,
+      records: attendanceDraft.map((row) => ({
+        student_id: row.student_id,
+        status: row.status,
+      })),
+    });
+  }
+
+  function setStudentAttendanceStatus(studentId: string, status: AttendanceStatus) {
+    setAttendanceDraft((rows) =>
+      rows.map((row) => (row.student_id === studentId ? { ...row, status } : row)),
+    );
+  }
+
+  function handleCreateSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!classId) {
+      toast.error("Please select a class");
+      return;
+    }
+    const trimmedTitle = title.trim();
+    const timeError = validateTimeRange(startTime, endTime);
+    if (timeError) {
+      toast.error(timeError);
+      return;
+    }
+    if (repeatWeekly) {
+      if (!recurrenceEndDate) {
+        toast.error("Please choose a repeat end date");
+        return;
+      }
+      if (recurrenceEndDate < sessionDate) {
+        toast.error("Repeat end date must be on or after the first session");
+        return;
+      }
+    }
+    createMutation.mutate({
+      class_id: classId,
+      title: trimmedTitle || undefined,
+      date: sessionDate,
+      start_time: startTime,
+      end_time: endTime,
+      location: location.trim() || undefined,
+      meeting_url: meetingUrl.trim() || undefined,
+      notes: createNotes.trim() || undefined,
+      ...(repeatWeekly
+        ? {
+            type: "recurring" as const,
+            recurrence_rule: "weekly" as const,
+            recurrence_end_date: recurrenceEndDate,
+          }
+        : { type: "one-time" as const }),
+    });
+  }
+
+  function handleEditSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingSession) {
+      return;
+    }
+    const trimmedTitle = editTitle.trim();
+    const timeError = validateTimeRange(editStartTime, editEndTime);
+    if (timeError) {
+      toast.error(timeError);
+      return;
+    }
+    updateMutation.mutate({
+      sessionId: editingSession.id,
+      input: {
+        title: trimmedTitle || undefined,
+        date: editSessionDate,
+        start_time: editStartTime,
+        end_time: editEndTime,
+        location: editLocation.trim() || undefined,
+        meeting_url: editMeetingUrl.trim() || undefined,
+        notes: editNotes,
+      },
+    });
+  }
+
+  async function handleExportIcal() {
+    setExportingIcal(true);
+    try {
+      await downloadSessionsIcal();
+      toast.success(t("calendar.exportSuccess"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("calendar.exportFail"));
+    } finally {
+      setExportingIcal(false);
+    }
+  }
 
   return (
     <div className="space-y-5 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="page-header">Calendar</h1>
-          <p className="page-subtitle">Manage your course schedule</p>
+          <h1 className="page-header">{t("calendar.title")}</h1>
+          <p className="page-subtitle">
+            {isTeacher ? t("calendar.subtitleTeacher") : t("calendar.subtitleStudent")}
+          </p>
         </div>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="w-4 h-4" /> New Session
-        </Button>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
-            <ChevronLeft className="w-4 h-4" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExportIcal}
+            disabled={exportingIcal}
+          >
+            <Download className="h-4 w-4" />
+            {exportingIcal ? t("calendar.exporting") : t("calendar.export")}
           </Button>
-          <h2 className="text-lg font-semibold min-w-[180px] text-center">
-            {view === "month"
-              ? `${MONTHS[month]} ${year}`
-              : `Week of ${weekDays[0].toLocaleDateString()}`}
-          </h2>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(1)}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="ml-2 text-xs h-7" onClick={() => setCurrentDate(new Date())}>
-            Today
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={classFilter} onValueChange={setClassFilter}>
-            <SelectTrigger className="h-8 text-xs w-[160px]">
-              <SelectValue placeholder="All Classes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Classes</SelectItem>
-              {mockClasses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex bg-secondary rounded-lg p-0.5">
-            <Button variant={view === "month" ? "default" : "ghost"} size="sm" className="h-7 text-xs px-3" onClick={() => setView("month")}>Month</Button>
-            <Button variant={view === "week" ? "default" : "ghost"} size="sm" className="h-7 text-xs px-3" onClick={() => setView("week")}>Week</Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Month View */}
-      {view === "month" && (
-        <div className="border border-border rounded-xl overflow-hidden bg-card">
-          <div className="grid grid-cols-7">
-            {DAYS.map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-3 bg-secondary/30 border-b border-border">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {monthDays.map(({ date, currentMonth }, i) => {
-              const dateStr = fmt(date);
-              const isToday = dateStr === today;
-              const sessions = sessionsForDate(dateStr);
-              return (
-                <div
-                  key={i}
-                  className={`min-h-[100px] border-b border-r border-border p-1.5 transition-colors hover:bg-secondary/20 ${
-                    !currentMonth ? "bg-muted/30" : ""
-                  }`}
-                >
-                  <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                    isToday ? "bg-primary text-primary-foreground" : currentMonth ? "text-foreground" : "text-muted-foreground/50"
-                  }`}>
-                    {date.getDate()}
-                  </div>
-                  <div className="space-y-0.5">
-                    {sessions.slice(0, 2).map((s) => (
-                      <div
-                        key={s.id}
-                        className="text-[10px] leading-tight px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80"
-                        style={{ backgroundColor: s.color + "20", color: s.color, borderLeft: `2px solid ${s.color}` }}
+        {isTeacher ? (
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={openCreateDialog}
+                disabled={teacherClasses.length === 0}
+              >
+                <Plus className="h-4 w-4" /> {t("calendar.addSession")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+              <form onSubmit={handleCreateSubmit} className="flex min-h-0 flex-1 flex-col">
+                <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 pr-12">
+                  <DialogTitle>New session</DialogTitle>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Only class, date, and time are required.
+                  </p>
+                </DialogHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Class</Label>
+                      <Select
+                        value={classId}
+                        onValueChange={setClassId}
+                        disabled={createMutation.isPending}
                       >
-                        {s.startTime} {s.title}
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teacherClasses.map((classItem) => (
+                            <SelectItem key={classItem.id} value={classItem.id}>
+                              {classItem.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-title">{t("calendar.sessionTitleOptional")}</Label>
+                      <Input
+                        id="session-title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Algebra review"
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-date">Date</Label>
+                      <Input
+                        id="session-date"
+                        type="date"
+                        value={sessionDate}
+                        onChange={(e) => setSessionDate(e.target.value)}
+                        required
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="start-time">Start time</Label>
+                      <Input
+                        id="start-time"
+                        type="time"
+                        step={60}
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        required
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="end-time">End time</Label>
+                      <Input
+                        id="end-time"
+                        type="time"
+                        step={60}
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        required
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Repeat</Label>
+                      <Select
+                        value={repeatWeekly ? "weekly" : "none"}
+                        onValueChange={(value) => {
+                          const weekly = value === "weekly";
+                          setRepeatWeekly(weekly);
+                          if (weekly && !recurrenceEndDate) {
+                            setRecurrenceEndDate(addWeeksToDateKey(sessionDate, 7));
+                          }
+                        }}
+                        disabled={createMutation.isPending}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Does not repeat</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {repeatWeekly ? (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recurrence-end">Repeat until</Label>
+                        <Input
+                          id="recurrence-end"
+                          type="date"
+                          value={recurrenceEndDate}
+                          min={sessionDate}
+                          onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                          required
+                          disabled={createMutation.isPending}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          One session each week through this date (max 52).
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="hidden sm:block" aria-hidden />
+                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-location">Location</Label>
+                      <Input
+                        id="session-location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="Room 201"
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
+                      <Input
+                        id="session-meeting-url"
+                        type="text"
+                        value={meetingUrl}
+                        onChange={(e) => setMeetingUrl(e.target.value)}
+                        placeholder={t("calendar.meetingUrlPlaceholder")}
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="session-notes">Session notes (optional)</Label>
+                      <Textarea
+                        id="session-notes"
+                        value={createNotes}
+                        onChange={(e) => setCreateNotes(e.target.value)}
+                        placeholder="Homework, feedback, or reminders for students"
+                        rows={3}
+                        disabled={createMutation.isPending}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground sm:col-span-2">
+                      Joined students see this session on their Calendar and Dashboard.
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? "Saving…" : "Save session"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        </div>
+      </div>
+
+      {isTeacher && teacherClasses.length === 0 && !classesQuery.isLoading ? (
+        <p className="text-sm text-muted-foreground">
+          {t("calendar.noClassesHint")}
+        </p>
+      ) : null}
+
+      <div className="space-y-5">
+        <Card className="overflow-hidden border-border/60 p-0 shadow-sm">
+          <div className="flex flex-col lg:max-h-[min(75vh,36rem)] lg:flex-row lg:items-stretch">
+            <div className="shrink-0 p-4 lg:border-r lg:border-border/50">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                  }
+                }}
+                month={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                modifiers={{ hasSession: daysWithSessions }}
+                modifiersClassNames={{
+                  hasSession:
+                    "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+                }}
+                className="p-0"
+              />
+            </div>
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/50 max-h-[min(55vh,28rem)] lg:max-h-none lg:border-t-0">
+              <div className="shrink-0 border-b border-border/50 px-4 py-3 sm:px-5">
+                <p className="text-base font-semibold tracking-tight">
+                  {format(selectedDate, "EEEE, MMM d, yyyy")}
+                  {sessionsOnSelectedDay.length > 0 ? (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {sessionsOnSelectedDay.length} session
+                      {sessionsOnSelectedDay.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <ScrollableList size="lg" className="min-h-0 flex-1 px-4 py-3 sm:px-5 sm:py-4 lg:max-h-none">
+                {sessionsQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading sessions…</p>
+                ) : sessionsQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(sessionsQuery.error as Error).message}
+                  </p>
+                ) : sessionsOnSelectedDay.length === 0 ? (
+                  <div className="flex h-full min-h-[9rem] flex-col items-center justify-center py-8 text-center">
+                    <CalendarIcon className="mb-2 h-7 w-7 text-muted-foreground/40" />
+                    <p className="text-sm font-medium">{t("calendar.dayEmpty")}</p>
+                    <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                      {isTeacher
+                        ? t("calendar.dayEmptyHintTeacher")
+                        : t("calendar.dayEmptyHintStudent")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {sessionsOnSelectedDay.map((session) => (
+                      <div
+                        key={session.id}
+                        className="rounded-lg border border-border/50 bg-card px-3 py-2.5 transition-colors hover:bg-muted/40"
+                        style={{ borderLeftWidth: 3, borderLeftColor: session.color }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold leading-snug">
+                              {sessionDisplayTitle(session)}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {session.class_name}
+                              {session.type === "recurring" ? " · Weekly" : ""}
+                            </p>
+                            {isStudent ? (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {(() => {
+                                  const request = rescheduleBySessionId.get(session.id);
+                                  if (!request) {
+                                    return null;
+                                  }
+                                  return (
+                                    <span
+                                      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${rescheduleStatusClass(request.status)}`}
+                                    >
+                                      {rescheduleStatusLabel(request.status)}
+                                    </span>
+                                  );
+                                })()}
+                                {(() => {
+                                  const status = myAttendanceBySessionId.get(session.id);
+                                  if (!status) {
+                                    return null;
+                                  }
+                                  return (
+                                    <span
+                                      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${attendanceStatusClass(status)}`}
+                                    >
+                                      {attendanceStatusLabel(status)}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            ) : null}
+                          </div>
+                          {isTeacher ? (
+                            <div className="flex shrink-0 gap-0.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Attendance for ${sessionDisplayTitle(session)}`}
+                                title="Attendance"
+                                onClick={() => openAttendanceDialog(session)}
+                              >
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Session notes for ${sessionDisplayTitle(session)}`}
+                                title="Session notes"
+                                onClick={() => openEditDialog(session)}
+                              >
+                                <MessageSquare
+                                  className={`h-3.5 w-3.5 ${session.notes ? "text-primary" : ""}`}
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Edit ${sessionDisplayTitle(session)}`}
+                                onClick={() => openEditDialog(session)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                aria-label={`Delete ${sessionDisplayTitle(session)}`}
+                                onClick={() => setDeleteTarget(session)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : isStudent ? (
+                            <div className="flex shrink-0 flex-wrap gap-1">
+                              {session.meeting_url ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 gap-1 px-2 text-xs"
+                                  asChild
+                                >
+                                  <a
+                                    href={session.meeting_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Video className="h-3 w-3" />
+                                    {t("calendar.joinMeeting")}
+                                  </a>
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 px-2 text-xs"
+                                disabled={
+                                  rescheduleBySessionId.get(session.id)?.status === "pending"
+                                }
+                                onClick={() => openRescheduleDialog(session)}
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Reschedule
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            {formatTimeLabel(session.start_time)}–
+                            {formatTimeLabel(session.end_time)}
+                          </span>
+                          {session.location ? (
+                            <span className="inline-flex items-center gap-1 truncate">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {session.location}
+                            </span>
+                          ) : null}
+                        </div>
+                        {session.notes ? (
+                          <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground/80">Notes: </span>
+                            {session.notes}
+                          </p>
+                        ) : isTeacher ? (
+                          <button
+                            type="button"
+                            className="mt-2 text-xs text-primary hover:underline"
+                            onClick={() => openEditDialog(session)}
+                          >
+                            + Add session notes for students
+                          </button>
+                        ) : null}
                       </div>
                     ))}
-                    {sessions.length > 2 && (
-                      <p className="text-[10px] text-muted-foreground pl-1.5">+{sessions.length - 2} more</p>
-                    )}
+                  </div>
+                )}
+              </ScrollableList>
+            </div>
+          </div>
+        </Card>
+
+        {isTeacher ? (
+          <Card className="flex h-[26rem] max-h-[26rem] flex-col overflow-hidden border-border/60 shadow-sm">
+              <CardHeader className="shrink-0 pb-2">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    Course updates
+                  </CardTitle>
+                  {(teacherPendingRescheduleQuery.data?.length ?? 0) > 0 ? (
+                    <Link
+                      to="/"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Review on Dashboard
+                    </Link>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <ScrollableList className="min-h-0 flex-1 space-y-2 px-6 pb-6 pt-0 max-h-none">
+                {teacherPendingRescheduleQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading updates…</p>
+                ) : teacherPendingRescheduleQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(teacherPendingRescheduleQuery.error as Error).message}
+                  </p>
+                ) : (teacherPendingRescheduleQuery.data?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No pending reschedule requests or course alerts right now.
+                  </p>
+                ) : (
+                  teacherPendingRescheduleQuery.data?.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium leading-snug">
+                        {request.student_name} · {request.class_name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Reschedule {request.session_title}: {request.session_date}{" "}
+                        {formatTimeLabel(request.session_start)} → {request.proposed_date}{" "}
+                        {formatTimeLabel(request.proposed_start)}–
+                        {formatTimeLabel(request.proposed_end)}
+                      </p>
+                      {request.reason ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          “{request.reason}”
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </ScrollableList>
+            </Card>
+        ) : null}
+      </div>
+
+      {isTeacher ? (
+        <Dialog
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) {
+              setEditingSession(null);
+            }
+          }}
+        >
+          <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <form onSubmit={handleEditSubmit} className="flex min-h-0 flex-1 flex-col">
+              <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4 pr-12">
+                <DialogTitle>Edit session</DialogTitle>
+                {editingSession ? (
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Class: <span className="font-medium text-foreground">{editingSession.class_name}</span>
+                  </p>
+                ) : null}
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="edit-session-title">{t("calendar.sessionTitleOptional")}</Label>
+                    <Input
+                      id="edit-session-title"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-date">Date</Label>
+                    <Input
+                      id="edit-session-date"
+                      type="date"
+                      value={editSessionDate}
+                      onChange={(e) => setEditSessionDate(e.target.value)}
+                      required
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="hidden sm:block" aria-hidden />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-start-time">Start time</Label>
+                    <Input
+                      id="edit-start-time"
+                      type="time"
+                      step={60}
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      required
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-end-time">End time</Label>
+                    <Input
+                      id="edit-end-time"
+                      type="time"
+                      step={60}
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      required
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-location">Location</Label>
+                    <Input
+                      id="edit-session-location"
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                      placeholder="Room 201"
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-session-meeting-url">{t("calendar.meetingUrlOptional")}</Label>
+                    <Input
+                      id="edit-session-meeting-url"
+                      type="text"
+                      value={editMeetingUrl}
+                      onChange={(e) => setEditMeetingUrl(e.target.value)}
+                      placeholder={t("calendar.meetingUrlPlaceholder")}
+                      disabled={updateMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="edit-session-notes">Session notes</Label>
+                    <Textarea
+                      id="edit-session-notes"
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Homework, feedback, or reminders for this class"
+                      rows={4}
+                      disabled={updateMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Visible to students on their calendar (read-only).
+                    </p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              </div>
+              <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  disabled={updateMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving…" : "Save changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
-      {/* Week View */}
-      {view === "week" && (
-        <div className="border border-border rounded-xl overflow-hidden bg-card">
-          <div className="grid grid-cols-7">
-            {weekDays.map((d) => {
-              const dateStr = fmt(d);
-              const isToday = dateStr === today;
-              return (
-                <div key={dateStr} className={`text-center py-3 border-b border-border ${isToday ? "bg-accent" : "bg-secondary/30"}`}>
-                  <p className="text-xs text-muted-foreground">{DAYS[d.getDay()]}</p>
-                  <p className={`text-lg font-semibold ${isToday ? "text-primary" : ""}`}>{d.getDate()}</p>
+      {isStudent ? (
+        <Dialog
+          open={rescheduleOpen}
+          onOpenChange={(open) => {
+            setRescheduleOpen(open);
+            if (!open) {
+              setRescheduleSession(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleRescheduleSubmit}>
+              <DialogHeader>
+                <DialogTitle>Request reschedule</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {rescheduleSession ? (
+                  <p className="text-sm text-muted-foreground">
+                    Current: {sessionDisplayTitle(rescheduleSession)} on{" "}
+                    {rescheduleSession.date},{" "}
+                    {formatTimeLabel(rescheduleSession.start_time)}–
+                    {formatTimeLabel(rescheduleSession.end_time)}
+                  </p>
+                ) : null}
+                <div className="space-y-1.5">
+                  <Label htmlFor="proposed-date">Proposed date</Label>
+                  <Input
+                    id="proposed-date"
+                    type="date"
+                    value={proposedDate}
+                    onChange={(e) => setProposedDate(e.target.value)}
+                    required
+                    disabled={rescheduleMutation.isPending}
+                  />
                 </div>
-              );
-            })}
-          </div>
-          <div className="grid grid-cols-7 min-h-[400px]">
-            {weekDays.map((d) => {
-              const dateStr = fmt(d);
-              const sessions = sessionsForDate(dateStr);
-              return (
-                <div key={dateStr} className="border-r border-border p-2 space-y-2">
-                  {sessions.map((s) => (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="proposed-start">Start time</Label>
+                    <Input
+                      id="proposed-start"
+                      type="time"
+                      step={60}
+                      value={proposedStart}
+                      onChange={(e) => setProposedStart(e.target.value)}
+                      required
+                      disabled={rescheduleMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="proposed-end">End time</Label>
+                    <Input
+                      id="proposed-end"
+                      type="time"
+                      step={60}
+                      value={proposedEnd}
+                      onChange={(e) => setProposedEnd(e.target.value)}
+                      required
+                      disabled={rescheduleMutation.isPending}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="reschedule-reason">Reason</Label>
+                  <Textarea
+                    id="reschedule-reason"
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="Why do you need a different time?"
+                    rows={3}
+                    required
+                    disabled={rescheduleMutation.isPending}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRescheduleOpen(false)}
+                  disabled={rescheduleMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={rescheduleMutation.isPending}>
+                  {rescheduleMutation.isPending ? "Submitting…" : "Submit request"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {isTeacher ? (
+        <Dialog
+          open={attendanceOpen}
+          onOpenChange={(open) => {
+            setAttendanceOpen(open);
+            if (!open) {
+              setAttendanceSession(null);
+              setAttendanceDraft([]);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={handleAttendanceSubmit}>
+              <DialogHeader>
+                <DialogTitle>Attendance</DialogTitle>
+                {attendanceSession ? (
+                  <p className="text-sm text-muted-foreground">
+                    {sessionDisplayTitle(attendanceSession)} · {attendanceSession.class_name} ·{" "}
+                    {attendanceSession.date}
+                  </p>
+                ) : null}
+              </DialogHeader>
+              <ScrollableList className="space-y-2 py-4">
+                {attendanceQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading students…</p>
+                ) : attendanceQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(attendanceQuery.error as Error).message}
+                  </p>
+                ) : attendanceDraft.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No students enrolled in this class yet.
+                  </p>
+                ) : (
+                  attendanceDraft.map((row) => (
                     <div
-                      key={s.id}
-                      className="p-2 rounded-lg text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                      style={{ backgroundColor: s.color + "15", borderLeft: `3px solid ${s.color}` }}
+                      key={row.student_id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
                     >
-                      <p className="font-medium" style={{ color: s.color }}>{s.startTime}-{s.endTime}</p>
-                      <p className="font-medium mt-0.5 text-foreground">{s.title}</p>
-                      <p className="text-muted-foreground mt-0.5">{s.location}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {row.student_name}
+                          {row.is_pending ? (
+                            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                              (Invited)
+                            </span>
+                          ) : null}
+                        </p>
+                        {row.email ? (
+                          <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+                        ) : null}
+                      </div>
+                      <Select
+                        value={row.status}
+                        onValueChange={(value) =>
+                          setStudentAttendanceStatus(row.student_id, value as AttendanceStatus)
+                        }
+                        disabled={saveAttendanceMutation.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[7.5rem] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="present">Present</SelectItem>
+                          <SelectItem value="absent">Absent</SelectItem>
+                          <SelectItem value="late">Late</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                  ))
+                )}
+              </ScrollableList>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAttendanceOpen(false)}
+                  disabled={saveAttendanceMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    saveAttendanceMutation.isPending ||
+                    attendanceDraft.length === 0 ||
+                    attendanceQuery.isLoading
+                  }
+                >
+                  {saveAttendanceMutation.isPending ? "Saving…" : "Save attendance"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? deleteTarget.recurrence_group_id
+                  ? `"${sessionDisplayTitle(deleteTarget)}" on ${deleteTarget.date} is part of a weekly series. Delete only this occurrence, or the entire series?`
+                  : `"${sessionDisplayTitle(deleteTarget)}" on ${deleteTarget.date} will be permanently removed.`
+                : "This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            {deleteTarget?.recurrence_group_id ? (
+              <>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "this",
+                    });
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "This session only"}
+                </AlertDialogAction>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "series",
+                    });
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Entire series"}
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteMutation.isPending || !deleteTarget}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (deleteTarget) {
+                    deleteMutation.mutate({
+                      sessionId: deleteTarget.id,
+                      scope: "this",
+                    });
+                  }
+                }}
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete session"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
