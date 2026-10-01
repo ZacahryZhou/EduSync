@@ -3,6 +3,9 @@
  After login, the whole app should know who is the user and any component can read the user info or call login/logout
  */
 
+ /** 
+  * this is for testing
+  */
 
 //这个文件的作用是整个系统的认证中枢//
 
